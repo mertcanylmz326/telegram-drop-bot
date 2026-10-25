@@ -26,11 +26,10 @@ ADMIN_WEB_PASSWORD = "weedstanbul34"
 PROMO_CODE = "welcomeweedstanbul"
 PROMO_DISCOUNT = 8.0
 
-# Üçlü Cüzdan Yapısı (Güvenlik ve İzolasyon)
 WALLET_CONFIG = {
-    "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",  # Operasyon / Bot Cüzdanı
-    "giris": "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY",      # Ana Kasa / Depo Cüzdanı
-    "cikis": "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"       # Aracı / Buffer Cüzdanı
+    "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",
+    "giris": "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY",
+    "cikis": "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"
 }
 
 CRYPTO_WALLET = WALLET_CONFIG["weedboot"]
@@ -206,13 +205,6 @@ def get_user_profile(user_id: int):
     conn.close()
     return (res[0] or 0.0, res[1] or 0.0) if res else (0.0, 0.0)
 
-def update_user_balance(user_id: int, amount: float):
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
-    conn.commit()
-    conn.close()
-
 def log_panel_event(message, log_type="info"):
     try:
         conn = sqlite3.connect("drop_bot.db")
@@ -221,14 +213,6 @@ def log_panel_event(message, log_type="info"):
         conn.commit()
         conn.close()
     except Exception as e: logging.error(e)
-
-def is_admin(user_id: int) -> bool:
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    conn.close()
-    return res is not None
 
 def is_user_banned(user_id: int) -> bool:
     conn = sqlite3.connect("drop_bot.db")
@@ -292,7 +276,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🎄 WEB SUNUCUSU & ADMIN PANELİ (KAR EFECTLİ VE 3'LÜ CÜZDANLI) ---
+# --- 🎄 WEB SUNUCUSU & ADMIN PANELİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -306,7 +290,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
-        # --- TELEGRAM MINI APP (MÜŞTERİ MAĞAZA ARAYÜZÜ) ---
         if parsed_path.path == "/webapp":
             user_id = query_params.get("user_id", ["0"])[0]
             conn = sqlite3.connect("drop_bot.db")
@@ -333,6 +316,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             """, (user_id,))
             orders = cursor.fetchall()
             conn.close()
+
+            vip_text = "👑 VIP Müşteri (%10 İndirim)" if is_vip else "⭐ Standart Üye"
 
             drops_html = ""
             for d in drops:
@@ -412,7 +397,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="header">
                     <div>
                         <h3 style="margin:0; color:#10b981;">🌿 Weed Istanbul</h3>
-                        <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{"👑 VIP Müşteri (%10 İndirim)" if is_vip else "⭐ Standart Üye"}</p>
+                        <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{vip_text}</p>
                     </div>
                     <div style="text-align:right;">
                         <span style="font-size:12px; color:#94a3b8; display:block;">Bakiye</span>
@@ -437,23 +422,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {tests_html if tests_html else "<p style='text-align:center; color:#64748b;'>Yorum yok.</p>"}
                 </div>
                 <script>
-                    function switchTab(tabId) {
+                    function switchTab(tabId) {{
                         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
                         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                         document.getElementById(tabId).classList.add('active');
                         event.currentTarget.classList.add('active');
-                    }
-                    function filterCat(cat) {
+                    }}
+                    function filterCat(cat) {{
                         document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
                         event.currentTarget.classList.add('active');
-                        document.querySelectorAll('.product-card').forEach(card => {
+                        document.querySelectorAll('.product-card').forEach(card => {{
                             if (cat === 'all' || card.dataset.category === cat) card.style.display = 'block';
                             else card.style.display = 'none';
-                        });
-                    }
-                    function buyProduct(dropId) {
+                        }});
+                    }}
+                    function buyProduct(dropId) {{
                         tg.close();
-                    }
+                    }}
                 </script>
             </body>
             </html>
@@ -464,7 +449,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(webapp_html.encode("utf-8"))
             return
 
-        # --- ADMIN PANELİ (KAR EFEKTİ + AÇILIR MENÜ + 3'LÜ CÜZDAN) ---
         if parsed_path.path == "/admin-web":
             if not is_logged_in:
                 self.send_login_page()
@@ -524,6 +508,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 content_html = "<h2>👥 Kullanıcı Listesi</h2><p>VIP ve bakiye yönetimi.</p>"
             conn.close()
 
+            home_active = "active" if tab == "home" else ""
+            test_active = "active" if tab == "testimonials" else ""
+            supp_active = "active" if tab == "support" else ""
+            pend_active = "active" if tab == "pending" else ""
+            act_active = "active" if tab == "active" else ""
+            pass_active = "active" if tab in ["passive", "edit"] else ""
+            add_active = "active" if tab == "add" else ""
+            users_active = "active" if tab == "users" else ""
+
             dashboard_html = f"""
             <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🎄 Weed Istanbul Panel</title>
             <style>
@@ -553,14 +546,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 <div class="sidebar" id="sidebar">
                     <h2 style="color:#10b981; font-size:20px; text-align:center; margin-top:0;">🎄 Weed Panel</h2>
-                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Anasayfa</a>
-                    <a href="/admin-web?tab=testimonials" class="{"active" if tab == "testimonials" else ""}">⭐ Yorumlar</a>
-                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Destek</a>
-                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyenler</a>
-                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Tamamlananlar</a>
-                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Stoktakiler</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Ürün Ekle</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Kullanıcılar</a>
+                    <a href="/admin-web?tab=home" class="{home_active}">🏠 Anasayfa</a>
+                    <a href="/admin-web?tab=testimonials" class="{test_active}">⭐ Yorumlar</a>
+                    <a href="/admin-web?tab=support" class="{supp_active}">💬 Destek</a>
+                    <a href="/admin-web?tab=pending" class="{pend_active}">⏳ Bekleyenler</a>
+                    <a href="/admin-web?tab=active" class="{act_active}">🟢 Tamamlananlar</a>
+                    <a href="/admin-web?tab=passive" class="{pass_active}">📦 Stoktakiler</a>
+                    <a href="/admin-web?tab=add" class="{add_active}">➕ Ürün Ekle</a>
+                    <a href="/admin-web?tab=users" class="{users_active}">👥 Kullanıcılar</a>
                     <a href="/admin-logout" style="background:rgba(239,68,68,0.2); color:#ef4444; margin-top:20px; text-align:center;">🚪 Çıkış Yap</a>
                 </div>
                 <div class="main">
@@ -570,7 +563,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     function toggleMenu() {{
                         document.getElementById('sidebar').classList.toggle('open');
                     }}
-                    // Kar Efekti Scripti
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
                     function resizeCanvas() {{
