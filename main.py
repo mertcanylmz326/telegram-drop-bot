@@ -112,7 +112,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "active":
-                # Aktif Siparişler Tablosu (Kullanıcı adı dahil)
                 cursor.execute("""
                     SELECT orders.id, users.username, drops.title, drops.price, orders.status, orders.created_at 
                     FROM orders 
@@ -138,7 +137,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "passive":
-                # Pasif / Stoktaki Düzenlenebilir Ürünler
                 cursor.execute("SELECT id, title, price, stock, description, location_url FROM drops WHERE is_sold = 0")
                 drops = cursor.fetchall()
                 rows = ""
@@ -168,23 +166,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 content_html = """
                 <div class="form-box">
                     <h2>➕ Yeni Drop Ekle</h2>
-                    <form action="/admin-add" method="POST">
+                    <form action="/admin-add" method="POST" id="addForm">
                         <label>Ürün Başlığı:</label>
-                        <input type="text" name="title" required placeholder="Örn: Taksim Drop">
+                        <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
+                        
                         <label>Fiyat (USDT):</label>
-                        <input type="number" step="0.1" name="price" required placeholder="20">
-                        <label>Stok Adedi:</label>
-                        <input type="number" name="stock" required value="1">
-                        <label>Google Maps Konum Linki:</label>
-                        <input type="text" name="location" required placeholder="https://maps.app.goo.gl/...">
-                        <label>Açıklama / İpucu Notu:</label>
-                        <textarea name="description" rows="3" required placeholder="Bina girişindeki saksının arkasında..."></textarea>
-                        <button type="submit">Stoğa Ekle</button>
+                        <input type="number" step="0.1" name="price" required placeholder="65">
+                        
+                        <label>Kaç Adet Ekleyeceksin? (Stok):</label>
+                        <input type="number" name="count" id="countInput" value="1" min="1" max="30" required onchange="generateFields()">
+                        
+                        <div id="dynamicFields">
+                            <!-- Dinamik Alanlar Buraya Gelecek -->
+                        </div>
+                        
+                        <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
                     </form>
                 </div>
+                <script>
+                    function generateFields() {
+                        const count = document.getElementById('countInput').value;
+                        const container = document.getElementById('dynamicFields');
+                        container.innerHTML = '';
+                        for (let i = 1; i <= count; i++) {
+                            container.innerHTML += `
+                                <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
+                                    <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
+                                    <label>Google Maps Konum Linki:</label>
+                                    <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
+                                    <label>Açıklama / İpucu Notu:</label>
+                                    <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
+                                </div>
+                            `;
+                        }
+                    }
+                    window.onload = generateFields;
+                </script>
                 """
 
-            # Ürün Düzenleme Sayfası Sekmesi
             edit_form_html = ""
             if tab == "edit":
                 edit_id = query_params.get("id", ["0"])[0]
@@ -387,18 +406,22 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             title = params.get("title", [""])[0]
             try:
                 price = float(params.get("price", [0])[0])
-                stock = int(params.get("stock", [1])[0])
+                count = int(params.get("count", [1])[0])
             except:
-                price, stock = 0.0, 1
-            location = params.get("location", [""])[0]
-            description = params.get("description", [""])[0]
+                price, count = 0.0, 1
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO drops (title, price, location_url, photo_ids, description, stock)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (title, price, location, "", description, stock))
+
+            for i in range(1, count + 1):
+                loc = params.get(f"location_{i}", [""])[0]
+                desc = params.get(f"description_{i}", [""])[0]
+                if loc and desc:
+                    cursor.execute("""
+                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (title, price, loc, "", desc, 1))
+
             conn.commit()
             conn.close()
 
@@ -578,12 +601,10 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     except Exception as e:
         logging.error(e)
 
-# --- 🔒 ŞİFRELİ /admin KOMUTU (ŞİFRE: 1881) ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
         return
-    
     await state.set_state(AdminPassState.password)
     await message.answer("🔐 Yönetim paneline erişmek için lütfen admin şifresini girin:")
 
@@ -591,7 +612,6 @@ async def cmd_admin(message: types.Message, state: FSMContext):
 async def process_admin_password(message: types.Message, state: FSMContext):
     if message.chat.type != "private":
         return
-    
     entered_pass = message.text.strip()
     if entered_pass == "1881":
         await state.clear()
