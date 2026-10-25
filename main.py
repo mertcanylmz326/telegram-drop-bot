@@ -194,6 +194,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
                                     <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
+                                    <label>Fotoğraf URL'si (Görsel Linki):</label>
+                                    <input type="text" name="photo_${i}" placeholder="https://imgur.com/... veya resim linki">
                                     <label>Açıklama / İpucu Notu:</label>
                                     <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
                                 </div>
@@ -207,10 +209,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             edit_form_html = ""
             if tab == "edit":
                 edit_id = query_params.get("id", ["0"])[0]
-                cursor.execute("SELECT title, price, stock, location_url, description FROM drops WHERE id = ?", (edit_id,))
+                cursor.execute("SELECT title, price, stock, location_url, photo_ids, description FROM drops WHERE id = ?", (edit_id,))
                 drop_data = cursor.fetchone()
                 if drop_data:
-                    e_title, e_price, e_stock, e_loc, e_desc = drop_data
+                    e_title, e_price, e_stock, e_loc, e_photo, e_desc = drop_data
                     edit_form_html = f"""
                     <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
                         <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
@@ -224,6 +226,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" name="stock" value="{e_stock}" required>
                             <label>Google Maps Konum Linki:</label>
                             <input type="text" name="location" value="{e_loc}" required>
+                            <label>Fotoğraf URL'si (Görsel Linki):</label>
+                            <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
                             <button type="submit" style="background: #16a34a;">Güncellemeyi Kaydet</button>
@@ -314,13 +318,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        # Tek Kullanımlık Güvenli Konum Sayfası (Fotoğraf Destekli)
         if parsed_path.path.startswith("/drop/"):
             try:
                 order_id = int(parsed_path.path.split("/")[-1])
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT orders.status, drops.title, drops.location_url, drops.description 
+                    SELECT orders.status, drops.title, drops.location_url, drops.photo_ids, drops.description 
                     FROM orders 
                     JOIN drops ON orders.drop_id = drops.id 
                     WHERE orders.id = ?
@@ -332,10 +337,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     self.send_html_error("Ürün veya sipariş bulunamadı.")
                     return
 
-                status, title, location_url, description = row
+                status, title, location_url, photo_url, description = row
                 if status != 'completed':
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
+
+                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #475569;" />' if photo_url else ''
 
                 html_content = f"""
                 <!DOCTYPE html>
@@ -345,10 +352,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Güvenli Teslimat - #{order_id}</title>
                     <style>
-                        body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                        .card {{ background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; border: 1px solid #334155; }}
+                        body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+                        .card {{ background: #1e293b; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #334155; }}
                         h2 {{ color: #38bdf8; margin-top: 0; }}
-                        .info {{ background: #0f172a; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #475569; }}
+                        .info {{ background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #475569; }}
                         .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
                         .btn:hover {{ background: #1d4ed8; }}
                         .warning {{ color: #f87171; font-size: 12px; margin-top: 15px; }}
@@ -357,13 +364,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <body>
                     <div class="card">
                         <h2>🔒 Güvenli Teslimat</h2>
-                        <p><b>Ürün:</b> {title}</p>
+                        <p style="margin-bottom: 15px;"><b>Ürün:</b> {title}</p>
+                        {photo_tag}
                         <div class="info">
-                            <p><b>📍 Konum:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Haritada Aç</a></p>
-                            <p><b>📝 Not:</b> {description}</p>
+                            <p><b>📍 Konum:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Haritada Açmak İçin Tıkla</a></p>
+                            <p><b>📝 İpucu Notu:</b> {description}</p>
                         </div>
                         <a href="{location_url}" class="btn" target="_blank">Google Maps ile Aç</a>
-                        <p class="warning">⚠️ Bu sayfa gizliliğiniz için tek kullanımlıktır.</p>
+                        <p class="warning">⚠️ Bu sayfa gizliliğiniz için tek kullanımlıktır. İşleminiz bitince bölgeden ayrılın.</p>
                     </div>
                 </body>
                 </html>
@@ -415,12 +423,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             for i in range(1, count + 1):
                 loc = params.get(f"location_{i}", [""])[0]
+                photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
                 if loc and desc:
                     cursor.execute("""
                         INSERT INTO drops (title, price, location_url, photo_ids, description, stock)
                         VALUES (?, ?, ?, ?, ?, ?)
-                    """, (title, price, loc, "", desc, 1))
+                    """, (title, price, loc, photo, desc, 1))
 
             conn.commit()
             conn.close()
@@ -438,14 +447,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             except:
                 price, stock = 0.0, 1
             location = params.get("location", [""])[0]
+            photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE drops SET title = ?, price = ?, stock = ?, location_url = ?, description = ?
+                UPDATE drops SET title = ?, price = ?, stock = ?, location_url = ?, photo_ids = ?, description = ?
                 WHERE id = ?
-            """, (title, price, stock, location, description, drop_id))
+            """, (title, price, stock, location, photo, description, drop_id))
             conn.commit()
             conn.close()
 
