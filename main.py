@@ -31,7 +31,7 @@ threading.Thread(target=run_health_server, daemon=True).start()
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
-USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"  # Tron ağındaki resmi USDT kontratı
+USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -60,6 +60,12 @@ def init_db():
             status TEXT DEFAULT 'pending'
         )
     ''')
+    # Kullanıcıları toplu duyuru için kaydetmek üzere tablo
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -73,6 +79,12 @@ class AddDrop(StatesGroup):
     photo = State()
     description = State()
 
+class BroadcastState(StatesGroup):
+    message = State()
+
+class BulkAddState(StatesGroup):
+    data = State()
+
 # --- KULLANICI MENÜSÜ ---
 def main_keyboard():
     return ReplyKeyboardMarkup(
@@ -85,6 +97,13 @@ def main_keyboard():
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    # Kullanıcıyı veritabanına duyurular için kaydedelim
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
+    conn.commit()
+    conn.close()
+
     await message.answer(
         "👋 Merhaba! Otomatik teslimat botuna hoş geldiniz.\n\n"
         "Aşağıdaki menüden mevcut dropları inceleyebilir ve sipariş verebilirsiniz.",
@@ -184,7 +203,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         return
 
-    # TronGrid API ile cüzdana gelen son USDT transferlerini çekiyoruz
     api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=10"
     
     payment_verified = False
@@ -194,15 +212,11 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
                 if response.status == 200:
                     res_json = await response.json()
                     transfers = res_json.get("data", [])
-                    
-                    # USDT 6 basamaklı hassasiyete sahiptir (Örn: 10 USDT = 10000000)
                     expected_value_scaled = int(float(expected_price) * 1000000)
 
                     for tx in transfers:
-                        # Cüzdanımıza gelen transferleri kontrol ediyoruz
                         if tx.get("to") == CRYPTO_WALLET:
                             tx_value = int(tx.get("value", 0))
-                            # Tutar eşleşmesini kontrol ediyoruz (küçük kuruş farklarına tolerans bırakılabilir veya birebir eşleşme)
                             if tx_value >= expected_value_scaled:
                                 payment_verified = True
                                 break
@@ -210,7 +224,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         logging.error(f"API Hatası: {e}")
 
     if payment_verified:
-        # Ödeme doğrulandı! Ürünü stoktan düş ve otomatik teslim et
         cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
         conn.commit()
@@ -238,17 +251,20 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
             show_alert=True
         )
 
-# --- ADMIN PANELİ ---
+# --- ADMIN PANELİ & YÖNETİM ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Yeni Drop Ekle", callback_data="add_drop")]
+        [InlineKeyboardButton(text="➕ Tekli Drop Ekle", callback_data="add_drop")],
+        [InlineKeyboardButton(text="📦 Toplu Drop Ekle (Çoklu)", callback_data="bulk_add")],
+        [InlineKeyboardButton(text="📢 Toplu Duyuru Gönder", callback_data="start_broadcast")]
     ])
-    await message.answer("👑 Admin Paneli (Tam Otomatik Mod)", reply_markup=kb)
+    await message.answer("👑 **Gelişmiş Admin Paneli**", reply_markup=kb)
 
+# --- TEKLİ DROP EKLEME WIZARD ---
 @dp.callback_query(F.data == "add_drop")
 async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID:
@@ -260,7 +276,7 @@ async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
 async def process_title(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text)
     await state.set_state(AddDrop.price)
-    await message.answer("2️⃣ Fiyatı girin (**USDT cinsinden**, örn: 20):")
+    await message.answer("2️⃣ Fiyatı girin (USDT cinsinden, örn: 20):")
 
 @dp.message(AddDrop.price)
 async def process_price(message: types.Message, state: FSMContext):
@@ -295,7 +311,84 @@ async def process_desc(message: types.Message, state: FSMContext):
     conn.close()
 
     await state.clear()
-    await message.answer("✅ Yeni Drop Başarıyla Veritabanına Eklendi ve Stoğa Girdi!")
+    await message.answer("✅ Tekli Drop Başarıyla Eklendi ve Stoğa Girdi!")
+
+# --- TOPLU DROP EKLEME (ÇOKLU) ---
+@dp.callback_query(F.data == "bulk_add")
+async def start_bulk_add(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await state.set_state(BulkAddState.data)
+    await callback.message.answer(
+        "📦 **Toplu Drop Ekleme Modu**\n\n"
+        "Her satıra bir ürün gelecek şekilde şu formatta gönder:\n"
+        "`Başlık | Fiyat | KonumLink | Aciklama`\n\n"
+        "*(Not: Toplu eklemede fotoğraf daha sonradan eklenebilir veya boş kalabilir, örnek metin yollayabilirsin)*\n\n"
+        "Örnek:\n"
+        "Taksim Drop | 25 | https://maps.app.goo.gl/... | Gizli not 1\n"
+        "Kadikoy Drop | 30 | https://maps.app.goo.gl/... | Gizli not 2"
+    )
+
+@dp.message(BulkAddState.data)
+async def process_bulk_data(message: types.Message, state: FSMContext):
+    lines = message.text.split("\n")
+    added_count = 0
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+
+    for line in lines:
+        parts = line.split("|")
+        if len(parts) >= 4:
+            title = parts[0].strip()
+            try:
+                price = float(parts[1].strip())
+            except:
+                price = 0.0
+            location = parts[2].strip()
+            desc = parts[3].strip()
+            
+            cursor.execute("""
+                INSERT INTO drops (title, price, location_url, photo_ids, description)
+                VALUES (?, ?, ?, ?, ?)
+            """, (title, price, location, "", desc))
+            added_count += 1
+
+    conn.commit()
+    conn.close()
+    await state.clear()
+    await message.answer(f"✅ Toplam **{added_count} adet** drop başarıyla toplu olarak stoğa eklendi!")
+
+# --- TOPLU DUYURU (BROADCAST) ---
+@dp.callback_query(F.data == "start_broadcast")
+async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.id != ADMIN_ID:
+        return
+    await state.set_state(BroadcastState.message)
+    await callback.message.answer("📢 Tüm kullanıcılara göndermek istediğin duyuru mesajını (veya fotoğrafı) yaz/gönder:")
+
+@dp.message(BroadcastState.message)
+async def send_broadcast(message: types.Message, state: FSMContext):
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    conn.close()
+
+    await state.clear()
+    sent_count = 0
+    
+    status_msg = await message.answer("🚀 Duyuru gönderiliyor, lütfen bekleyin...")
+
+    for (u_id,) in users:
+        try:
+            await message.send_copy(chat_id=u_id)
+            sent_count += 1
+            await asyncio.sleep(0.05) # Telegram spam limitine takılmamak için minik gecikme
+        except Exception:
+            pass
+
+    await status_msg.edit_text(f"✅ Duyuru başarıyla **{sent_count}** kullanıcıya iletildi!")
 
 # --- BOTU BAŞLATMA ---
 async def main():
