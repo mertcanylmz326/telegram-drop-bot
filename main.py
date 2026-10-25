@@ -15,8 +15,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
-# --- AYARLAR VE YENİ TOKEN ---
-BOT_TOKEN = "8994954068:AAFZ0M5vwPYPx1XQMb-2C7fHpYX8eLof8NQ"
+# --- AYARLAR VE YENİ TOKEN (GÜNCELLENDİ) ---
+BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
@@ -277,7 +277,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🌿 WEED SHOP WEB SUNUCUSU & GRAFİK TİPOGRAFİK PANEL ---
+# --- 🌿 FULL FUNCTIONAL WEB PANEL HANDLER ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -497,20 +497,125 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 <div style="background:rgba(10,26,15,0.8); padding:20px; border-radius:14px; border:1px solid rgba(0,255,136,0.2);"><h3 style="color:#00ff88; margin-top:0; font-size:16px;">Canlı Loglar</h3>{logs_html}</div>
                 """
-            elif tab == "testimonials":
-                content_html = "<h2>⭐ Yorum Yönetimi</h2><p>Müşteri referansları ve yorumları.</p>"
-            elif tab == "support":
-                content_html = "<h2>💬 Canlı Destek Talepleri</h2><p>Müşteri destek mesajları.</p>"
-            elif tab == "pending":
-                content_html = "<h2>⏳ Bekleyen Siparişler</h2><p>Blockchain onay bekleyen işlemler.</p>"
-            elif tab == "active":
-                content_html = "<h2>🟢 Tamamlanan Siparişler</h2><p>Başarıyla teslim edilenler.</p>"
-            elif tab == "passive":
-                content_html = "<h2>📦 Stoktakiler / Pasifler</h2><p>Ürün ve lokasyon listesi.</p>"
             elif tab == "add":
-                content_html = "<h2>➕ Ürün Ekle</h2><p>Yeni drop ekleme alanı.</p>"
+                content_html = """
+                <div style="background:rgba(10,26,15,0.85); padding:25px; border-radius:14px; border:1px solid rgba(0,255,136,0.3); max-width:600px;">
+                    <h2 style="color:#00ff88; margin-top:0;">➕ Yeni Ürün / Drop Ekle</h2>
+                    <form action="/admin-add-drop" method="POST">
+                        <label style="font-size:13px; color:#94a3b8;">Ürün Başlığı / Cins:</label>
+                        <input type="text" name="title" required placeholder="Örn: Amnesia Haze 5g" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
+                        
+                        <label style="font-size:13px; color:#94a3b8;">Bölge / Semt (Kategori):</label>
+                        <input type="text" name="category" required placeholder="Örn: Kadıköy" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
+                        
+                        <label style="font-size:13px; color:#94a3b8;">Fiyat (USDT):</label>
+                        <input type="number" step="0.01" name="price" required placeholder="50" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
+                        
+                        <label style="font-size:13px; color:#94a3b8;">Google Maps Konum Linki:</label>
+                        <input type="url" name="location_url" required placeholder="https://maps.google.com/..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
+                        
+                        <label style="font-size:13px; color:#94a3b8;">Fotoğraf URL (İsteğe bağlı):</label>
+                        <input type="url" name="photo_url" placeholder="https://..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
+                        
+                        <label style="font-size:13px; color:#94a3b8;">Açıklama / Not:</label>
+                        <textarea name="description" rows="3" placeholder="Teslimat notu..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;"></textarea>
+                        
+                        <button type="submit" style="background:#00ff88; color:#050b07; border:none; padding:12px; width:100%; border-radius:6px; font-weight:bold; cursor:pointer; font-size:15px;">Drop'u Sisteme Ekle</button>
+                    </form>
+                </div>
+                """
+            elif tab == "support":
+                cursor.execute("SELECT id, user_id, username, message, status, created_at FROM support_tickets ORDER BY id DESC")
+                tickets = cursor.fetchall()
+                t_html = ""
+                for tic in tickets:
+                    t_id, u_id, uname, u_msg, status, c_date = tic
+                    st_txt = "<span style='color:#00ff88;'>Açık</span>" if status == 'open' else "<span style='color:#94a3b8;'>Kapalı</span>"
+                    t_html += f"""
+                    <div style="background:rgba(10,26,15,0.8); padding:15px; border-radius:10px; border:1px solid rgba(0,255,136,0.2); margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;">
+                            <b>Kullanıcı: @{uname} (ID: {u_id})</b>
+                            <span>{st_txt} - {c_date}</span>
+                        </div>
+                        <p style="margin:0 0 10px 0; color:#cbd5e1; font-size:14px;">"{u_msg}"</p>
+                        <a href="/admin-close-ticket?id={t_id}" style="background:#ef4444; color:white; padding:6px 12px; border-radius:6px; text-decoration:none; font-size:12px; font-weight:bold;">Talebi Kapat</a>
+                    </div>
+                    """
+                content_html = f"<h2>💬 Canlı Destek Talepleri</h2>{t_html if t_html else '<p style=\'color:#64748b;\'>Bekleyen destek talebi yok.</p>'}"
+            elif tab == "pending":
+                cursor.execute("""
+                    SELECT orders.id, users.username, users.user_id, drops.title, orders.final_price, orders.created_at 
+                    FROM orders JOIN users ON orders.user_id = users.user_id JOIN drops ON orders.drop_id = drops.id 
+                    WHERE orders.status = 'pending' ORDER BY orders.id DESC
+                """)
+                pend_orders = cursor.fetchall()
+                p_html = ""
+                for po in pend_orders:
+                    o_id, uname, u_id, title, f_price, date = po
+                    p_html += f"""
+                    <div style="background:rgba(10,26,15,0.8); padding:15px; border-radius:10px; border:1px solid rgba(245,158,11,0.3); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <b>Sipariş #{o_id}</b> - {title} ({f_price} USDT)<br>
+                            <span style="font-size:12px; color:#94a3b8;">Kullanıcı: @{uname} ({u_id}) | Tarih: {date}</span>
+                        </div>
+                        <div>
+                            <a href="/admin-approve-order?id={o_id}" style="background:#00ff88; color:#050b07; padding:8px 14px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:13px; margin-right:5px;">Onayla & Konum Ver</a>
+                            <a href="/admin-cancel-order?id={o_id}" style="background:#ef4444; color:white; padding:8px 14px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:13px;">İptal Et</a>
+                        </div>
+                    </div>
+                    """
+                content_html = f"<h2>⏳ Blockchain Onay Bekleyen Siparişler</h2>{p_html if p_html else '<p style=\'color:#64748b;\'>Bekleyen sipariş bulunmuyor.</p>'}"
+            elif tab == "active":
+                cursor.execute("""
+                    SELECT orders.id, users.username, drops.title, orders.final_price, orders.created_at 
+                    FROM orders JOIN users ON orders.user_id = users.user_id JOIN drops ON orders.drop_id = drops.id 
+                    WHERE orders.status = 'completed' ORDER BY orders.id DESC LIMIT 30
+                """)
+                act_orders = cursor.fetchall()
+                a_html = ""
+                for ao in act_orders:
+                    o_id, uname, title, f_price, date = ao
+                    a_html += f"""
+                    <div style="background:rgba(10,26,15,0.8); padding:12px 15px; border-radius:10px; border:1px solid rgba(0,255,136,0.2); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div><b>#{o_id}</b> - {title} ({f_price} USDT) <span style="font-size:12px; color:#94a3b8;">(@{uname})</span></div>
+                        <span style="color:#00ff88; font-size:12px; font-weight:bold;">Tamamlandı ({date})</span>
+                    </div>
+                    """
+                content_html = f"<h2>🟢 Tamamlanan Siparişler</h2>{a_html if a_html else '<p style=\'color:#64748b;\'>Tamamlanan sipariş yok.</p>'}"
+            elif tab == "passive":
+                cursor.execute("SELECT id, title, price, stock, category FROM drops")
+                all_drops = cursor.fetchall()
+                d_html = ""
+                for dr in all_drops:
+                    dr_id, title, price, stock, cat = dr
+                    st_badge = f"<span style='color:#00ff88;'>Stok: {stock}</span>" if stock > 0 else "<span style='color:#ef4444;'>Tükendi / Pasif</span>"
+                    d_html += f"""
+                    <div style="background:rgba(10,26,15,0.8); padding:12px 15px; border-radius:10px; border:1px solid rgba(0,255,136,0.15); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div><b>#{dr_id}</b> {title} ({price} USDT) - <span style="color:#38bdf8;">{cat or 'Genel'}</span> | {st_badge}</div>
+                        <a href="/admin-delete-drop?id={dr_id}" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); padding:6px 12px; border-radius:6px; text-decoration:none; font-size:12px; font-weight:bold;">Sil</a>
+                    </div>
+                    """
+                content_html = f"<h2>📦 Tüm Ürünler / Stoklar</h2>{d_html if d_html else '<p style=\'color:#64748b;\'>Kayıtlı ürün yok.</p>'}"
             elif tab == "users":
-                content_html = "<h2>👥 Kullanıcı Listesi</h2><p>VIP ve bakiye yönetimi.</p>"
+                cursor.execute("SELECT user_id, username, balance, total_spent, is_banned, created_at FROM users ORDER BY user_id DESC LIMIT 50")
+                users = cursor.fetchall()
+                u_html = ""
+                for usr in users:
+                    u_id, uname, bal, spent, banned, date = usr
+                    b_badge = "<span style='color:#ef4444;'>Yasaklı</span>" if banned == 1 else "<span style='color:#00ff88;'>Aktif</span>"
+                    action_btn = f"<a href='/admin-ban-user?id={u_id}' style='background:#ef4444; color:white; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:11px;'>Yasakla</a>" if banned == 0 else f"<a href='/admin-unban-user?id={u_id}' style='background:#00ff88; color:#050b07; padding:4px 10px; border-radius:4px; text-decoration:none; font-size:11px; font-weight:bold;'>Engeli Kaldır</a>"
+                    u_html += f"""
+                    <div style="background:rgba(10,26,15,0.8); padding:12px 15px; border-radius:10px; border:1px solid rgba(0,255,136,0.15); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <b>@{uname or 'İsimsiz'}</b> (<code>{u_id}</code>)<br>
+                            <span style="font-size:12px; color:#94a3b8;">Bakiye: {bal} USDT | Harcama: {spent} USDT | Durum: {b_badge}</span>
+                        </div>
+                        <div>{action_btn}</div>
+                    </div>
+                    """
+                content_html = f"<h2>👥 Kullanıcı Listesi & Yönetimi</h2>{u_html if u_html else '<p style=\'color:#64748b;\'>Kayıtlı kullanıcı yok.</p>'}"
+            elif tab == "testimonials":
+                content_html = "<h2>⭐ Yorum Yönetimi</h2><p style='color:#94a3b8;'>Müşteri referansları otomatik toplanmaktadır.</p>"
             conn.close()
 
             home_active = "active" if tab == "home" else ""
@@ -526,7 +631,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🌱 Weed Istanbul Panel</title>
             <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
             <style>
-                body {{ background: #050b07; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; position: relative; animation: fadeIn 0.4s ease-in-out; }}
+                body {{ background: #050b07; color: #f8fafc; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; position: relative; animation: fadeIn 0.4s ease-in-out; }}
                 @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
                 #pollen-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }}
                 .sidebar {{ width: 250px; background: rgba(8, 20, 12, 0.95); padding: 20px; border-right: 1px solid rgba(0,255,136,0.2); transition: transform 0.3s ease; z-index: 1000; backdrop-filter: blur(10px); box-sizing: border-box; }}
@@ -621,6 +726,50 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(dashboard_html.encode("utf-8"))
             return
 
+        # --- PANEL AKSİYON GET ENDPOINTLERİ (Silme, Onaylama vb.) ---
+        if parsed_path.path.startswith("/admin-"):
+            if not is_logged_in:
+                self.send_response(303)
+                self.send_header('Location', '/admin-web')
+                self.end_headers()
+                return
+            
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            
+            if parsed_path.path == "/admin-delete-drop":
+                drop_id = query_params.get("id", ["0"])[0]
+                cursor.execute("DELETE FROM drops WHERE id = ?", (drop_id,))
+                conn.commit()
+                log_panel_event(f"🗑️ Ürün silindi: ID #{drop_id}", "warning")
+            elif parsed_path.path == "/admin-close-ticket":
+                t_id = query_params.get("id", ["0"])[0]
+                cursor.execute("UPDATE support_tickets SET status = 'closed' WHERE id = ?", (t_id,))
+                conn.commit()
+            elif parsed_path.path == "/admin-approve-order":
+                o_id = query_params.get("id", ["0"])[0]
+                cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
+                conn.commit()
+                log_panel_event(f"✅ Sipariş onaylandı ve tamamlandı: #{o_id}", "success")
+            elif parsed_path.path == "/admin-cancel-order":
+                o_id = query_params.get("id", ["0"])[0]
+                cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (o_id,))
+                conn.commit()
+            elif parsed_path.path == "/admin-ban-user":
+                u_id = query_params.get("id", ["0"])[0]
+                cursor.execute("UPDATE users SET is_banned = 1 WHERE user_id = ?", (u_id,))
+                conn.commit()
+            elif parsed_path.path == "/admin-unban-user":
+                u_id = query_params.get("id", ["0"])[0]
+                cursor.execute("UPDATE users SET is_banned = 0 WHERE user_id = ?", (u_id,))
+                conn.commit()
+            
+            conn.close()
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=home')
+            self.end_headers()
+            return
+
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
             self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
@@ -670,6 +819,38 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.end_headers()
             else: self.send_login_page("Hatalı şifre!")
             return
+
+        if parsed_path.path == "/admin-add-drop":
+            is_logged_in = 'admin_auth=true' in self.headers.get('Cookie', '')
+            if not is_logged_in:
+                self.send_response(303)
+                self.send_header('Location', '/admin-web')
+                self.end_headers()
+                return
+            
+            title = params.get("title", [""])[0]
+            category = params.get("category", ["Genel"])[0]
+            price = float(params.get("price", ["0"])[0])
+            location_url = params.get("location_url", [""])[0]
+            photo_url = params.get("photo_url", [""])[0]
+            description = params.get("description", [""])[0]
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category) 
+                VALUES (?, ?, ?, ?, ?, 1, ?)
+            """, (title, price, location_url, photo_url, description, category))
+            conn.commit()
+            conn.close()
+
+            log_panel_event(f"➕ Yeni Ürün Eklendi: {title} ({price} USDT)", "success")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=passive')
+            self.end_headers()
+            return
+
         self.send_response(404)
         self.end_headers()
 
