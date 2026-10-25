@@ -3,6 +3,7 @@ import sqlite3
 import logging
 import os
 import threading
+import aiohttp
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -29,8 +30,8 @@ threading.Thread(target=run_health_server, daemon=True).start()
 # --- AYARLAR ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
-# Kripto cüzdan adresin eklendi
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
+USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"  # Tron ağındaki resmi USDT kontratı
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -107,12 +108,12 @@ async def list_drops(message: types.Message):
     for drop in drops:
         drop_id, title, price = drop
         kb.inline_keyboard.append([
-            InlineKeyboardButton(text=f"{title} - {price} TL", callback_data=f"buy_{drop_id}")
+            InlineKeyboardButton(text=f"{title} - {price} USDT", callback_data=f"buy_{drop_id}")
         ])
 
     await message.answer("📦 Satın almak istediğiniz drop'u seçin:", reply_markup=kb)
 
-# --- SİPARİŞ OLUŞTURMA (KRİPTO ÖDEME ENTEGRELİ) ---
+# --- SİPARİŞ OLUŞTURMA ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     drop_id = int(callback.data.split("_")[1])
@@ -139,53 +140,32 @@ async def process_buy(callback: types.CallbackQuery):
     payment_text = (
         f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
         f"📌 Ürün: {title}\n"
-        f"💰 Tutar: {price} TL\n\n"
+        f"💰 Tutar: {price} USDT\n\n"
         "🔒 Ödeme Yöntemi (USDT TRC20):\n"
-        "Lütfen aşağıdaki cüzdan adresine tutarı gönderin:\n\n"
+        "Lütfen aşağıdaki cüzdan adresine **tam olarak bu tutarı** gönderin:\n\n"
         f"`{CRYPTO_WALLET}`\n\n"
-        "⚠️ Ödemeyi yaptıktan sonra aşağıdaki onay butonuna basın.\n"
-        "Onaylandığı an konum ve fotoğraflar otomatik olarak iletilecektir."
+        "⚠️ Ödemeyi yaptıktan sonra aşağıdaki **'Ödemeyi Otomatik Kontrol Et'** butonuna basın.\n"
+        "Sistem blokzinciri tarayıp onaylandığı an konum ve fotoğrafları otomatik gönderecektir."
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Ödemeyi Yaptım (Onay İste)", callback_data=f"payonay_{order_id}")]
+        [InlineKeyboardButton(text="🔄 Ödemeyi Otomatik Kontrol Et", callback_data=f"autocheck_{order_id}")]
     ])
 
     await callback.message.edit_text(payment_text, reply_markup=kb)
 
-# --- ÖDEME BİLDİRİMİ ---
-@dp.callback_query(F.data.startswith("payonay_"))
-async def process_payment_notification(callback: types.CallbackQuery):
+# --- TAM OTOMATİK BLOKZİNCİR ÖDEME KONTROLÜ ---
+@dp.callback_query(F.data.startswith("autocheck_"))
+async def check_blockchain_payment(callback: types.CallbackQuery):
     order_id = int(callback.data.split("_")[1])
     
-    await callback.answer("Ödeme bildiriminiz yöneticilere iletildi. İnceleniyor...", show_alert=True)
-    
-    admin_kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Ödemeyi Onayla & Konumu Gönder", callback_data=f"adm_approve_{order_id}"),
-            InlineKeyboardButton(text="❌ Reddet", callback_data=f"adm_reject_{order_id}")
-        ]
-    ])
-
-    await bot.send_message(
-        ADMIN_ID, 
-        f"🔔 YENİ ÖDEME BİLDİRİMİ (KRİPTO)\n\nSipariş No: #{order_id}\nKullanıcı ID: {callback.from_user.id}",
-        reply_markup=admin_kb
-    )
-
-# --- ADMIN: ÖDEME ONAYLAMA ---
-@dp.callback_query(F.data.startswith("adm_approve_"))
-async def admin_approve(callback: types.CallbackQuery):
-    if callback.from_user.id != ADMIN_ID:
-        return
-
-    order_id = int(callback.data.split("_")[2])
+    await callback.answer("Blokzincir taranıyor, lütfen bekleyin...", show_alert=True)
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT orders.user_id, drops.id, drops.location_url, drops.photo_ids, drops.description 
+        SELECT orders.user_id, drops.id, drops.price, drops.location_url, drops.photo_ids, drops.description, orders.status 
         FROM orders 
         JOIN drops ON orders.drop_id = drops.id 
         WHERE orders.id = ?
@@ -193,38 +173,70 @@ async def admin_approve(callback: types.CallbackQuery):
     data = cursor.fetchone()
 
     if not data:
-        await callback.answer("Sipariş bulunamadı.")
+        await callback.answer("Sipariş bulunamadı.", show_alert=True)
         conn.close()
         return
 
-    user_id, drop_id, location_url, photo_ids, description = data
+    user_id, drop_id, expected_price, location_url, photo_ids, description, status = data
 
-    msg_text = (
-        "🎉 Ödemeniz Onaylandı!\n\n"
-        f"📍 Konum Linki: {location_url}\n"
-        f"📝 Açıklama/Not: {description}\n\n"
-        "⚠️ Lütfen ürünü teslim aldıktan sonra bölgeden hızlıca ayrılın."
-    )
+    if status == 'completed':
+        await callback.answer("Bu sipariş zaten onaylanmış ve teslim edilmiştir.", show_alert=True)
+        conn.close()
+        return
+
+    # TronGrid API ile cüzdana gelen son USDT transferlerini çekiyoruz
+    api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=10"
     
+    payment_verified = False
     try:
-        await bot.send_message(user_id, msg_text)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as response:
+                if response.status == 200:
+                    res_json = await response.json()
+                    transfers = res_json.get("data", [])
+                    
+                    # USDT 6 basamaklı hassasiyete sahiptir (Örn: 10 USDT = 10000000)
+                    expected_value_scaled = int(float(expected_price) * 1000000)
+
+                    for tx in transfers:
+                        # Cüzdanımıza gelen transferleri kontrol ediyoruz
+                        if tx.get("to") == CRYPTO_WALLET:
+                            tx_value = int(tx.get("value", 0))
+                            # Tutar eşleşmesini kontrol ediyoruz (küçük kuruş farklarına tolerans bırakılabilir veya birebir eşleşme)
+                            if tx_value >= expected_value_scaled:
+                                payment_verified = True
+                                break
+    except Exception as e:
+        logging.error(f"API Hatası: {e}")
+
+    if payment_verified:
+        # Ödeme doğrulandı! Ürünü stoktan düş ve otomatik teslim et
+        cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
+        cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+        conn.commit()
+        conn.close()
+
+        msg_text = (
+            "🎉 Ödemeniz Blokzincir Üzerinden Otomatik Onaylandı!\n\n"
+            f"📍 Konum Linki: {location_url}\n"
+            f"📝 Açıklama/Not: {description}\n\n"
+            "⚠️ Lütfen ürünü teslim aldıktan sonra bölgeden hızlıca ayrılın."
+        )
         
+        await callback.message.edit_text(f"✅ Sipariş #{order_id} için ödeme blokzincirde doğrulandı ve bilgiler müşteriye iletildi.")
+        
+        await bot.send_message(user_id, msg_text)
         if photo_ids:
             for p_id in photo_ids.split(","):
                 if p_id.strip():
                     await bot.send_photo(user_id, p_id.strip())
-
-        cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
-        cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-        conn.commit()
-        
-        await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı ve bilgiler müşteriye başarıyla iletildi.")
-    
-    except Exception as e:
-        await callback.message.answer(f"⚠️ Hata oluştu (Mesaj gidemedi): {e}")
-    
-    finally:
+    else:
         conn.close()
+        await callback.answer(
+            "⚠️ Henüz cüzdanınıza yansıyan eşleşen bir USDT transferi bulunamadı. "
+            "Transferin ağda onaylanması 1-2 dakika sürebilir, lütfen biraz sonra tekrar deneyin.", 
+            show_alert=True
+        )
 
 # --- ADMIN PANELİ ---
 @dp.message(Command("admin"))
@@ -235,7 +247,7 @@ async def cmd_admin(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Yeni Drop Ekle", callback_data="add_drop")]
     ])
-    await message.answer("👑 Admin Paneli", reply_markup=kb)
+    await message.answer("👑 Admin Paneli (Tam Otomatik Mod)", reply_markup=kb)
 
 @dp.callback_query(F.data == "add_drop")
 async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
@@ -248,7 +260,7 @@ async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
 async def process_title(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text)
     await state.set_state(AddDrop.price)
-    await message.answer("2️⃣ Fiyatı girin (Sadece sayı, örn: 1500):")
+    await message.answer("2️⃣ Fiyatı girin (**USDT cinsinden**, örn: 20):")
 
 @dp.message(AddDrop.price)
 async def process_price(message: types.Message, state: FSMContext):
@@ -283,7 +295,7 @@ async def process_desc(message: types.Message, state: FSMContext):
     conn.close()
 
     await state.clear()
-    await message.answer("✅ Yeni Drop Başarıyla Veritabanına Eklendi! Stoğa girdi.")
+    await message.answer("✅ Yeni Drop Başarıyla Veritabanına Eklendi ve Stoğa Girdi!")
 
 # --- BOTU BAŞLATMA ---
 async def main():
