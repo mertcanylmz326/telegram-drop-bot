@@ -15,7 +15,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR VE TOKEN ---
-BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
+BOT_TOKEN = "8994954068:AAFZ0M5vwPYPx1XQMb-2C7fHpYX8eLof8NQ"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
