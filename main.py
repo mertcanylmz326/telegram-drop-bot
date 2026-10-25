@@ -26,8 +26,8 @@ def run_health_server():
 # Arka planda portu açık tutmak için web sunucusunu başlatıyoruz
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- AYARLAR ---
-BOT_TOKEN = "6884909797:AAG7eXs6_whJCNkWpoDInGrYGCg92Yn2_fM"
+# --- AYARLAR (YENİ BOT TOKEN) ---
+BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 
 logging.basicConfig(level=logging.INFO)
@@ -275,6 +275,9 @@ async def process_desc(message: types.Message, state: FSMContext):
 
     await state.clear()
     await message.answer("✅ **Yeni Drop Başarıyla Veritabanına Eklendi!** Stoğa girdi.")
+
+# --- ADMIN PANELİNİ AÇMA YARDIMCISI ---
+# (İsteğe bağlı komutlar eklenebilir)
 
 # --- BOTU BAŞLATMA ---
 async def main():
