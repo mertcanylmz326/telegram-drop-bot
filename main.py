@@ -33,11 +33,10 @@ WALLET_CONFIG = {
     "cikis": "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"       # Aracı / Buffer Cüzdanı
 }
 
-CRYPTO_WALLET = WALLET_CONFIG["weedboot"] # Bot doğrudan operasyon cüzdanını kullanır
+CRYPTO_WALLET = WALLET_CONFIG["weedboot"]
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
-# Zorunlu Kanal Bilgisi
 REQUIRED_CHANNEL = -1004474292737
 REQUIRED_CHANNEL_URL = "https://t.me/+NReAegSp4l85NWZk"
 
@@ -54,6 +53,7 @@ LANG = {
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
         "btn_wallet": "💰 Cüzdanım & Profil",
+        "btn_refs": "⭐ Referanslar & Yorumlar",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
         "btn_support": "📞 Canlı Destek",
         "btn_lang": "🌐 Dil Değiştir",
@@ -66,7 +66,7 @@ LANG = {
         "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
-        "profile_text": "👤 **Hesap ve Cüzdan Profili**\n\n🆔 Kullanıcı ID: `{uid}`\n👑 Hesap Statüsü: **{status}**\n💵 Güncel Bakiye: **{balance} USDT**\n🛍️ Toplam Harcama: **{spent} USDT**\n\n*VIP Statüsü: Toplam 100 USDT ve üzeri harcamalarda otomatik aktif olur!*",
+        "profile_text": "👤 **Hesap ve Cüzdan Profili**\n\n🆔 Kullanıcı ID: `{uid}`\n👑 Hesap Statüsü: **{status}**\n💵 Güncel Bakiye: **{balance} USDT**\n🛍️ Toplam Harcama: **{spent} USDT**\n🔗 Davet Linkiniz:\n`{ref_link}`\n\n*VIP Statüsü: Toplam 100 USDT ve üzeri harcamalarda otomatik aktif olur!*",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
         "deposit_invoice": "📥 **Bakiye Yükleme Talebi (#{id})**\n\n💵 Yüklenecek Tutar: **{amount} USDT**\n🔒 Yatırım Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Tutarı gönderdikten sonra aşağıdaki butona basın.",
@@ -103,6 +103,7 @@ LANG = {
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
         "btn_wallet": "💰 My Wallet & Profile",
+        "btn_refs": "⭐ Reviews & Testimonials",
         "btn_faq": "❓ How It Works (FAQ)",
         "btn_support": "📞 Live Support",
         "btn_lang": "🌐 Change Language",
@@ -115,7 +116,7 @@ LANG = {
         "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
         "open_loc": "🔗 Open Order #{id} Location",
         "sold_out": "⚠️ This product is sold out.",
-        "profile_text": "👤 **Account & Wallet Profile**\n\n🆔 User ID: `{uid}`\n👑 Account Status: **{status}**\n💵 Current Balance: **{balance} USDT**\n🛍️ Total Spent: **{spent} USDT**\n\n*VIP Status: Automatically activates on total spends of 100 USDT and above!*",
+        "profile_text": "👤 **Account & Wallet Profile**\n\n🆔 User ID: `{uid}`\n👑 Account Status: **{status}**\n💵 Current Balance: **{balance} USDT**\n🛍️ Total Spent: **{spent} USDT**\n🔗 Referral Link:\n`{ref_link}`\n\n*VIP Status: Automatically activates on total spends of 100 USDT and above!*",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
         "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after sending funds.",
@@ -208,6 +209,17 @@ def init_db():
     ''')
 
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS testimonials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT,
+            rating INTEGER DEFAULT 5,
+            photo_url TEXT,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -215,10 +227,11 @@ def init_db():
             language TEXT DEFAULT 'tr',
             balance REAL DEFAULT 0.0,
             total_spent REAL DEFAULT 0.0,
+            referred_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0"), ("total_spent", "REAL DEFAULT 0.0")]:
+    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0"), ("total_spent", "REAL DEFAULT 0.0"), ("referred_by", "INTEGER")]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -293,7 +306,6 @@ def is_user_banned(user_id: int) -> bool:
     conn.close()
     return res is not None and res[0] == 1
 
-# --- BLOKZİNCİR CÜZDAN BAKİYE ÇEKME FONKSİYONU ---
 def get_wallet_balances():
     balances = {}
     for key, addr in WALLET_CONFIG.items():
@@ -320,7 +332,6 @@ def get_wallet_balances():
         balances[key] = {"usdt": usdt_bal, "trx": trx_bal}
     return balances
 
-# --- KANAL ÜYELİK KONTROLÜ & OTOMATİK ZAMANLAYICI ---
 async def check_user_subscription(user_id: int) -> bool:
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
@@ -359,7 +370,7 @@ async def check_expired_orders_task():
         except Exception as e:
             logging.error(e)
 
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (REFERANSLAR PANELİ İLE) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -425,10 +436,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
-                <!-- 3'lü Cüzdan İzolasyon & Canlı Bakiye Paneli -->
                 <div class="form-box" style="border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 30px;">
                     <h2>🔒 3'lü Cüzdan İzolasyon & Canlı Bakiye Durumu</h2>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Operasyonel gizlilik ve fon güvenliği için aktif cüzdan mimarisi ve anlık bakiyeler:</p>
                     <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
                         <li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div>🟢 <b>weedboot (Bot / Operasyon):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['weedboot']}</code></div>
@@ -485,6 +494,51 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }}
                     }});
                 </script>
+                """
+            elif tab == "testimonials":
+                cursor.execute("SELECT id, customer_name, rating, photo_url, comment, created_at FROM testimonials ORDER BY id DESC")
+                tests = cursor.fetchall()
+                rows = ""
+                for tr in tests:
+                    t_id, c_name, rating, p_url, c_text, c_date = tr
+                    stars = "⭐" * rating
+                    img_preview = f"<img src='{p_url}' style='width:50px; height:50px; object-fit:cover; border-radius:6px;' />" if p_url else "Görsel Yok"
+                    
+                    del_btn = f"""
+                    <form action="/admin-del-testimonial" method="POST" style="margin:0;">
+                        <input type="hidden" name="id" value="{t_id}">
+                        <button type="submit" style="background:#ef4444; padding:6px 10px; font-size:11px; width:auto;">Sil</button>
+                    </form>
+                    """
+                    rows += f"<tr><td>#{t_id}</td><td><b>{c_name}</b></td><td>{stars} ({rating}/5)</td><td>{img_preview}</td><td style='max-width:250px;'>{c_text}</td><td>{c_date}</td><td>{del_btn}</td></tr>"
+
+                content_html = f"""
+                <div class="form-box">
+                    <h2>➕ Yeni Müşteri Yorumu / Referans Ekle</h2>
+                    <form action="/admin-add-testimonial" method="POST">
+                        <label>Müşteri Adı / Rumuz:</label>
+                        <input type="text" name="customer_name" required placeholder="Örn: Burak K. (@burak...)">
+                        
+                        <label>Yıldız Puanı (1 - 5):</label>
+                        <input type="number" name="rating" min="1" max="5" value="5" required>
+                        
+                        <label>Ürün / Kutu Fotoğrafı URL'si:</label>
+                        <input type="text" name="photo_url" placeholder="https://imgur.com/...">
+                        
+                        <label>Müşteri Yorumu:</label>
+                        <textarea name="comment" rows="3" required placeholder="Saniyeler içinde teslimat, kalitesi efsane..."></textarea>
+                        
+                        <button type="submit" style="margin-top: 15px;">Yorumu Ekle & Yayınla</button>
+                    </form>
+                </div>
+
+                <div class="table-box">
+                    <h2>⭐ Yayınlanan Müşteri Referansları</h2>
+                    <table>
+                        <tr><th>ID</th><th>Müşteri</th><th>Puan</th><th>Fotoğraf</th><th>Yorum</th><th>Tarih</th><th>İşlem</th></tr>
+                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>Henüz müşteri yorumu eklenmemiş.</td></tr>"}
+                    </table>
+                </div>
                 """
             elif tab == "support":
                 cursor.execute("SELECT id, user_id, username, message, status, created_at FROM support_tickets ORDER BY id DESC")
@@ -903,6 +957,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="sidebar">
                     <div class="brand">🎄 Weed Istanbul 🌿</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
+                    <a href="/admin-web?tab=testimonials" class="{"active" if tab == "testimonials" else ""}">⭐ Testimonials</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Live Support</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
@@ -1089,7 +1144,41 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-support-reply":
+        if parsed_path.path == "/admin-add-testimonial":
+            c_name = params.get("customer_name", [""])[0]
+            try:
+                rating = int(params.get("rating", [5])[0])
+            except:
+                rating = 5
+            photo_url = params.get("photo_url", [""])[0]
+            comment = params.get("comment", [""])[0]
+
+            if c_name and comment:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO testimonials (customer_name, rating, photo_url, comment) VALUES (?, ?, ?, ?)", (c_name, rating, photo_url, comment))
+                conn.commit()
+                conn.close()
+                log_panel_event(f"⭐ Yeni Müşteri Yorumu Eklendi: {c_name} ({rating}/5)", "success")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=testimonials')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-del-testimonial":
+            t_id = params.get("id", ["0"])[0]
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM testimonials WHERE id = ?", (t_id,))
+            conn.commit()
+            conn.close()
+            log_panel_event(f"🗑️ Müşteri Yorumu Silindi: ID #{t_id}", "warning")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=testimonials')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-support-reply":
             ticket_id = params.get("ticket_id", ["0"])[0]
             target_uid = int(params.get("user_id", ["0"])[0])
             reply_text = params.get("reply_text", [""])[0]
@@ -1210,14 +1299,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT orders.user_id, drops.id, drops.stock, orders.status, drops.title, orders.final_price, drops.category 
+                SELECT orders.user_id, drops.id, drops.stock, orders.status, drops.title, orders.final_price, drops.category, users.referred_by 
                 FROM orders 
                 JOIN drops ON orders.drop_id = drops.id 
+                LEFT JOIN users ON orders.user_id = users.user_id
                 WHERE orders.id = ?
             """, (order_id,))
             row = cursor.fetchone()
             if row:
-                u_id, d_id, stock, status, t_title, f_price, t_cat = row
+                u_id, d_id, stock, status, t_title, f_price, t_cat, ref_by = row
                 if status == 'pending':
                     new_stock = stock - 1
                     if new_stock <= 0:
@@ -1227,8 +1317,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
                     cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (f_price, u_id))
                     
-                    cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
-                    rem_stock = cursor.fetchone()[0] or 0
+                    # Referans Bonusu Ödülü (Örn: Davet edene 5 USDT bonus)
+                    if ref_by:
+                        cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (ref_by,))
+                        try:
+                            asyncio.run_coroutine_threadsafe(
+                                bot.send_message(ref_by, f"🎉 **Davet Bonusu Kazandınız!**\n\nDavet ettiğiniz kullanıcı ilk alışverişini tamamladı. Cüzdanınıza **5 USDT** referans bonusu eklendi!"),
+                                main_loop
+                            )
+                        except:
+                            pass
 
                     conn.commit()
                     conn.close()
@@ -1363,13 +1461,14 @@ def main_keyboard(lang="tr"):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
-            [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
+            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_refs"])],
+            [KeyboardButton(text=t["btn_faq"]), KeyboardButton(text=t["btn_support"])],
+            [KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
     )
 
-# --- /START KOMUTU ---
+# --- /START KOMUTU & REFERANS ALGILAMA ---
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
@@ -1379,6 +1478,17 @@ async def cmd_start(message: types.Message):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
     
+    # Referans parametresi kontrolü (Örn: /start ref1012940363)
+    args = message.text.split()
+    referred_by = None
+    if len(args) > 1 and args[1].startswith("ref"):
+        try:
+            ref_id = int(args[1].replace("ref", ""))
+            if ref_id != user_id:
+                referred_by = ref_id
+        except:
+            pass
+
     is_member = await check_user_subscription(user_id)
     if not is_member:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1394,7 +1504,10 @@ async def cmd_start(message: types.Message):
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
+    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        cursor.execute("INSERT INTO users (user_id, username, referred_by) VALUES (?, ?, ?)", (user_id, message.from_user.username, referred_by))
     conn.commit()
     conn.close()
 
@@ -1444,7 +1557,39 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
 
-# --- 💰 CÜZDAN & PROFİL SİSTEMİ (VIP) ---
+# --- ⭐ REFERANSLAR & MÜŞTERİ YORUMLARI BOT EKRANI ---
+@dp.message(F.text.in_([LANG["tr"]["btn_refs"], LANG["en"]["btn_refs"]]))
+async def testimonials_menu(message: types.Message):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT customer_name, rating, photo_url, comment, created_at FROM testimonials ORDER BY id DESC LIMIT 5")
+    tests = cursor.fetchall()
+    conn.close()
+
+    if not tests:
+        await message.answer("⭐ Henüz müşteri yorumu eklenmemiş. Çok yakında burada gerçek deneyimler yer alacak!")
+        return
+
+    await message.answer("⭐ **Gerçek Müşteri Yorumları & Referanslar**\n\nMüşterilerimizin bizimle ilgili paylaştığı deneyimler:")
+    
+    for tr in tests:
+        c_name, rating, p_url, comment, c_date = tr
+        stars = "⭐" * rating
+        text = f"👤 **{c_name}** ({stars})\n💬 *\"{comment}\"* \n📅 {c_date}"
+        
+        if p_url:
+            try:
+                await message.answer_photo(photo=p_url, caption=text)
+            except:
+                await message.answer(text)
+        else:
+            await message.answer(text)
+
+# --- 💰 CÜZDAN & PROFİL SİSTEMİ (REFERANS LİNKİ İLE) ---
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
 async def wallet_menu(message: types.Message):
     user_id = message.from_user.id
@@ -1454,11 +1599,14 @@ async def wallet_menu(message: types.Message):
     t = LANG[lang]
     bal, spent = get_user_profile(user_id)
     status_str = "👑 VIP Müşteri" if spent >= 100 else "⭐ Standart Üye"
+    
+    bot_info = await bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start=ref{user_id}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]
     ])
-    await message.answer(t["profile_text"].format(uid=user_id, status=status_str, balance=bal, spent=spent), reply_markup=kb)
+    await message.answer(t["profile_text"].format(uid=user_id, status=status_str, balance=bal, spent=spent, ref_link=ref_link), reply_markup=kb)
 
 @dp.callback_query(F.data == "start_deposit")
 async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
@@ -1627,7 +1775,7 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     except Exception as e:
         logging.error(e)
 
-# --- 📢 BROADCAST (TOPLU DUYURU KOMUTU) ---
+# --- 📢 BROADCAST ---
 @dp.message(Command("broadcast"))
 async def cmd_broadcast(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
@@ -1840,7 +1988,6 @@ async def process_buy(callback: types.CallbackQuery):
     title, price, stock = drop
     bal, spent = get_user_profile(user_id)
     
-    # VIP İndirimi Kontrolü (Toplam harcama 100 USDT üstü ise %10 indirim)
     is_vip = spent >= 100
     final_buy_price = round(price * 0.9, 2) if is_vip else price
     vip_info_str = "(👑 VIP İndirimli!)" if is_vip else ""
@@ -1892,6 +2039,19 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
 
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, final_buy_price))
     order_id = cursor.lastrowid
+
+    cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
+    ref_row = cursor.fetchone()
+    if ref_row and ref_row[0]:
+        ref_id = ref_row[0]
+        cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (ref_id,))
+        try:
+            asyncio.run_coroutine_threadsafe(
+                bot.send_message(ref_id, f"🎉 **Davet Bonusu Kazandınız!**\n\nDavet ettiğiniz kullanıcı ilk alışverişini tamamladı. Cüzdanınıza **5 USDT** referans bonusu eklendi!"),
+                main_loop
+            )
+        except:
+            pass
 
     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
     rem_stock = cursor.fetchone()[0] or 0
@@ -2028,9 +2188,10 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT orders.user_id, drops.id, drops.stock, orders.status, orders.created_at, drops.title, orders.final_price, drops.category 
+        SELECT orders.user_id, drops.id, drops.stock, orders.status, orders.created_at, drops.title, orders.final_price, drops.category, users.referred_by 
         FROM orders 
         JOIN drops ON orders.drop_id = drops.id 
+        LEFT JOIN users ON orders.user_id = users.user_id
         WHERE orders.id = ?
     """, (order_id,))
     data = cursor.fetchone()
@@ -2038,7 +2199,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         await callback.answer(t["not_found"], show_alert=True)
         conn.close()
         return
-    user_id, drop_id, stock, status, created_at_str, title, final_price, category = data
+    user_id, drop_id, stock, status, created_at_str, title, final_price, category, ref_by = data
     if status == 'completed':
         await callback.answer(t["already_approved"], show_alert=True)
         conn.close()
@@ -2077,6 +2238,16 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
         cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (final_price, user_id))
         
+        if ref_by:
+            cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (ref_by,))
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    bot.send_message(ref_by, f"🎉 **Davet Bonusu Kazandınız!**\n\nDavet ettiğiniz kullanıcı ilk alışverişini tamamladı. Cüzdanınıza **5 USDT** referans bonusu eklendi!"),
+                    main_loop
+                )
+            except:
+                pass
+
         cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
         rem_stock = cursor.fetchone()[0] or 0
 
