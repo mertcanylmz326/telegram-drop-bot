@@ -712,51 +712,51 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 50% 20%, rgba(15, 23, 42, 0.88) 0%, rgba(2, 6, 9, 0.95) 100%); z-index: 0; }}
                     #snowflake-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }}
                     
-                    /* Üst Header / Hamburger Butonu (Kesin Tıklanabilir) */
-                    .top-nav-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 65px; background: rgba(10, 18, 26, 0.92); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 100; box-sizing: border-box; }}
-                    .menu-toggle-btn {{ background: linear-gradient(135deg, #dc2626, #b91c1c); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 10px 16px; border-radius: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 15px; transition: 0.3s; width: auto; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5); z-index: 101; }}
+                    /* Üst Bar ve Buton (En Üst Katman) */
+                    .top-nav-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(10, 18, 26, 0.95); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 99999; box-sizing: border-box; }}
+                    .menu-toggle-btn {{ background: linear-gradient(135deg, #dc2626, #b91c1c); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5); z-index: 100000; }}
                     .menu-toggle-btn:active {{ transform: scale(0.95); }}
 
                     /* Sol Açılır Pencere (Slide-out Drawer) */
-                    .sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(5px); z-index: 1000; opacity: 0; visibility: hidden; transition: 0.3s ease; }}
+                    .sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 99990; opacity: 0; visibility: hidden; transition: 0.3s ease; }}
                     .sidebar-overlay.open {{ opacity: 1; visibility: visible; }}
 
-                    .sidebar {{ position: fixed; top: 0; left: -320px; width: 280px; height: 100%; background: rgba(10, 18, 26, 0.98); border-right: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 15px 0 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 1001; backdrop-filter: blur(25px); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); }}
+                    .sidebar {{ position: fixed; top: 0; left: -320px; width: 280px; height: 100%; background: rgba(10, 18, 26, 0.99); border-right: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 20px 0 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 99995; backdrop-filter: blur(25px); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); }}
                     .sidebar.open {{ left: 0; }}
 
                     .sidebar .brand {{ font-size: 18px; font-weight: 900; color: #f87171; text-align: center; margin-bottom: 20px; text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); display: flex; align-items: center; justify-content: center; gap: 8px; }}
-                    .close-drawer {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 8px; box-shadow: none; }}
+                    .close-drawer {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 8px; }}
                     .close-drawer:hover {{ background: rgba(239, 68, 68, 0.2); color: white; }}
 
                     .sidebar a {{ background: rgba(255, 255, 255, 0.02); color: #cbd5e1; padding: 12px 16px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid rgba(255, 255, 255, 0.04); transition: 0.3s; display: flex; align-items: center; gap: 10px; }}
                     .sidebar a.active, .sidebar a:hover {{ background: linear-gradient(135deg, rgba(220, 38, 38, 0.25), rgba(16, 185, 129, 0.2)); color: #f8fafc; border-color: rgba(239, 68, 68, 0.5); transform: translateX(6px); box-shadow: 0 0 15px rgba(220, 38, 38, 0.2); }}
                     .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; color: #fca5a5 !important; margin-top: auto; border: 1px solid rgba(239, 68, 68, 0.3) !important; text-align: center; justify-content: center; }}
                     
-                    .main-content {{ flex: 1; padding: 90px 25px 35px 25px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; margin: 0 auto; width: 100%; z-index: 2; }}
-                    .header-title {{ color: #f8fafc; font-size: 22px; font-weight: 800; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 2px 10px rgba(0,0,0,0.5); flex-wrap: wrap; gap: 15px; }}
+                    .main-content {{ flex: 1; padding: 85px 20px 30px 20px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; margin: 0 auto; width: 100%; z-index: 2; }}
+                    .header-title {{ color: #f8fafc; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 2px 10px rgba(0,0,0,0.5); flex-wrap: wrap; gap: 12px; }}
                     
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .card {{ background: rgba(15, 23, 42, 0.75); padding: 22px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }}
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
+                    .card {{ background: rgba(15, 23, 42, 0.75); padding: 20px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }}
                     .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 25px rgba(16, 185, 129, 0.15); }}
                     .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 25px rgba(239, 68, 68, 0.15); }}
                     .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 25px rgba(245, 158, 11, 0.15); }}
-                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 1px; }}
-                    .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
+                    .card h3 {{ margin: 0 0 8px 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1px; }}
+                    .card p {{ margin: 0; font-size: 26px; font-weight: 900; color: #f8fafc; }}
                     
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.8); padding: 20px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow-x: auto; }}
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }}
+                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.8); padding: 18px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 25px; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow-x: auto; }}
                     
-                    input, textarea {{ width: 100%; padding: 12px 15px; margin: 8px 0 16px 0; background: rgba(5, 10, 14, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 14px; transition: 0.3s; }}
+                    input, textarea {{ width: 100%; padding: 10px 14px; margin: 6px 0 14px 0; background: rgba(5, 10, 14, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 13px; transition: 0.3s; }}
                     input:focus, textarea:focus {{ border-color: #ef4444; outline: none; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }}
                     
-                    button {{ background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 12px 20px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.3s; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }}
+                    button {{ background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 10px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.3s; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }}
                     button:hover {{ background: linear-gradient(135deg, #ef4444, #dc2626); transform: translateY(-1px); }}
                     
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 12px; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+                    th, td {{ padding: 10px 8px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 11px; }}
                     th {{ color: #94a3b8; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
                     
-                    .action-btn {{ padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
+                    .action-btn {{ padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; display: inline-block; }}
                     .edit-btn {{ background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid rgba(217, 119, 6, 0.4); }}
                 </style>
             </head>
@@ -765,16 +765,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 
                 <!-- Üst Navbar ve Kesin Çalışan Hamburger Menü Butonu -->
                 <div class="top-nav-bar">
-                    <button id="menuBtn" class="menu-toggle-btn" type="button">
+                    <button class="menu-toggle-btn" type="button" onclick="openSidebar()">
                         ☰ Menü / Sekmeler
                     </button>
-                    <span style="font-weight: 800; color: #f87171; font-size: 13px; text-shadow: 0 0 10px rgba(239,68,68,0.5);">🎄 Weed Istanbul</span>
+                    <span style="font-weight: 800; color: #f87171; font-size: 12px; text-shadow: 0 0 10px rgba(239,68,68,0.5);">🎄 Weed Istanbul</span>
                 </div>
 
                 <!-- Sol Açılır Pencere / Çekmece (Drawer) -->
-                <div class="sidebar-overlay" id="sidebarOverlay"></div>
+                <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
                 <div class="sidebar" id="sidebarDrawer">
-                    <button class="close-drawer" id="closeBtn" type="button">✕ Menüyü Kapat</button>
+                    <button class="close-drawer" type="button" onclick="closeSidebar()">✕ Menüyü Kapat</button>
                     <div class="brand">🎄 Weed Istanbul 🎅</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
                     <a href="/admin-web?tab=wallet_txs" class="{"active" if tab == "wallet_txs" else ""}">💰 Cüzdan Hareketleri</a>
@@ -799,22 +799,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <script>
-                    document.addEventListener("DOMContentLoaded", function() {{
-                        const menuBtn = document.getElementById('menuBtn');
-                        const closeBtn = document.getElementById('closeBtn');
+                    function openSidebar() {{
                         const sidebar = document.getElementById('sidebarDrawer');
                         const overlay = document.getElementById('sidebarOverlay');
-
-                        function toggleMenu(e) {{
-                            if (e) e.stopPropagation();
-                            sidebar.classList.toggle('open');
-                            overlay.classList.toggle('open');
+                        if (sidebar && overlay) {{
+                            sidebar.classList.add('open');
+                            overlay.classList.add('open');
                         }}
+                    }}
 
-                        if (menuBtn) menuBtn.addEventListener('click', toggleMenu);
-                        if (closeBtn) closeBtn.addEventListener('click', toggleMenu);
-                        if (overlay) overlay.addEventListener('click', toggleMenu);
-                    }});
+                    function closeSidebar() {{
+                        const sidebar = document.getElementById('sidebarDrawer');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        if (sidebar && overlay) {{
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('open');
+                        }}
+                    }}
 
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
@@ -822,7 +823,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     let height = canvas.height = window.innerHeight;
                     window.addEventListener('resize', () => {{ width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }});
                     const snowflakes = [];
-                    for (let i = 0; i < 60; i++) {{ snowflakes.push({{ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 2 + 0.5, speed: Math.random() * 0.6 + 0.3 }}); }}
+                    for (let i = 0; i < 50; i++) {{ snowflakes.push({{ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 2 + 0.5, speed: Math.random() * 0.5 + 0.2 }}); }}
                     function draw() {{
                         ctx.clearRect(0, 0, width, height);
                         ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
@@ -1428,7 +1429,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
 async def process_buy_crypto(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if is_user_banned(user_id): return
-    lang = get_user_lang(callback.from_user.id)
+    lang = get_user_lang(user_id)
     t = LANG[lang]
     drop_id = int(callback.data.split("_")[1])
     conn = sqlite3.connect("drop_bot.db")
