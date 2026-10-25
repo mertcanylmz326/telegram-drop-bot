@@ -272,17 +272,15 @@ def is_user_banned(user_id: int) -> bool:
     conn.close()
     return res is not None and res[0] == 1
 
-# --- KANAL ÜYELİK KONTROLÜ (DÜZELTME BURADA) ---
+# --- KANAL ÜYELİK KONTROLÜ ---
 async def check_user_subscription(user_id: int) -> bool:
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-        # Üye ayrılmış, yasaklanmış veya solmuşsa geçersiz say
         if member.status in ["left", "kicked"]:
             return False
         return True
     except Exception as e:
         logging.error(f"Kanal üyelik kontrol hatası: {e}")
-        # Hata durumunda (örn. bot kanalda admin değilse veya api hatası) geçmesine izin verelim ki takılmasın
         return True
 
 async def auto_backup_task():
@@ -296,7 +294,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- GELİŞMİŞ WEB SUNUCUSU (Aynen Korundu) ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (YENİLENMİŞ TASARIM VE CRM) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -308,7 +306,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"Weed Istanbul Server Active!")
+            self.wfile.write(b"Weed Istanbul Christmas Server Active!")
             return
 
         if parsed_path.path == "/admin-web":
@@ -336,9 +334,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 logs_html = ""
                 for l in logs:
                     msg, l_type, l_date = l
-                    badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#3b82f6")
+                    badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#38bdf8")
                     logs_html += f"""
-                    <div style="background: #0f172a; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
+                    <div style="background: rgba(15, 23, 42, 0.7); padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid {badge_color}; font-size: 13px; backdrop-filter: blur(5px);">
                         <span style="color: #64748b; font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
                         {msg}
                     </div>
@@ -350,14 +348,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     GROUP BY cday ORDER BY cday ASC LIMIT 7
                 """)
                 chart_rows = cursor.fetchall()
-                labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
+                labels = [r[0] for r in chart_rows] if chart_rows else ["Today"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
                 content_html = f"""
                 <div class="stats-grid">
-                    <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
-                    <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
-                    <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
+                    <div class="card neon-green"><h3>🎅 TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
+                    <div class="card neon-red"><h3>🎄 ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
+                    <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
                 <div class="grid-2">
@@ -384,8 +382,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             datasets: [{{
                                 label: 'Revenue (USDT)',
                                 data: {values},
-                                borderColor: '#38bdf8',
-                                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
                                 fill: true,
                                 tension: 0.3
                             }}]
@@ -394,8 +392,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             responsive: true,
                             plugins: {{ legend: {{ display: false }} }},
                             scales: {{
-                                x: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }},
-                                y: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }}
+                                x: {{ grid: {{ color: '#1e293b' }}, ticks: {{ color: '#94a3b8' }} }},
+                                y: {{ grid: {{ color: '#1e293b' }}, ticks: {{ color: '#94a3b8' }} }}
                             }}
                         }}
                     }});
@@ -408,24 +406,32 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for u in users_list:
                     uid, uname, is_b, u_lang, u_bal = u
                     username_str = f"@{uname}" if uname else "N/A"
-                    status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
+                    status_badge = "<span style='color:#ef4444; font-weight:bold; background:rgba(239,68,68,0.2); padding:3px 8px; border-radius:6px;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:3px 8px; border-radius:6px;'>ACTIVE</span>"
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
                         <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
-                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:5px 10px; font-size:11px; width:auto;">
+                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:11px; width:auto; border-radius:6px;">
                             {'Unban' if is_b == 1 else 'Ban'}
                         </button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b>{u_bal} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    bal_form = f"""
+                    <form action="/admin-balance" method="POST" style="margin:0; display:flex; gap:5px; align-items:center;">
+                        <input type="hidden" name="user_id" value="{uid}">
+                        <input type="number" step="0.1" name="amount" placeholder="USDT" style="width:70px; padding:5px; margin:0; font-size:12px; height:28px;">
+                        <button type="submit" name="op" value="add" style="background:#10b981; padding:4px 8px; font-size:11px; width:auto; height:28px; line-height:10px;">+</button>
+                        <button type="submit" name="op" value="sub" style="background:#ef4444; padding:4px 8px; font-size:11px; width:auto; height:28px; line-height:10px;">-</button>
+                    </form>
+                    """
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b style='color:#38bdf8; font-size:15px;'>{u_bal} USDT</b></td><td>{bal_form}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>👥 User Management & Balances (CRM)</h2>
+                    <h2>🎅 CRM & Cüzdan Bakiye Yönetimi</h2>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Balance</th><th>Status</th><th>Action</th></tr>
-                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye</th><th>Bakiye Düzenle</th><th>Status</th><th>Ban / Unban</th></tr>
+                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -548,8 +554,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         container.innerHTML = '';
                         for (let i = 1; i <= count; i++) {
                             container.innerHTML += `
-                                <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
-                                    <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
+                                <div style="background: rgba(15, 23, 42, 0.8); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #1e293b;">
+                                    <h4 style="color: #10b981; margin-top: 0;">📍 Drop #${i} Detayları</h4>
                                     <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
                                     <label>Fotoğraf URL'si (Görsel Linki):</label>
@@ -572,7 +578,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if drop_data:
                     e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc = drop_data
                     edit_form_html = f"""
-                    <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
+                    <div class="form-box" style="border: 2px solid #10b981; margin-bottom: 30px;">
                         <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
                         <form action="/admin-update" method="POST">
                             <input type="hidden" name="id" value="{edit_id}">
@@ -603,32 +609,157 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Weed Istanbul Yönetim Paneli</title>
+                <title>🎄 Weed Istanbul Christmas Panel 🌿</title>
                 <style>
-                    body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; }}
-                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 30px; letter-spacing: 0.5px; }}
-                    .sidebar a {{ background: transparent; color: #9ca3af; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: #1e293b; color: #38bdf8; border-color: #334155; }}
-                    .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
-                    .logout-link:hover {{ background: #dc2626 !important; }}
+                    body {{
+                        background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+                        background-size: cover;
+                        color: #f8fafc;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        margin: 0;
+                        display: flex;
+                        min-height: 100vh;
+                        position: relative;
+                    }}
+                    body::before {{
+                        content: "";
+                        position: absolute;
+                        top: 0; left: 0; right: 0; bottom: 0;
+                        background: rgba(5, 10, 14, 0.88);
+                        z-index: 0;
+                    }}
+                    .sidebar {{
+                        width: 270px;
+                        background: rgba(10, 18, 26, 0.85);
+                        border-right: 1px solid rgba(16, 185, 129, 0.2);
+                        display: flex;
+                        flex-direction: column;
+                        padding: 25px 18px;
+                        box-sizing: border-box;
+                        z-index: 1;
+                        backdrop-filter: blur(12px);
+                    }}
+                    .sidebar .brand {{
+                        font-size: 22px;
+                        font-weight: 900;
+                        color: #10b981;
+                        text-align: center;
+                        margin-bottom: 30px;
+                        letter-spacing: 1px;
+                        text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+                    }}
+                    .sidebar a {{
+                        background: transparent;
+                        color: #94a3b8;
+                        padding: 12px 16px;
+                        border-radius: 10px;
+                        text-decoration: none;
+                        font-weight: 600;
+                        font-size: 14px;
+                        margin-bottom: 8px;
+                        border: 1px solid transparent;
+                        transition: all 0.3s ease;
+                        display: block;
+                    }}
+                    .sidebar a.active, .sidebar a:hover {{
+                        background: rgba(16, 185, 129, 0.15);
+                        color: #10b981;
+                        border-color: rgba(16, 185, 129, 0.4);
+                        box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+                    }}
+                    .logout-link {{
+                        background: rgba(239, 68, 68, 0.2) !important;
+                        color: #ef4444 !important;
+                        margin-top: auto;
+                        text-align: center;
+                        border: 1px solid rgba(239, 68, 68, 0.3) !important;
+                    }}
+                    .logout-link:hover {{
+                        background: #dc2626 !important;
+                        color: white !important;
+                    }}
                     
-                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
-                    .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
+                    .main-content {{
+                        flex: 1;
+                        padding: 35px;
+                        box-sizing: border-box;
+                        overflow-y: auto;
+                        max-width: 1200px;
+                        z-index: 1;
+                    }}
+                    .header-title {{
+                        color: #f8fafc;
+                        font-size: 26px;
+                        font-weight: 800;
+                        margin-top: 0;
+                        margin-bottom: 30px;
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                        padding-bottom: 15px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }}
                     
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .card {{ background: #111827; padding: 22px; border-radius: 14px; border: 1px solid #1f2937; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
-                    .card h3 {{ margin: 0 0 10px 0; color: #6b7280; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
-                    .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
+                    .stats-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }}
+                    .card {{
+                        background: rgba(15, 23, 42, 0.75);
+                        padding: 22px;
+                        border-radius: 16px;
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        text-align: center;
+                        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+                        backdrop-filter: blur(8px);
+                    }}
+                    .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 15px rgba(16, 185, 129, 0.15); }}
+                    .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 15px rgba(239, 68, 68, 0.15); }}
+                    .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 15px rgba(245, 158, 11, 0.15); }}
+                    
+                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
+                    .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
                     
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
-                    input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; }}
-                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
-                    button:hover {{ background: #1d4ed8; }}
+                    .form-box, .table-box {{
+                        background: rgba(15, 23, 42, 0.75);
+                        padding: 25px;
+                        border-radius: 16px;
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        margin-bottom: 30px;
+                        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+                        backdrop-filter: blur(8px);
+                    }}
+                    input, textarea {{
+                        width: 100%;
+                        padding: 12px;
+                        margin: 8px 0 16px 0;
+                        background: rgba(5, 10, 14, 0.7);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 8px;
+                        color: white;
+                        box-sizing: border-box;
+                        font-size: 14px;
+                    }}
+                    button {{
+                        background: #10b981;
+                        color: white;
+                        padding: 12px 20px;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        width: 100%;
+                        font-size: 14px;
+                        transition: 0.3s;
+                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+                    }}
+                    button:hover {{ background: #059669; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }}
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid #1f2937; font-size: 14px; }}
-                    th {{ color: #6b7280; font-weight: 700; font-size: 12px; text-transform: uppercase; }}
+                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; }}
+                    th {{ color: #94a3b8; font-weight: 700; font-size: 12px; text-transform: uppercase; }}
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
@@ -646,20 +777,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="sidebar">
-                    <div class="brand">🌿 Weed Istanbul</div>
+                    <div class="brand">🎄 Weed Istanbul 🌿</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
                     <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 CRM & Balances</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & Balances</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
 
                 <div class="main-content">
                     <div class="header-title">
-                        <span>👑 Weed Istanbul Management System</span>
-                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🌐 Multi-Language & Wallet Active</span>
+                        <span>🎅 Weed Istanbul Christmas Management</span>
+                        <span style="font-size: 13px; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);">🎄 Happy Holidays Edition</span>
                     </div>
                     {edit_form_html}
                     {content_html}
@@ -725,10 +856,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <style>
                         body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
                         .card {{ background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
-                        h2 {{ color: #38bdf8; margin-top: 0; }}
+                        h2 {{ color: #10b981; margin-top: 0; }}
                         .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
-                        .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
-                        .btn:hover {{ background: #1d4ed8; }}
+                        .btn {{ display: block; background: #10b981; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
+                        .btn:hover {{ background: #059669; }}
                         .warning {{ color: #ef4444; font-size: 12px; margin-top: 15px; }}
                     </style>
                 </head>
@@ -781,7 +912,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-ban":
+        if parsed_path.path == "/admin-balance":
+            target_uid = params.get("user_id", ["0"])[0]
+            op = params.get("op", ["add"])[0]
+            try:
+                amount = float(params.get("amount", [0])[0])
+            except:
+                amount = 0.0
+
+            if amount > 0:
+                change = amount if op == "add" else -amount
+                update_user_balance(int(target_uid), change)
+                log_panel_event(f"💰 Admin tarafından Bakiye İşlemi: Kullanıcı {target_uid} -> {'+' if op == 'add' else '-'}{amount} USDT", "info")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=users')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-ban":
             target_uid = params.get("user_id", ["0"])[0]
             action = params.get("action", ["ban"])[0]
             is_b = 1 if action == "ban" else 0
@@ -925,19 +1073,41 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Admin Giriş</title>
+            <title>🎄 Admin Giriş 🎅</title>
             <style>
-                body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
-                h2 {{ color: #38bdf8; margin-top: 0; }}
-                input {{ width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; }}
-                button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 14px; }}
-                button:hover {{ background: #1d4ed8; }}
+                body {{
+                    background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+                    background-size: cover;
+                    color: #f8fafc;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;
+                }}
+                body::before {{
+                    content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(5, 10, 14, 0.88); z-index: 0;
+                }}
+                .login-card {{
+                    position: relative; z-index: 1;
+                    background: rgba(15, 23, 42, 0.85); padding: 35px; border-radius: 20px;
+                    border: 1px solid rgba(16, 185, 129, 0.3); width: 100%; max-width: 360px; text-align: center;
+                    box-shadow: 0 0 30px rgba(16, 185, 129, 0.2); backdrop-filter: blur(10px);
+                }}
+                h2 {{ color: #10b981; margin-top: 0; font-weight: 800; }}
+                input {{
+                    width: 100%; padding: 12px; margin: 10px 0; background: rgba(5, 10, 14, 0.7);
+                    border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: white; box-sizing: border-box;
+                }}
+                button {{
+                    background: #10b981; color: white; padding: 12px; border: none; border-radius: 8px;
+                    font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 14px;
+                    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); transition: 0.3s;
+                }}
+                button:hover {{ background: #059669; }}
             </style>
         </head>
         <body>
             <div class="login-card">
-                <h2>🔐 Admin Girişi</h2>
+                <h2>🎅 Admin Girişi 🎄</h2>
                 {err_html}
                 <form action="/admin-login" method="POST">
                     <input type="text" name="username" required placeholder="Kullanıcı Adı">
@@ -961,7 +1131,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         <!DOCTYPE html>
         <html lang="tr">
         <head><meta charset="UTF-8"><title>Hata</title></head>
-        <body style="background:#090d16;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
+        <body style="background:#050a0e;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
             <h2>⚠️ {message}</h2>
         </body>
         </html>
@@ -1002,7 +1172,7 @@ def main_keyboard(lang="tr"):
         resize_keyboard=True
     )
 
-# --- DÜZELTİLMİŞ /START KOMUTU ---
+# --- /START KOMUTU ---
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
@@ -1012,7 +1182,6 @@ async def cmd_start(message: types.Message):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
     
-    # Kanal üyeliğini kontrol et
     is_member = await check_user_subscription(user_id)
     if not is_member:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -1038,7 +1207,6 @@ async def cmd_start(message: types.Message):
     ])
     await message.answer(LANG[lang]["welcome"], reply_markup=kb)
 
-# Kullanıcı kanala katıldıktan sonra kontrol butonuna basarsa
 @dp.callback_query(F.data == "check_sub")
 async def check_sub_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
