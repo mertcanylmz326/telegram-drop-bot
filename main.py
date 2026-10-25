@@ -76,7 +76,7 @@ def is_admin(user_id: int) -> bool:
     conn.close()
     return res is not None
 
-# --- GELİŞMİŞ WEB SUNUCUSU (GİRİŞ EKRANI + DASHBOARD) ---
+# --- GELİŞMİŞ WEB SUNUCUSU ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -549,8 +549,14 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
-    if message.chat.type != "private" or not is_admin(message.from_user.id):
+    if message.chat.type != "private":
         return
+    
+    # Eğer bu ID veritabanındaki adminlerde yoksa sana ID'ni söylüyoruz
+    if not is_admin(message.from_user.id):
+        await message.answer(f"⚠️ Bu komuta yetkiniz yok!\nSizin Telegram ID'niz: `{message.from_user.id}`\n(Koddaki ADMIN_ID ile eşleşmiyor)")
+        return
+
     web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
@@ -625,7 +631,7 @@ async def p_desc(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ Ürün başarıyla eklendi!")
 
-# --- 🔒 ANONİM YANITLAMA KÖPRÜSÜ (EN ALTA TAŞINDI) ---
+# --- ANONİM YANITLAMA KÖPRÜSÜ ---
 @dp.message()
 async def handle_admin_group_reply(message: types.Message):
     if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
@@ -635,7 +641,6 @@ async def handle_admin_group_reply(message: types.Message):
             target_user_id = int(match.group(1))
             admin_reply_text = message.text
             try:
-                await bot.reset_webhook(drop_pending_updates=True) if False else None
                 await bot.send_message(
                     target_user_id,
                     f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
