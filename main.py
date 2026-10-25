@@ -26,7 +26,7 @@ def run_health_server():
 # Arka planda portu açık tutmak için web sunucusunu başlatıyoruz
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- AYARLAR (YENİ BOT TOKEN) ---
+# --- AYARLAR ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 
@@ -135,10 +135,10 @@ async def process_buy(callback: types.CallbackQuery):
     conn.close()
 
     payment_text = (
-        f"✅ **Sipariş Oluşturuldu!** (Sipariş No: #{order_id})\n\n"
-        f"📌 **Ürün:** {title}\n"
-        f"💰 **Tutar:** {price} TL\n\n"
-        "💳 **Ödeme Yöntemi:**\n"
+        f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
+        f"📌 Ürün: {title}\n"
+        f"💰 Tutar: {price} TL\n\n"
+        "💳 Ödeme Yöntemi:\n"
         "Lütfen ödemeyi yaptıktan sonra aşağıdaki onay butonuna basın.\n"
         "Ödeme onaylandığı an konum ve fotoğraflar otomatik olarak iletilecektir."
     )
@@ -147,7 +147,7 @@ async def process_buy(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="✅ Ödemeyi Yaptım (Onay İste)", callback_data=f"payonay_{order_id}")]
     ])
 
-    await callback.message.edit_text(payment_text, reply_markup=kb, parse_mode="Markdown")
+    await callback.message.edit_text(payment_text)
 
 # --- ÖDEME BİLDİRİMİ ---
 @dp.callback_query(F.data.startswith("payonay_"))
@@ -165,12 +165,11 @@ async def process_payment_notification(callback: types.CallbackQuery):
 
     await bot.send_message(
         ADMIN_ID, 
-        f"🔔 **YENİ ÖDEME BİLDİRİMİ**\n\nSipariş No: #{order_id}\nKullanıcı ID: `{callback.from_user.id}`",
-        reply_markup=admin_kb,
-        parse_mode="Markdown"
+        f"🔔 YENİ ÖDEME BİLDİRİMİ\n\nSipariş No: #{order_id}\nKullanıcı ID: {callback.from_user.id}",
+        reply_markup=admin_kb
     )
 
-# --- ADMIN: ÖDEME ONAYLAMA ---
+# --- ADMIN: ÖDEME ONAYLAMA (GÜNCELLENMİŞ VE HATASIZ) ---
 @dp.callback_query(F.data.startswith("adm_approve_"))
 async def admin_approve(callback: types.CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
@@ -196,26 +195,34 @@ async def admin_approve(callback: types.CallbackQuery):
 
     user_id, drop_id, location_url, photo_ids, description = data
 
-    cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
-    cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-    conn.commit()
-    conn.close()
-
     msg_text = (
-        "🎉 **Ödemeniz Onaylandı!**\n\n"
-        f"📍 **Konum Linki:** {location_url}\n"
-        f"📝 **Açıklama/Not:** {description}\n\n"
-        "⚠️ *Lütfen ürünü teslim aldıktan sonra bölgeden hızlıca ayrılın.*"
+        "🎉 Ödemeniz Onaylandı!\n\n"
+        f"📍 Konum Linki: {location_url}\n"
+        f"📝 Açıklama/Not: {description}\n\n"
+        "⚠️ Lütfen ürünü teslim aldıktan sonra bölgeden hızlıca ayrılın."
     )
     
-    await bot.send_message(user_id, msg_text, parse_mode="Markdown")
-    
-    if photo_ids:
-        for p_id in photo_ids.split(","):
-            if p_id.strip():
-                await bot.send_photo(user_id, p_id.strip())
+    try:
+        # Önce kullanıcıya mesajı ve fotoğrafı gönderelim
+        await bot.send_message(user_id, msg_text)
+        
+        if photo_ids:
+            for p_id in photo_ids.split(","):
+                if p_id.strip():
+                    await bot.send_photo(user_id, p_id.strip())
 
-    await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı ve bilgiler müşteriye iletildi.")
+        # Mesaj başarıyla gittikten sonra ürünü stoktan düşelim
+        cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
+        cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+        conn.commit()
+        
+        await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı ve bilgiler müşteriye başarıyla iletildi.")
+    
+    except Exception as e:
+        await callback.message.answer(f"⚠️ Hata oluştu (Mesaj gidemedi): {e}")
+    
+    finally:
+        conn.close()
 
 # --- ADMIN PANELİ ---
 @dp.message(Command("admin"))
@@ -226,39 +233,39 @@ async def cmd_admin(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Yeni Drop Ekle", callback_data="add_drop")]
     ])
-    await message.answer("👑 **Admin Paneli**", reply_markup=kb)
+    await message.answer("👑 Admin Paneli", reply_markup=kb)
 
 @dp.callback_query(F.data == "add_drop")
 async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
     if callback.from_user.id != ADMIN_ID:
         return
     await state.set_state(AddDrop.title)
-    await callback.message.answer("1️⃣ Drop için bir **Başlık/İsim** girin:")
+    await callback.message.answer("1️⃣ Drop için bir Başlık/İsim girin:")
 
 @dp.message(AddDrop.title)
 async def process_title(message: types.Message, state: FSMContext):
     await state.update_data(title=message.text)
     await state.set_state(AddDrop.price)
-    await message.answer("2️⃣ **Fiyatı** girin (Sadece sayı, örn: 1500):")
+    await message.answer("2️⃣ Fiyatı girin (Sadece sayı, örn: 1500):")
 
 @dp.message(AddDrop.price)
 async def process_price(message: types.Message, state: FSMContext):
     await state.update_data(price=float(message.text))
     await state.set_state(AddDrop.location)
-    await message.answer("3️⃣ **Google Maps / Konum Linkini** girin:")
+    await message.answer("3️⃣ Google Maps / Konum Linkini girin:")
 
 @dp.message(AddDrop.location)
-async def process_location(message: types.Message, state: FsmContext if 'FsmContext' in globals() else FSMContext):
+async def process_location(message: types.Message, state: FSMContext):
     await state.update_data(location=message.text)
     await state.set_state(AddDrop.photo)
-    await message.answer("4️⃣ Drop yerinin **Fotoğrafını** gönderin (Sadece 1 adet):")
+    await message.answer("4️⃣ Drop yerinin Fotoğrafını gönderin (Sadece 1 adet):")
 
 @dp.message(AddDrop.photo, F.photo)
 async def process_photo(message: types.Message, state: FSMContext):
     photo_id = message.photo[-1].file_id
     await state.update_data(photo=photo_id)
     await state.set_state(AddDrop.description)
-    await message.answer("5️⃣ Müşteri için **Açıklama / İpucu Notu** girin:")
+    await message.answer("5️⃣ Müşteri için Açıklama / İpucu Notu girin:")
 
 @dp.message(AddDrop.description)
 async def process_desc(message: types.Message, state: FSMContext):
@@ -274,10 +281,7 @@ async def process_desc(message: types.Message, state: FSMContext):
     conn.close()
 
     await state.clear()
-    await message.answer("✅ **Yeni Drop Başarıyla Veritabanına Eklendi!** Stoğa girdi.")
-
-# --- ADMIN PANELİNİ AÇMA YARDIMCISI ---
-# (İsteğe bağlı komutlar eklenebilir)
+    await message.answer("✅ Yeni Drop Başarıyla Veritabanına Eklendi! Stoğa girdi.")
 
 # --- BOTU BAŞLATMA ---
 async def main():
