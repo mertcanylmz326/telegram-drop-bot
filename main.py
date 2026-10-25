@@ -29,6 +29,8 @@ threading.Thread(target=run_health_server, daemon=True).start()
 # --- AYARLAR ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
+# Kripto cüzdan adresin eklendi
+CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -110,7 +112,7 @@ async def list_drops(message: types.Message):
 
     await message.answer("📦 Satın almak istediğiniz drop'u seçin:", reply_markup=kb)
 
-# --- SİPARİŞ OLUŞTURMA ---
+# --- SİPARİŞ OLUŞTURMA (KRİPTO ÖDEME ENTEGRELİ) ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     drop_id = int(callback.data.split("_")[1])
@@ -138,9 +140,11 @@ async def process_buy(callback: types.CallbackQuery):
         f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
         f"📌 Ürün: {title}\n"
         f"💰 Tutar: {price} TL\n\n"
-        "💳 Ödeme Yöntemi:\n"
-        "Lütfen ödemeyi yaptıktan sonra aşağıdaki onay butonuna basın.\n"
-        "Ödeme onaylandığı an konum ve fotoğraflar otomatik olarak iletilecektir."
+        "🔒 Ödeme Yöntemi (USDT TRC20):\n"
+        "Lütfen aşağıdaki cüzdan adresine tutarı gönderin:\n\n"
+        f"`{CRYPTO_WALLET}`\n\n"
+        "⚠️ Ödemeyi yaptıktan sonra aşağıdaki onay butonuna basın.\n"
+        "Onaylandığı an konum ve fotoğraflar otomatik olarak iletilecektir."
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -165,7 +169,7 @@ async def process_payment_notification(callback: types.CallbackQuery):
 
     await bot.send_message(
         ADMIN_ID, 
-        f"🔔 YENİ ÖDEME BİLDİRİMİ\n\nSipariş No: #{order_id}\nKullanıcı ID: {callback.from_user.id}",
+        f"🔔 YENİ ÖDEME BİLDİRİMİ (KRİPTO)\n\nSipariş No: #{order_id}\nKullanıcı ID: {callback.from_user.id}",
         reply_markup=admin_kb
     )
 
