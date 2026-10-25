@@ -1150,7 +1150,7 @@ async def process_buy_no_promo(callback: types.CallbackQuery):
         f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
         f"📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n\n"
         f"🔒 Cüzdan Adresi:\n`{CRYPTO_WALLET}`\n\n"
-        "⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın."
+        "⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.NOT:Ödeme yapıldıktan 2-3 dk sonra 'ONAY İSTE' butonuna tıklamanız önerilir!!!"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 Ödemeyi Otomatik Kontrol Et", callback_data=f"autocheck_{order_id}")]])
     await callback.message.edit_text(payment_text, reply_markup=kb)
