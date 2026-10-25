@@ -3,6 +3,7 @@ import sqlite3
 import logging
 import os
 import threading
+import re
 import aiohttp
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -14,66 +15,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# --- AYARLAR ---
-BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
-ADMIN_ID = 1012940363
-ADMIN_GROUP_ID = -1004474292737  
-ADMIN_WEB_PASSWORD = "guvenlisifre123"  # 📌 Web paneline girmek için şifren (İstediğin gibi değiştirebilirsin)
-
-CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
-USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
-
-logging.basicConfig(level=logging.INFO)
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
-
-# --- VERİTABANI KURULUMU ---
-def init_db():
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS drops (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            price REAL,
-            location_url TEXT,
-            photo_ids TEXT,
-            description TEXT,
-            stock INTEGER DEFAULT 1,
-            is_sold INTEGER DEFAULT 0
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            drop_id INTEGER,
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
-    ''')
-    cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (ADMIN_ID,))
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def is_admin(user_id: int) -> bool:
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    conn.close()
-    return res is not None
-
-# --- GELİŞMİŞ WEB SUNUCUSU (GÜVENLİ KONUM + WEB ADMIN DASHBOARD) ---
+# --- GÜÇLENDİRİLMİŞ WEB SUNUCUSU (GÜVENLİ KONUM + WEB ADMIN DASHBOARD) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -86,14 +28,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Bot and Secure Web Server are alive and running!")
             return
 
-        # 🌐 WEB TABANLI ADMIN DASHBOARD
         if parsed_path.path == "/admin-web":
             password = query_params.get("pass", [""])[0]
             if password != ADMIN_WEB_PASSWORD:
                 self.send_html_error("Yetkisiz Erişim! Şifre hatalı.")
                 return
 
-            # İstatistikleri veritabanından çek
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM drops")
@@ -140,45 +80,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <div class="container">
                     <h1>👑 Web Admin Paneli</h1>
-                    
                     <div class="stats-grid">
-                        <div class="card">
-                            <h3>TOPLAM CİRO</h3>
-                            <p>{total_revenue} USDT</p>
-                        </div>
-                        <div class="card">
-                            <h3>AKTİF STOK</h3>
-                            <p>{total_active_stock} Adet</p>
-                        </div>
-                        <div class="card">
-                            <h3>TOPLAM ÇEŞİT</h3>
-                            <p>{total_drops}</p>
-                        </div>
+                        <div class="card"><h3>TOPLAM CİRO</h3><p>{total_revenue} USDT</p></div>
+                        <div class="card"><h3>AKTİF STOK</h3><p>{total_active_stock} Adet</p></div>
+                        <div class="card"><h3>TOPLAM ÇEŞİT</h3><p>{total_drops}</p></div>
                     </div>
-
                     <div class="form-box">
                         <h2>➕ Hızlı Web'den Drop Ekle</h2>
                         <form action="/admin-add" method="POST">
                             <input type="hidden" name="pass" value="{password}">
                             <label>Ürün Başlığı:</label>
                             <input type="text" name="title" required placeholder="Örn: Taksim Drop">
-                            
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" required placeholder="20">
-                            
                             <label>Stok Adedi:</label>
                             <input type="number" name="stock" required value="1">
-                            
                             <label>Google Maps Konum Linki:</label>
                             <input type="text" name="location" required placeholder="https://maps.app.goo.gl/...">
-                            
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required placeholder="Bina girişindeki saksının arkasında..."></textarea>
-                            
                             <button type="submit">Stoğa Ekle</button>
                         </form>
                     </div>
-
                     <div class="table-box">
                         <h2>📦 Son Eklenen Droplar</h2>
                         <table>
@@ -196,7 +119,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(dashboard_html.encode("utf-8"))
             return
 
-        # Tek Kullanımlık Güvenli Konum Sayfası
         if parsed_path.path.startswith("/drop/"):
             try:
                 order_id = int(parsed_path.path.split("/")[-1])
@@ -291,7 +213,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
-            # Başarılı ekleme sonrası panele geri yönlendir
             self.send_response(303)
             self.send_header('Location', f'/admin-web?pass={ADMIN_WEB_PASSWORD}')
             self.end_headers()
@@ -321,7 +242,64 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- FSM DURUMLARI & BOT KODLARI ---
+# --- AYARLAR ---
+BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
+ADMIN_ID = 1012940363
+ADMIN_GROUP_ID = -1004474292737  
+ADMIN_WEB_PASSWORD = "guvenlisifre123"
+
+CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
+USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
+
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+def init_db():
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS drops (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            price REAL,
+            location_url TEXT,
+            photo_ids TEXT,
+            description TEXT,
+            stock INTEGER DEFAULT 1,
+            is_sold INTEGER DEFAULT 0
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            drop_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
+    ''')
+    cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (ADMIN_ID,))
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def is_admin(user_id: int) -> bool:
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return res is not None
+
 class AddDrop(StatesGroup):
     title = State()
     price = State()
@@ -341,9 +319,6 @@ class AdminManageState(StatesGroup):
 
 class SupportState(StatesGroup):
     message = State()
-
-dp = Dispatcher(storage=MemoryStorage())
-bot = Bot(token=BOT_TOKEN)
 
 def main_keyboard():
     return ReplyKeyboardMarkup(
@@ -404,9 +379,30 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ Destek mesajınız admin grubuna iletildi.")
     try:
-        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK**\n👤 ID: `{user_id}`\n💬 {user_msg}")
+        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
+
+# --- 🔒 YENİ: GRUPTAN ANONİM YANITLAMA KÖPRÜSÜ ---
+@dp.message(F.chat.id == ADMIN_GROUP_ID)
+async def handle_admin_group_reply(message: types.Message):
+    # Eğer admin gruptaki bir mesaja "Yanıtla (Reply)" yaptıysa
+    if message.reply_to_message:
+        original_text = message.reply_to_message.text or ""
+        # Mesajın içindeki Kullanıcı ID'sini regex ile yakalıyoruz
+        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
+        if match:
+            target_user_id = int(match.group(1))
+            admin_reply_text = message.text
+            try:
+                # Cevabı müşteriye bot üzerinden anonim olarak gönderiyoruz
+                await bot.send_message(
+                    target_user_id,
+                    f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
+                )
+                await message.reply("✅ Yanıt müşteriye başarıyla iletildi (Kişisel hesabın gizli tutuldu).")
+            except Exception as e:
+                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
 
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_drops(message: types.Message):
@@ -513,14 +509,13 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
 async def cmd_admin(message: types.Message):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
         return
-    
     web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web?pass={ADMIN_WEB_PASSWORD}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🌐 Web Panelini Aç (Tarayıcı)", url=web_panel_url)],
         [InlineKeyboardButton(text="➕ Telegram'dan Drop Ekle", callback_data="add_drop")],
         [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
     ])
-    await message.answer("👑 **Gelişmiş Yönetim Paneli**\n\nİster aşağıdaki butondan web tarayıcından yönet, ister Telegram'dan devam et:", reply_markup=kb)
+    await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
 @dp.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
@@ -545,7 +540,6 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- TELEGRAM DROM EKLEME WIZARD ---
 @dp.callback_query(F.data == "add_drop")
 async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
