@@ -1,12 +1,30 @@
 import asyncio
 import sqlite3
 import logging
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+
+# --- RENDER PORT HATASI ÇÖZÜCÜ (MİNİ WEB SUNUCUSU) ---
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    server.serve_forever()
+
+# Arka planda portu açık tutmak için web sunucusunu başlatıyoruz
+threading.Thread(target=run_health_server, daemon=True).start()
 
 # --- AYARLAR ---
 BOT_TOKEN = "6884909797:AAG7eXs6_whJCNkWpoDInGrYGCg92Yn2_fM"
@@ -230,7 +248,7 @@ async def process_price(message: types.Message, state: FSMContext):
     await message.answer("3️⃣ **Google Maps / Konum Linkini** girin:")
 
 @dp.message(AddDrop.location)
-async def process_location(message: types.Message, state: FSMContext):
+async def process_location(message: types.Message, state: FsmContext if 'FsmContext' in globals() else FSMContext):
     await state.update_data(location=message.text)
     await state.set_state(AddDrop.photo)
     await message.answer("4️⃣ Drop yerinin **Fotoğrafını** gönderin (Sadece 1 adet):")
