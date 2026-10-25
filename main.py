@@ -31,8 +31,8 @@ USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
 # Zorunlu Kanal Bilgisi
-REQUIRED_CHANNEL = "@anonymouspumptrades"
-REQUIRED_CHANNEL_URL = "https://t.me/anonymouspumptrades"
+REQUIRED_CHANNEL = -1004474292737
+REQUIRED_CHANNEL_URL = "https://t.me/+NReAegSp4l85NWZk"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
