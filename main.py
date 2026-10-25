@@ -13,7 +13,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
 
 # --- AYARLAR ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
@@ -52,10 +52,6 @@ def init_db():
             category TEXT DEFAULT 'Genel'
         )
     ''')
-    try:
-        cursor.execute("ALTER TABLE drops ADD COLUMN category TEXT DEFAULT 'Genel'")
-    except:
-        pass
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
@@ -67,12 +63,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    try:
-        cursor.execute("ALTER TABLE orders ADD COLUMN final_price REAL DEFAULT 0.0")
-    except:
-        pass
 
-    # 🔔 Anlık Bildirimler Tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS panel_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,9 +76,16 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
-            username TEXT
+            username TEXT,
+            is_banned INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+    except:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
     ''')
@@ -115,7 +113,27 @@ def is_admin(user_id: int) -> bool:
     conn.close()
     return res is not None
 
-# --- GELİŞMİŞ WEB SUNUCUSU ---
+def is_user_banned(user_id: int) -> bool:
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_banned FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return res is not None and res[0] == 1
+
+# --- OTOMATİK VERİTABANI YEDEĞİ GÖREVİ (24 Saatte Bir) ---
+async def auto_backup_task():
+    while True:
+        await asyncio.sleep(86400) # 24 Saat
+        try:
+            if os.path.exists("drop_bot.db"):
+                file = FSInputFile("drop_bot.db")
+                await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
+                log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
+        except Exception as e:
+            logging.error(f"Yedek alma hatası: {e}")
+
+# --- GELİŞMİŞ WEB SUNUCUSU (PROFESYONEL UI) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -127,7 +145,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"Bot and Secure Web Server are alive and running!")
+            self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
         if parsed_path.path == "/admin-web":
@@ -150,32 +168,103 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "home":
-                # Ana Sayfa: İstatistikler ve Canlı Bildirim / Uyarı Akışı
-                cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 15")
+                cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
                 logs = cursor.fetchall()
                 logs_html = ""
                 for l in logs:
                     msg, l_type, l_date = l
-                    badge_color = "#ef4444" if l_type == "warning" else ("#16a34a" if l_type == "success" else "#38bdf8")
+                    badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#3b82f6")
                     logs_html += f"""
-                    <div style="background: #0f172a; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid {badge_color}; font-size: 14px;">
-                        <span style="color: #94a3b8; font-size: 12px; display: block; margin-bottom: 4px;">{l_date}</span>
+                    <div style="background: #0f172a; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
+                        <span style="color: #64748b; font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
                         {msg}
                     </div>
                     """
-                
+
+                # Chart.js Verileri
+                cursor.execute("""
+                    SELECT DATE(created_at) as cday, SUM(final_price) 
+                    FROM orders WHERE status = 'completed' 
+                    GROUP BY cday ORDER BY cday ASC LIMIT 7
+                """)
+                chart_rows = cursor.fetchall()
+                labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
+                values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
+
                 content_html = f"""
                 <div class="stats-grid">
-                    <div class="card"><h3>TOPLAM CİRO</h3><p>{total_revenue} USDT</p></div>
-                    <div class="card"><h3>AKTİF STOK</h3><p>{total_active_stock} Adet</p></div>
-                    <div class="card"><h3>TOPLAM ÇEŞİT</h3><p>{total_drops}</p></div>
+                    <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
+                    <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
+                    <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
-                <div class="table-box">
-                    <h2>🔔 Canlı Bildirimler ve Uyarılar</h2>
-                    <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
-                        {logs_html if logs_html else "<p style='text-align:center; color:#94a3b8;'>Henüz bir bildirim bulunmuyor.</p>"}
+                <div class="grid-2">
+                    <div class="table-box">
+                        <h2>📊 Weekly Revenue Trend</h2>
+                        <canvas id="revenueChart" style="max-height: 250px;"></canvas>
                     </div>
+
+                    <div class="table-box">
+                        <h2>🔔 Live Logs & Alerts</h2>
+                        <div style="max-height: 250px; overflow-y: auto;">
+                            {logs_html if logs_html else "<p style='text-align:center; color:#64748b;'>No recent logs.</p>"}
+                        </div>
+                    </div>
+                </div>
+
+                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                <script>
+                    const ctx = document.getElementById('revenueChart').getContext('2d');
+                    new Chart(ctx, {{
+                        type: 'line',
+                        data: {{
+                            labels: {labels},
+                            datasets: [{{
+                                label: 'Revenue (USDT)',
+                                data: {values},
+                                borderColor: '#38bdf8',
+                                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                fill: true,
+                                tension: 0.3
+                            }}]
+                        }},
+                        options: {{
+                            responsive: true,
+                            plugins: {{ legend: {{ display: false }} }},
+                            scales: {{
+                                x: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }},
+                                y: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }}
+                            }}
+                        }}
+                    }});
+                </script>
+                """
+            elif tab == "users":
+                cursor.execute("SELECT user_id, username, is_banned FROM users ORDER BY user_id DESC")
+                users_list = cursor.fetchall()
+                rows = ""
+                for u in users_list:
+                    uid, uname, is_b = u
+                    username_str = f"@{uname}" if uname else "N/A"
+                    status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
+                    ban_btn = f"""
+                    <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
+                        <input type="hidden" name="user_id" value="{uid}">
+                        <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
+                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:5px 10px; font-size:11px; width:auto;">
+                            {'Unban User' if is_b == 1 else 'Ban User'}
+                        </button>
+                    </form>
+                    """
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+
+                content_html = f"""
+                <div class="table-box">
+                    <h2>👥 User Management (CRM)</h2>
+                    <table>
+                        <tr><th>User ID</th><th>Username</th><th>Status</th><th>Action</th></tr>
+                        {rows if rows else "<tr><td colspan='4' style='text-align:center;'>No users registered yet.</td></tr>"}
+                    </table>
                 </div>
                 """
             elif tab == "active":
@@ -227,7 +316,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <td>
                             <form action="/admin-approve" method="POST" style="margin:0;">
                                 <input type="hidden" name="order_id" value="{o_id}">
-                                <button type="submit" style="background:#16a34a; padding:6px 12px; font-size:12px; width:auto;">Zorla Onayla</button>
+                                <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto;">Zorla Onayla</button>
                             </form>
                         </td>
                     </tr>
@@ -339,7 +428,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
-                            <button type="submit" style="background: #16a34a;">Güncellemeyi Kaydet</button>
+                            <button type="submit" style="background: #10b981;">Güncellemeyi Kaydet</button>
                         </form>
                     </div>
                     """
@@ -354,59 +443,61 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
-                    body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    /* Sol Menü (Sidebar) */
-                    .sidebar {{ width: 260px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }}
-                    .sidebar h2 {{ color: #38bdf8; font-size: 18px; margin-top: 0; margin-bottom: 25px; text-align: center; }}
-                    .sidebar a {{ background: #0f172a; color: #94a3b8; padding: 12px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px; border: 1px solid #334155; transition: 0.2s; display: block; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: #2563eb; color: white; border-color: #2563eb; }}
+                    body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
+                    
+                    /* Modern Sleek Sidebar */
+                    .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; }}
+                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 30px; letter-spacing: 0.5px; }}
+                    .sidebar a {{ background: transparent; color: #9ca3af; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: #1e293b; color: #38bdf8; border-color: #334155; }}
                     .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
                     .logout-link:hover {{ background: #dc2626 !important; }}
                     
-                    /* Sağ İçerik Alanı */
-                    .main-content {{ flex: 1; padding: 30px; box-sizing: border-box; overflow-y: auto; max-width: 1100px; }}
-                    .header-title {{ color: #38bdf8; font-size: 24px; margin-top: 0; margin-bottom: 25px; }}
+                    /* Right Main Content Panel */
+                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
+                    .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; }}
                     
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
-                    .card {{ background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }}
-                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 14px; }}
-                    .card p {{ margin: 0; font-size: 24px; font-weight: bold; color: #38bdf8; }}
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+                    .card {{ background: #111827; padding: 22px; border-radius: 14px; border: 1px solid #1f2937; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
+                    .card h3 {{ margin: 0 0 10px 0; color: #6b7280; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
+                    .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
                     
-                    .form-box, .table-box {{ background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 30px; }}
-                    input, textarea {{ width: 100%; padding: 10px; margin: 8px 0 15px 0; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: white; box-sizing: border-box; }}
-                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }}
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
+                    .form-box, .table-box {{ background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
+                    input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; }}
+                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
                     button:hover {{ background: #1d4ed8; }}
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }}
-                    th {{ color: #94a3b8; }}
-                    .action-btn {{ padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }}
-                    .edit-btn {{ background: #ca8a04; color: white; }}
-                    .edit-btn:hover {{ background: #a16207; }}
+                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid #1f2937; font-size: 14px; }}
+                    th {{ color: #6b7280; font-weight: 700; font-size: 12px; text-transform: uppercase; }}
+                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
+                    .edit-btn {{ background: #d97706; color: white; }}
+                    .edit-btn:hover {{ background: #b45309; }}
 
-                    /* Mobil Uyumluluk */
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column; }}
-                        .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 10px; }}
-                        .sidebar h2 {{ width: 100%; margin-bottom: 10px; }}
-                        .sidebar a {{ flex: 1; min-width: 110px; font-size: 12px; text-align: center; padding: 8px; margin-bottom: 5px; }}
-                        .logout-link {{ margin-top: 5px !important; }}
-                        .main-content {{ padding: 15px; }}
+                        .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 15px; }}
+                        .sidebar .brand {{ width: 100%; margin-bottom: 15px; }}
+                        .sidebar a {{ flex: 1; min-width: 100px; font-size: 12px; text-align: center; padding: 10px 5px; margin-bottom: 0; }}
+                        .main-content {{ padding: 20px; }}
+                        .grid-2 {{ grid-template-columns: 1fr; }}
                     }}
                 </style>
             </head>
             <body>
                 <div class="sidebar">
-                    <h2>🌿 Weed Istanbul</h2>
+                    <div class="brand">🌿 Weed Istanbul</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Aktif Siparişler</a>
-                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyen Siparişler</a>
+                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyenler</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif Ürünler</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Yeni Drop Ekle</a>
+                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Müşteriler (CRM)</a>
                     <a href="/admin-logout" class="logout-link">🚪 Çıkış Yap</a>
                 </div>
 
                 <div class="main-content">
-                    <h1 class="header-title">👑 Weed Istanbul Yönetim Paneli</h1>
+                    <h1 class="header-title">👑 Weed Istanbul Management System</h1>
                     {edit_form_html}
                     {content_html}
                 </div>
@@ -459,7 +550,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
 
-                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #475569;" />' if photo_url else ''
+                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #374151;" />' if photo_url else ''
 
                 html_content = f"""
                 <!DOCTYPE html>
@@ -469,13 +560,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Güvenli Teslimat - #{order_id}</title>
                     <style>
-                        body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                        .card {{ background: #1e293b; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #334155; }}
+                        body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+                        .card {{ background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
                         h2 {{ color: #38bdf8; margin-top: 0; }}
-                        .info {{ background: #0f172a; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #475569; }}
+                        .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
                         .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
                         .btn:hover {{ background: #1d4ed8; }}
-                        .warning {{ color: #f87171; font-size: 12px; margin-top: 15px; }}
+                        .warning {{ color: #ef4444; font-size: 12px; margin-top: 15px; }}
                     </style>
                 </head>
                 <body>
@@ -527,7 +618,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-add":
+        if parsed_path.path == "/admin-ban":
+            target_uid = params.get("user_id", ["0"])[0]
+            action = params.get("action", ["ban"])[0]
+            is_b = 1 if action == "ban" else 0
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_b, target_uid))
+            conn.commit()
+            conn.close()
+
+            log_panel_event(f"🛡️ User {target_uid} status updated: {'BANNED' if is_b == 1 else 'UNBANNED'}", "warning" if is_b == 1 else "info")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=users')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-add":
             title = params.get("title", [""])[0]
             category = params.get("category", ["Genel"])[0]
             try:
@@ -645,7 +753,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def send_login_page(self, error=""):
-        err_html = f'<p style="color: #f87171; margin-bottom: 15px;">{error}</p>' if error else ''
+        err_html = f'<p style="color: #ef4444; margin-bottom: 15px;">{error}</p>' if error else ''
         login_html = f"""
         <!DOCTYPE html>
         <html lang="tr">
@@ -654,11 +762,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Admin Giriş</title>
             <style>
-                body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                .login-card {{ background: #1e293b; padding: 30px; border-radius: 16px; border: 1px solid #334155; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
+                body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+                .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
                 h2 {{ color: #38bdf8; margin-top: 0; }}
-                input {{ width: 100%; padding: 12px; margin: 10px 0; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: white; box-sizing: border-box; }}
-                button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }}
+                input {{ width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; }}
+                button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 14px; }}
                 button:hover {{ background: #1d4ed8; }}
             </style>
         </head>
@@ -688,7 +796,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         <!DOCTYPE html>
         <html lang="tr">
         <head><meta charset="UTF-8"><title>Hata</title></head>
-        <body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
+        <body style="background:#090d16;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
             <h2>⚠️ {message}</h2>
         </body>
         </html>
@@ -728,6 +836,9 @@ def main_keyboard():
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
         return
+    if is_user_banned(message.from_user.id):
+        await message.answer("❌ Erişiminiz engellenmiştir.")
+        return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (message.from_user.id, message.from_user.username))
@@ -737,7 +848,7 @@ async def cmd_start(message: types.Message):
 
 @dp.message(F.text == "❓ Nasıl Çalışır? (SSS)")
 async def faq_menu(message: types.Message):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💳 Ödeme Nasıl Yapılır?", callback_data="faq_pay")],
@@ -748,6 +859,8 @@ async def faq_menu(message: types.Message):
 
 @dp.callback_query(F.data.startswith("faq_"))
 async def faq_callback(callback: types.CallbackQuery):
+    if is_user_banned(callback.from_user.id):
+        return
     action = callback.data.split("_")[1]
     if action == "pay":
         text = "💳 Ürün seçtikten sonra verilen USDT cüzdanına tutarı gönderip onaylatırsın."
@@ -760,14 +873,14 @@ async def faq_callback(callback: types.CallbackQuery):
 
 @dp.message(F.text == "📞 Destek")
 async def support_start(message: types.Message, state: FSMContext):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     await state.set_state(SupportState.message)
     await message.answer("📞 Destek mesajınızı yazın, admin grubuna iletilsin:")
 
 @dp.message(SupportState.message)
 async def forward_support_to_group(message: types.Message, state: FSMContext):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     user_msg = message.text
     user_id = message.from_user.id
@@ -835,7 +948,7 @@ async def back_admin(callback: types.CallbackQuery):
 # --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_categories(message: types.Message):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -856,6 +969,8 @@ async def list_categories(message: types.Message):
 
 @dp.callback_query(F.data.startswith("cat_"))
 async def list_drops_by_category(callback: types.CallbackQuery):
+    if is_user_banned(callback.from_user.id):
+        return
     cat_name = callback.data.split("_", 1)[1]
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -876,6 +991,8 @@ async def list_drops_by_category(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "back_cats")
 async def back_to_cats(callback: types.CallbackQuery):
+    if is_user_banned(callback.from_user.id):
+        return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
@@ -892,7 +1009,7 @@ async def back_to_cats(callback: types.CallbackQuery):
 # --- 📦 GEÇMİŞ SİPARİŞLERİM ---
 @dp.message(F.text == "📦 Geçmiş Siparişlerim")
 async def my_orders(message: types.Message):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     user_id = message.from_user.id
     conn = sqlite3.connect("drop_bot.db")
@@ -926,6 +1043,8 @@ async def my_orders(message: types.Message):
 # --- 🎟️ PROMO KODLU SATIN ALMA AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery, state: FSMContext):
+    if is_user_banned(callback.from_user.id):
+        return
     drop_id = int(callback.data.split("_")[1])
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -946,6 +1065,8 @@ async def process_buy(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("usepromo_"))
 async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
+    if is_user_banned(callback.from_user.id):
+        return
     drop_id = int(callback.data.split("_")[1])
     await state.update_data(drop_id=drop_id)
     await state.set_state(PromoState.code)
@@ -954,7 +1075,7 @@ async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(PromoState.code)
 async def verify_promo_code(message: types.Message, state: FSMContext):
-    if message.chat.type != "private":
+    if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     data = await state.get_data()
     drop_id = data.get("drop_id")
@@ -1002,6 +1123,8 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("nopromo_"))
 async def process_buy_no_promo(callback: types.CallbackQuery):
+    if is_user_banned(callback.from_user.id):
+        return
     drop_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
     username = callback.from_user.username
@@ -1034,6 +1157,8 @@ async def process_buy_no_promo(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("autocheck_"))
 async def check_blockchain_payment(callback: types.CallbackQuery):
+    if is_user_banned(callback.from_user.id):
+        return
     order_id = int(callback.data.split("_")[1])
     await callback.answer("Blokzincir taranıyor...", show_alert=True)
     conn = sqlite3.connect("drop_bot.db")
@@ -1133,6 +1258,7 @@ async def handle_admin_group_reply(message: types.Message):
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
+    asyncio.create_task(auto_backup_task()) # Arka planda 24 saatlik veritabanı yedeği al
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
