@@ -277,7 +277,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🌿 WEED SHOP WEB SUNUCUSU & PROFESYONEL ADMIN PANELİ ---
+# --- 🌿 WEED SHOP WEB SUNUCUSU & HAREKETLİ NOEL BABALI PANEL ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -532,6 +532,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 .main {{ flex: 1; padding: 25px; overflow-y: auto; box-sizing: border-box; z-index: 2; position: relative; }}
                 .mobile-header {{ display:none; background: rgba(8,20,12,0.95); padding: 15px; border-bottom: 1px solid rgba(0,255,136,0.2); align-items: center; justify-content: space-between; z-index: 1001; position: relative; backdrop-filter: blur(10px); }}
                 .menu-btn {{ background: #00ff88; color: #050b07; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }}
+                @keyframes bounceSanta {{ 0%, 100% {{ transform: translateY(0) rotate(0deg); }} 50% {{ transform: translateY(-6px) rotate(6deg); }} }}
+                .santa-anim {{ display: inline-block; animation: bounceSanta 1.5s infinite ease-in-out; margin-left: 6px; }}
                 @media(max-width: 768px) {{
                     body {{ flex-direction: column; }}
                     .sidebar {{ position: fixed; height: 100%; top: 0; left: 0; transform: translateX(-100%); }}
@@ -544,11 +546,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <canvas id="pollen-canvas"></canvas>
                 <div class="mobile-header">
-                    <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul</h3>
+                    <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul <span class="santa-anim">🎅</span></h3>
                     <button class="menu-btn" onclick="toggleMenu()">☰ Menü</button>
                 </div>
                 <div class="sidebar" id="sidebar">
-                    <h2 style="color:#00ff88; font-size:18px; text-align:center; margin-top:0; letter-spacing:1px;">🌿 WEED PANEL</h2>
+                    <h2 style="color:#00ff88; font-size:18px; text-align:center; margin-top:0; letter-spacing:1px;">🌿 WEED PANEL <span class="santa-anim">🎅</span></h2>
                     <a href="/admin-web?tab=home" class="{home_active}">🏠 Anasayfa</a>
                     <a href="/admin-web?tab=testimonials" class="{test_active}">⭐ Yorumlar</a>
                     <a href="/admin-web?tab=support" class="{supp_active}">💬 Destek</a>
@@ -978,7 +980,6 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     try:
         conn = sqlite3.connect("drop_bot.db")
         cursor = conn.cursor()
-        cursor.execute("SELECT user_id, username, message, status FROM support_tickets") # Safe check
         cursor.execute("INSERT INTO support_tickets (user_id, username, message, status) VALUES (?, ?, ?, 'open')", (user_id, username, user_msg))
         conn.commit()
         conn.close()
