@@ -376,18 +376,19 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
         return
     user_msg = message.text
     user_id = message.from_user.id
+    username = message.from_user.username or "Bulunmuyor"
     await state.clear()
     await message.answer("✅ Destek mesajınız admin grubuna iletildi.")
     try:
-        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\n💬 Mesaj:\n{user_msg}")
+        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\nKullanıcı Adı: @{username}\n\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
 
-# --- 🔒 YENİ: GRUPTAN ANONİM YANITLAMA KÖPRÜSÜ ---
-@dp.message(F.chat.id == ADMIN_GROUP_ID)
+# --- 🔒 GÜNCELLENMİŞ ANONİM YANITLAMA KÖPRÜSÜ ---
+@dp.message()
 async def handle_admin_group_reply(message: types.Message):
-    # Eğer admin gruptaki bir mesaja "Yanıtla (Reply)" yaptıysa
-    if message.reply_to_message:
+    # Eğer mesaj admin grubundan atıldıysa ve bir mesaja yanıt (reply) verildiyse
+    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
         original_text = message.reply_to_message.text or ""
         # Mesajın içindeki Kullanıcı ID'sini regex ile yakalıyoruz
         match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
