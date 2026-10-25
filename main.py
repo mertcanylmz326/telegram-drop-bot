@@ -49,13 +49,13 @@ main_loop = None
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
     "tr": {
-        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Aşağıdaki menüden dilediğiniz işlemi seçebilirsiniz:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
-        "btn_wallet": "💰 Cüzdanım & Profil",
+        "btn_wallet": "💰 Cüzdanım / Bakiye",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
-        "btn_support": "📞 Canlı Destek",
+        "btn_support": "📞 Destek",
         "btn_lang": "🌐 Dil Değiştir",
         "no_stock": "❌ Şu anda stokta hazır drop bulunmamaktadır.",
         "select_cat": "🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:",
@@ -66,13 +66,13 @@ LANG = {
         "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
-        "profile_text": "👤 **Hesap ve Cüzdan Profili**\n\n🆔 Kullanıcı ID: `{uid}`\n👑 Hesap Statüsü: **{status}**\n💵 Güncel Bakiye: **{balance} USDT**\n🛍️ Toplam Harcama: **{spent} USDT**\n\n*VIP Statüsü: Toplam 100 USDT ve üzeri harcamalarda otomatik aktif olur!*",
+        "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
         "deposit_invoice": "📥 **Bakiye Yükleme Talebi (#{id})**\n\n💵 Yüklenecek Tutar: **{amount} USDT**\n🔒 Yatırım Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Tutarı gönderdikten sonra aşağıdaki butona basın.",
         "deposit_check_btn": "🔄 Yatırımı Otomatik Kontrol Et",
         "deposit_success": "🎉 Ödemeniz onaylandı! **{amount} USDT** bakiyenize eklendi.\n💵 Yeni Toplam Bakiye: **{balance} USDT**",
-        "buy_options": "📌 Ürün: {title}\n💰 Fiyat: {price} USDT {vip_info}\n💵 Bakiyeniz: {balance} USDT\n\nLütfen ödeme yöntemini seçin:",
+        "buy_options": "📌 Ürün: {title}\n💰 Fiyat: {price} USDT\n💵 Bakiyeniz: {balance} USDT\n\nLütfen ödeme yöntemini seçin:",
         "pay_balance": "⚡ Bakiyeden Öde ({price} USDT)",
         "pay_crypto": "🔒 Blokzincir ile Öde",
         "pay_promo": "🎟️ Kupon Kullan",
@@ -93,18 +93,18 @@ LANG = {
         "success_order": "✅ Sipariş #{id} onaylandı.",
         "success_msg": "🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
-        "support_ask": "📞 Destek mesajınızı yazın, admin ekibine ve web paneline iletilsin:",
-        "support_sent": "✅ Destek mesajınız iletildi. En kısa sürede yanıt alacaksınız.",
+        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna ve web paneline iletilsin:",
+        "support_sent": "✅ Destek mesajınız iletildi.",
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
-        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select an option from the menu below:",
+        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select your language:",
         "lang_set": "✅ Language set to English.",
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
-        "btn_wallet": "💰 My Wallet & Profile",
+        "btn_wallet": "💰 My Wallet / Balance",
         "btn_faq": "❓ How It Works (FAQ)",
-        "btn_support": "📞 Live Support",
+        "btn_support": "📞 Support",
         "btn_lang": "🌐 Change Language",
         "no_stock": "❌ There are currently no ready drops in stock.",
         "select_cat": "🏙️ Please select the **region / district** you want to view:",
@@ -115,13 +115,13 @@ LANG = {
         "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
         "open_loc": "🔗 Open Order #{id} Location",
         "sold_out": "⚠️ This product is sold out.",
-        "profile_text": "👤 **Account & Wallet Profile**\n\n🆔 User ID: `{uid}`\n👑 Account Status: **{status}**\n💵 Current Balance: **{balance} USDT**\n🛍️ Total Spent: **{spent} USDT**\n\n*VIP Status: Automatically activates on total spends of 100 USDT and above!*",
+        "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
         "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after sending funds.",
         "deposit_check_btn": "🔄 Auto-Check Deposit",
         "deposit_success": "🎉 Payment approved! **{amount} USDT** added to your balance.\n💵 New Total Balance: **{balance} USDT**",
-        "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT {vip_info}\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
+        "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
         "pay_balance": "⚡ Pay from Balance ({price} USDT)",
         "pay_crypto": "🔒 Pay via Blockchain",
         "pay_promo": "🎟️ Use Promo Code",
@@ -214,11 +214,10 @@ def init_db():
             is_banned INTEGER DEFAULT 0,
             language TEXT DEFAULT 'tr',
             balance REAL DEFAULT 0.0,
-            total_spent REAL DEFAULT 0.0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0"), ("total_spent", "REAL DEFAULT 0.0")]:
+    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0")]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -250,15 +249,13 @@ def set_user_lang(user_id: int, lang: str):
     conn.commit()
     conn.close()
 
-def get_user_profile(user_id: int):
+def get_user_balance(user_id: int) -> float:
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT balance, total_spent FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone()
     conn.close()
-    if res:
-        return res[0] or 0.0, res[1] or 0.0
-    return 0.0, 0.0
+    return res[0] if res and res[0] is not None else 0.0
 
 def update_user_balance(user_id: int, amount: float):
     conn = sqlite3.connect("drop_bot.db")
@@ -316,11 +313,11 @@ def get_wallet_balances():
                                 usdt_bal = float(token[USDT_CONTRACT]) / 1000000.0
                                 break
         except Exception as e:
-            logging.error(e)
+            logging.error(f"Cüzdan bakiye çekme hatası ({addr}): {e}")
         balances[key] = {"usdt": usdt_bal, "trx": trx_bal}
     return balances
 
-# --- KANAL ÜYELİK KONTROLÜ & OTOMATİK ZAMANLAYICI ---
+# --- KANAL ÜYELİK KONTROLÜ ---
 async def check_user_subscription(user_id: int) -> bool:
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
@@ -328,7 +325,7 @@ async def check_user_subscription(user_id: int) -> bool:
             return False
         return True
     except Exception as e:
-        logging.error(e)
+        logging.error(f"Kanal üyelik kontrol hatası: {e}")
         return True
 
 async def auto_backup_task():
@@ -340,26 +337,9 @@ async def auto_backup_task():
                 await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
-            logging.error(e)
+            logging.error(f"Yedek alma hatası: {e}")
 
-async def check_expired_orders_task():
-    while True:
-        await asyncio.sleep(60)
-        try:
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            expiry_limit = datetime.now() - timedelta(minutes=15)
-            cursor.execute("SELECT id, drop_id FROM orders WHERE status = 'pending' AND created_at < ?", (expiry_limit.strftime("%Y-%m-%d %H:%M:%S"),))
-            expired_orders = cursor.fetchall()
-            for ord_id, drp_id in expired_orders:
-                cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (ord_id,))
-                cursor.execute("UPDATE drops SET stock = stock + 1, is_sold = 0 WHERE id = ?", (drp_id,))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logging.error(e)
-
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (GÖRSEL OLARAK GÜÇLENDİRİLMİŞ ŞIK ARAYÜZ) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -401,7 +381,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     msg, l_type, l_date = l
                     badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#38bdf8")
                     logs_html += f"""
-                    <div style="background: rgba(15, 23, 42, 0.7); padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid {badge_color}; font-size: 13px; backdrop-filter: blur(5px);">
+                    <div style="background: rgba(15, 23, 42, 0.75); padding: 12px 15px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid {badge_color}; font-size: 13px; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
                         <span style="color: #64748b; font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
                         {msg}
                     </div>
@@ -425,22 +405,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
-                <!-- 3'lü Cüzdan İzolasyon & Canlı Bakiye Paneli -->
                 <div class="form-box" style="border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 30px;">
                     <h2>🔒 3'lü Cüzdan İzolasyon & Canlı Bakiye Durumu</h2>
                     <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Operasyonel gizlilik ve fon güvenliği için aktif cüzdan mimarisi ve anlık bakiyeler:</p>
                     <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-                        <li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <li style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div>🟢 <b>weedboot (Bot / Operasyon):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['weedboot']}</code></div>
-                            <div style="background: rgba(16, 185, 129, 0.15); padding: 4px 10px; border-radius: 6px; color: #10b981; font-weight: bold;"><b>{w_bals.get('weedboot', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('weedboot', {}).get('trx', 0.0)} TRX</div>
+                            <div style="background: rgba(16, 185, 129, 0.15); padding: 6px 12px; border-radius: 8px; color: #10b981; font-weight: bold; border: 1px solid rgba(16,185,129,0.3);"><b>{w_bals.get('weedboot', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('weedboot', {}).get('trx', 0.0)} TRX</div>
                         </li>
-                        <li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <li style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div>🔵 <b>Giriş (Ana Depo / Kasa):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['giris']}</code></div>
-                            <div style="background: rgba(56, 189, 248, 0.15); padding: 4px 10px; border-radius: 6px; color: #38bdf8; font-weight: bold;"><b>{w_bals.get('giris', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('giris', {}).get('trx', 0.0)} TRX</div>
+                            <div style="background: rgba(56, 189, 248, 0.15); padding: 6px 12px; border-radius: 8px; color: #38bdf8; font-weight: bold; border: 1px solid rgba(56,189,248,0.3);"><b>{w_bals.get('giris', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('giris', {}).get('trx', 0.0)} TRX</div>
                         </li>
-                        <li style="padding: 10px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <li style="padding: 12px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <div>🟡 <b>Çıkış (Aracı / Buffer):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['cikis']}</code></div>
-                            <div style="background: rgba(245, 158, 11, 0.15); padding: 4px 10px; border-radius: 6px; color: #f59e0b; font-weight: bold;"><b>{w_bals.get('cikis', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('cikis', {}).get('trx', 0.0)} TRX</div>
+                            <div style="background: rgba(245, 158, 11, 0.15); padding: 6px 12px; border-radius: 8px; color: #f59e0b; font-weight: bold; border: 1px solid rgba(245,158,11,0.3);"><b>{w_bals.get('cikis', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('cikis', {}).get('trx', 0.0)} TRX</div>
                         </li>
                     </ul>
                 </div>
@@ -472,15 +451,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 borderColor: '#10b981',
                                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
                                 fill: true,
-                                tension: 0.3
+                                tension: 0.4,
+                                borderWidth: 3
                             }}]
                         }},
                         options: {{
                             responsive: true,
                             plugins: {{ legend: {{ display: false }} }},
                             scales: {{
-                                x: {{ grid: {{ color: '#1e293b' }}, ticks: {{ color: '#94a3b8' }} }},
-                                y: {{ grid: {{ color: '#1e293b' }}, ticks: {{ color: '#94a3b8' }} }}
+                                x: {{ grid: {{ color: 'rgba(255,255,255,0.05)' }}, ticks: {{ color: '#94a3b8' }} }},
+                                y: {{ grid: {{ color: 'rgba(255,255,255,0.05)' }}, ticks: {{ color: '#94a3b8' }} }}
                             }}
                         }}
                     }});
@@ -493,17 +473,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for t_item in tickets:
                     t_id, t_uid, t_uname, t_msg, t_status, t_date = t_item
                     uname_str = f"@{t_uname}" if t_uname else "N/A"
-                    status_badge = "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:3px 8px; border-radius:6px;'>OPEN</span>" if t_status == 'open' else "<span style='color:#64748b; font-weight:bold; background:rgba(100,116,139,0.2); padding:3px 8px; border-radius:6px;'>CLOSED</span>"
+                    status_badge = "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:4px 10px; border-radius:8px; border:1px solid rgba(16,185,129,0.3);'>OPEN</span>" if t_status == 'open' else "<span style='color:#64748b; font-weight:bold; background:rgba(100,116,139,0.2); padding:4px 10px; border-radius:8px;'>CLOSED</span>"
                     
                     reply_form = f"""
                     <form action="/admin-support-reply" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
                         <input type="hidden" name="ticket_id" value="{t_id}">
                         <input type="hidden" name="user_id" value="{t_uid}">
-                        <input type="text" name="reply_text" placeholder="Yanıtını yaz..." required style="margin:0; padding:6px; font-size:12px; height:32px;">
-                        <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto; height:32px; line-height:12px;">Gönder</button>
+                        <input type="text" name="reply_text" placeholder="Yanıtını yaz..." required style="margin:0; padding:6px 10px; font-size:12px; height:34px;">
+                        <button type="submit" style="background:#10b981; padding:6px 14px; font-size:12px; width:auto; height:34px; line-height:12px; border-radius:8px;">Gönder</button>
                     </form>
                     """
-                    rows += f"<tr><td>#{t_id}</td><td>{t_uid} ({uname_str})</td><td style='max-width:250px; word-break:break-all;'>{t_msg}</td><td>{t_date}</td><td>{status_badge}</td><td>{reply_form}</td></tr>"
+                    rows += f"<tr><td><b>#{t_id}</b></td><td>{t_uid} ({uname_str})</td><td style='max-width:250px; word-break:break-all;'>{t_msg}</td><td>{t_date}</td><td>{status_badge}</td><td>{reply_form}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
@@ -515,19 +495,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "users":
-                cursor.execute("SELECT user_id, username, is_banned, language, balance, total_spent FROM users ORDER BY user_id DESC")
+                cursor.execute("SELECT user_id, username, is_banned, language, balance FROM users ORDER BY user_id DESC")
                 users_list = cursor.fetchall()
                 rows = ""
                 for u in users_list:
-                    uid, uname, is_b, u_lang, u_bal, u_spent = u
+                    uid, uname, is_b, u_lang, u_bal = u
                     username_str = f"@{uname}" if uname else "N/A"
-                    status_badge = "<span style='color:#ef4444; font-weight:bold; background:rgba(239,68,68,0.2); padding:3px 8px; border-radius:6px;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:3px 8px; border-radius:6px;'>ACTIVE</span>"
-                    vip_badge = "👑 <b>VIP</b>" if (u_spent or 0) >= 100 else "⭐ Standart"
+                    status_badge = "<span style='color:#ef4444; font-weight:bold; background:rgba(239,68,68,0.2); padding:4px 10px; border-radius:8px; border:1px solid rgba(239,68,68,0.3);'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:4px 10px; border-radius:8px; border:1px solid rgba(16,185,129,0.3);'>ACTIVE</span>"
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
                         <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
-                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:11px; width:auto; border-radius:6px;">
+                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:11px; width:auto; border-radius:8px;">
                             {'Unban' if is_b == 1 else 'Ban'}
                         </button>
                     </form>
@@ -535,19 +514,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     bal_form = f"""
                     <form action="/admin-balance" method="POST" style="margin:0; display:flex; gap:5px; align-items:center;">
                         <input type="hidden" name="user_id" value="{uid}">
-                        <input type="number" step="0.1" name="amount" placeholder="USDT" style="width:70px; padding:5px; margin:0; font-size:12px; height:28px;">
-                        <button type="submit" name="op" value="add" style="background:#10b981; padding:4px 8px; font-size:11px; width:auto; height:28px; line-height:10px;">+</button>
-                        <button type="submit" name="op" value="sub" style="background:#ef4444; padding:4px 8px; font-size:11px; width:auto; height:28px; line-height:10px;">-</button>
+                        <input type="number" step="0.1" name="amount" placeholder="USDT" style="width:75px; padding:6px; margin:0; font-size:12px; height:30px;">
+                        <button type="submit" name="op" value="add" style="background:#10b981; padding:4px 8px; font-size:11px; width:auto; height:30px; line-height:10px; border-radius:6px;">+</button>
+                        <button type="submit" name="op" value="sub" style="background:#ef4444; padding:4px 8px; font-size:11px; width:auto; height:30px; line-height:10px; border-radius:6px;">-</button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{vip_badge}</td><td><b style='color:#38bdf8; font-size:15px;'>{u_bal} USDT</b></td><td>{u_spent or 0} USDT</td><td>{bal_form}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b style='color:#38bdf8; font-size:15px;'>{u_bal} USDT</b></td><td>{bal_form}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>🎅 CRM & Cüzdan Bakiye Yönetimi (VIP Sistem)</h2>
+                    <h2>🎅 CRM & Cüzdan Bakiye Yönetimi</h2>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Statü</th><th>Bakiye</th><th>Toplam Harcama</th><th>Bakiye Düzenle</th><th>Durum</th><th>İşlem</th></tr>
-                        {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye</th><th>Bakiye Düzenle</th><th>Status</th><th>Ban / Unban</th></tr>
+                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -565,7 +544,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for o in orders:
                     o_id, uname, title, f_price, status, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    rows += f"<tr><td>#{o_id}</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
+                    rows += f"<tr><td><b>#{o_id}</b></td><td>{username_str}</td><td>{title}</td><td><b style='color:#10b981;'>{f_price} USDT</b></td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
                 
                 content_html = f"""
                 <div class="table-box">
@@ -592,15 +571,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
                     rows += f"""
                     <tr>
-                        <td>#{o_id}</td>
+                        <td><b>#{o_id}</b></td>
                         <td>{username_str}</td>
                         <td>{title}</td>
-                        <td>{f_price} USDT</td>
+                        <td><b style='color:#f59e0b;'>{f_price} USDT</b></td>
                         <td>{date}</td>
                         <td>
                             <form action="/admin-approve" method="POST" style="margin:0;">
                                 <input type="hidden" name="order_id" value="{o_id}">
-                                <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto;">Zorla Onayla</button>
+                                <button type="submit" style="background:#10b981; padding:6px 14px; font-size:12px; width:auto; border-radius:8px;">Zorla Onayla</button>
                             </form>
                         </td>
                     </tr>
@@ -622,7 +601,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     d_id, title, price, stock, cat, desc, loc = d
                     rows += f"""
                     <tr>
-                        <td>#{d_id}</td>
+                        <td><b>#{d_id}</b></td>
                         <td>{title}</td>
                         <td>{cat or 'Genel'}</td>
                         <td>{price} USDT</td>
@@ -660,7 +639,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         
                         <div id="dynamicFields"></div>
                         
-                        <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
+                        <button type="submit" style="margin-top: 25px;">Stoğa Ekle</button>
                     </form>
                 </div>
                 <script>
@@ -670,8 +649,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         container.innerHTML = '';
                         for (let i = 1; i <= count; i++) {
                             container.innerHTML += `
-                                <div style="background: rgba(15, 23, 42, 0.8); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #1e293b;">
-                                    <h4 style="color: #10b981; margin-top: 0;">📍 Drop #${i} Detayları</h4>
+                                <div style="background: rgba(15, 23, 42, 0.85); padding: 18px; border-radius: 12px; margin-top: 15px; border: 1px solid rgba(16,185,129,0.2);">
+                                    <h4 style="color: #10b981; margin-top: 0; margin-bottom: 12px;">📍 Drop #${i} Detayları</h4>
                                     <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
                                     <label>Fotoğraf URL'si (Görsel Linki):</label>
@@ -694,7 +673,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if drop_data:
                     e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc = drop_data
                     edit_form_html = f"""
-                    <div class="form-box" style="border: 2px solid #10b981; margin-bottom: 30px;">
+                    <div class="form-box" style="border: 2px solid #10b981; margin-bottom: 30px; box-shadow: 0 0 25px rgba(16,185,129,0.25);">
                         <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
                         <form action="/admin-update" method="POST">
                             <input type="hidden" name="id" value="{edit_id}">
@@ -712,13 +691,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
-                            <button type="submit" style="background: #10b981;">Güncellemeyi Kaydet</button>
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
                         </form>
                     </div>
                     """
 
             conn.close()
 
+            # Gelişmiş Şık ve Yuvarlatılmış Modern Grafik Tasarım (CSS)
             dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
@@ -742,59 +722,59 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         content: "";
                         position: absolute;
                         top: 0; left: 0; right: 0; bottom: 0;
-                        background: rgba(5, 10, 14, 0.88);
+                        background: linear-gradient(135deg, rgba(5, 10, 14, 0.93) 0%, rgba(10, 18, 26, 0.90) 100%);
                         z-index: 0;
                     }}
                     #snowflake-canvas {{
                         position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
+                        top: 0; left: 0;
+                        width: 100%; height: 100%;
                         pointer-events: none;
                         z-index: 9999;
                     }}
                     .sidebar {{
                         width: 270px;
-                        background: rgba(10, 18, 26, 0.85);
+                        background: rgba(10, 18, 26, 0.82);
                         border-right: 1px solid rgba(16, 185, 129, 0.2);
                         display: flex;
                         flex-direction: column;
                         padding: 25px 18px;
                         box-sizing: border-box;
                         z-index: 2;
-                        backdrop-filter: blur(12px);
+                        backdrop-filter: blur(16px);
+                        box-shadow: 5px 0 25px rgba(0,0,0,0.5);
                     }}
                     .sidebar .brand {{
-                        font-size: 22px;
+                        font-size: 20px;
                         font-weight: 900;
                         color: #10b981;
                         text-align: center;
                         margin-bottom: 30px;
-                        letter-spacing: 1px;
-                        text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+                        letter-spacing: 0.5px;
+                        text-shadow: 0 0 15px rgba(16, 185, 129, 0.7);
                     }}
                     .sidebar a {{
                         background: transparent;
                         color: #94a3b8;
                         padding: 12px 16px;
-                        border-radius: 10px;
+                        border-radius: 12px;
                         text-decoration: none;
                         font-weight: 600;
                         font-size: 14px;
                         margin-bottom: 8px;
                         border: 1px solid transparent;
-                        transition: all 0.3s ease;
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                         display: block;
                     }}
                     .sidebar a.active, .sidebar a:hover {{
                         background: rgba(16, 185, 129, 0.15);
                         color: #10b981;
                         border-color: rgba(16, 185, 129, 0.4);
-                        box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+                        box-shadow: 0 0 20px rgba(16, 185, 129, 0.25);
+                        transform: translateX(4px);
                     }}
                     .logout-link {{
-                        background: rgba(239, 68, 68, 0.2) !important;
+                        background: rgba(239, 68, 68, 0.15) !important;
                         color: #ef4444 !important;
                         margin-top: auto;
                         text-align: center;
@@ -803,27 +783,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .logout-link:hover {{
                         background: #dc2626 !important;
                         color: white !important;
+                        box-shadow: 0 0 20px rgba(239, 68, 68, 0.4) !important;
                     }}
+                    
                     .main-content {{
                         flex: 1;
                         padding: 35px;
                         box-sizing: border-box;
                         overflow-y: auto;
-                        max-width: 1200px;
+                        max-width: 1240px;
                         z-index: 2;
                     }}
                     .header-title {{
                         color: #f8fafc;
-                        font-size: 26px;
+                        font-size: 24px;
                         font-weight: 800;
                         margin-top: 0;
                         margin-bottom: 30px;
-                        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                         padding-bottom: 15px;
                         display: flex;
                         justify-content: space-between;
                         align-items: center;
                     }}
+                    
                     .stats-grid {{
                         display: grid;
                         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -831,66 +814,81 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         margin-bottom: 30px;
                     }}
                     .card {{
-                        background: rgba(15, 23, 42, 0.75);
+                        background: rgba(15, 23, 42, 0.7);
                         padding: 22px;
-                        border-radius: 16px;
+                        border-radius: 18px;
                         border: 1px solid rgba(255, 255, 255, 0.08);
                         text-align: center;
-                        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-                        backdrop-filter: blur(8px);
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+                        backdrop-filter: blur(10px);
+                        transition: transform 0.3s ease;
                     }}
-                    .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 15px rgba(16, 185, 129, 0.15); }}
-                    .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 15px rgba(239, 68, 68, 0.15); }}
-                    .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 15px rgba(245, 158, 11, 0.15); }}
-                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
+                    .card:hover {{ transform: translateY(-3px); }}
+                    .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }}
+                    .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }}
+                    .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }}
+                    
+                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 0.8px; }}
                     .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
+                    
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }}
                     .form-box, .table-box {{
                         background: rgba(15, 23, 42, 0.75);
                         padding: 25px;
-                        border-radius: 16px;
+                        border-radius: 18px;
                         border: 1px solid rgba(255, 255, 255, 0.08);
                         margin-bottom: 30px;
-                        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-                        backdrop-filter: blur(8px);
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+                        backdrop-filter: blur(10px);
                     }}
                     input, textarea {{
                         width: 100%;
-                        padding: 12px;
+                        padding: 12px 15px;
                         margin: 8px 0 16px 0;
-                        background: rgba(5, 10, 14, 0.7);
-                        border: 1px solid rgba(255, 255, 255, 0.15);
-                        border-radius: 8px;
+                        background: rgba(5, 10, 14, 0.75);
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        border-radius: 10px;
                         color: white;
                         box-sizing: border-box;
                         font-size: 14px;
+                        transition: border-color 0.3s;
+                    }}
+                    input:focus, textarea:focus {{
+                        border-color: #10b981;
+                        outline: none;
+                        box-shadow: 0 0 10px rgba(16,185,129,0.2);
                     }}
                     button {{
                         background: #10b981;
                         color: white;
                         padding: 12px 20px;
                         border: none;
-                        border-radius: 8px;
+                        border-radius: 10px;
                         font-weight: bold;
                         cursor: pointer;
                         width: 100%;
                         font-size: 14px;
-                        transition: 0.3s;
-                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+                        transition: all 0.3s ease;
+                        box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
                     }}
-                    button:hover {{ background: #059669; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5); }}
+                    button:hover {{ 
+                        background: #059669; 
+                        box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+                        transform: translateY(-1px);
+                    }}
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.05); font-size: 14px; }}
-                    th {{ color: #94a3b8; font-weight: 700; font-size: 12px; text-transform: uppercase; }}
-                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
-                    .edit-btn {{ background: #d97706; color: white; }}
-                    .edit-btn:hover {{ background: #b45309; }}
+                    th, td {{ padding: 14px 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; }}
+                    th {{ color: #94a3b8; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    tr:hover {{ background: rgba(255,255,255,0.015); }}
+                    .action-btn {{ padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
+                    .edit-btn {{ background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid rgba(217, 119, 6, 0.4); }}
+                    .edit-btn:hover {{ background: #d97706; color: white; }}
 
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column; }}
                         .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 15px; }}
                         .sidebar .brand {{ width: 100%; margin-bottom: 15px; }}
-                        .sidebar a {{ flex: 1; min-width: 90px; font-size: 11px; text-align: center; padding: 10px 4px; margin-bottom: 0; }}
+                        .sidebar a {{ flex: 1; min-width: 85px; font-size: 11px; text-align: center; padding: 10px 4px; margin-bottom: 0; }}
                         .main-content {{ padding: 20px; }}
                         .grid-2 {{ grid-template-columns: 1fr; }}
                         .header-title {{ flex-direction: column; align-items: flex-start; gap: 10px; }}
@@ -908,14 +906,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
                     <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & VIP</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & Balances</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
 
                 <div class="main-content">
                     <div class="header-title">
                         <span>🎅 Weed Istanbul Christmas Management</span>
-                        <span style="font-size: 13px; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);">🎄 Happy Holidays Edition</span>
+                        <span style="font-size: 12px; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.35);">🎄 Happy Holidays Edition</span>
                     </div>
                     {edit_form_html}
                     {content_html}
@@ -933,19 +931,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }});
 
                     const snowflakes = [];
-                    for (let i = 0; i < 90; i++) {{
+                    for (let i = 0; i < 85; i++) {{
                         snowflakes.push({{
                             x: Math.random() * width,
                             y: Math.random() * height,
-                            radius: Math.random() * 3 + 1,
+                            radius: Math.random() * 2.5 + 0.8,
                             density: Math.random() * 20,
-                            speed: Math.random() * 1 + 0.5
+                            speed: Math.random() * 0.8 + 0.4
                         }});
                     }}
 
                     function drawSnowflakes() {{
                         ctx.clearRect(0, 0, width, height);
-                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
                         ctx.beginPath();
                         for (let i = 0; i < snowflakes.length; i++) {{
                             let sf = snowflakes[i];
@@ -962,7 +960,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         for (let i = 0; i < snowflakes.length; i++) {{
                             let sf = snowflakes[i];
                             sf.y += sf.speed;
-                            sf.x += Math.sin(angle + sf.density) * 0.5;
+                            sf.x += Math.sin(angle + sf.density) * 0.4;
 
                             if (sf.y > height) {{
                                 snowflakes[i] = {{ x: Math.random() * width, y: 0, radius: sf.radius, density: sf.density, speed: sf.speed }};
@@ -1021,7 +1019,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
 
-                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #374151;" />' if photo_url else ''
+                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:12px; margin-bottom:15px; border: 1px solid rgba(255,255,255,0.1);" />' if photo_url else ''
 
                 html_content = f"""
                 <!DOCTYPE html>
@@ -1031,23 +1029,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title>Secure Delivery - #{order_id}</title>
                     <style>
-                        body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                        .card {{ background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
-                        h2 {{ color: #10b981; margin-top: 0; }}
-                        .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
-                        .btn {{ display: block; background: #10b981; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
-                        .btn:hover {{ background: #059669; }}
-                        .warning {{ color: #ef4444; font-size: 12px; margin-top: 15px; }}
+                        body {{ background-color: #050a0e; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+                        .card {{ background: rgba(15, 23, 42, 0.85); padding: 30px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); width: 100%; max-width: 420px; text-align: center; border: 1px solid rgba(16,185,129,0.3); backdrop-filter: blur(12px); }}
+                        h2 {{ color: #10b981; margin-top: 0; font-weight: 800; }}
+                        .info {{ background: rgba(5, 10, 14, 0.8); padding: 16px; border-radius: 12px; margin: 20px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid rgba(255,255,255,0.08); }}
+                        .btn {{ display: block; background: #10b981; color: white; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; transition: all 0.3s; box-shadow: 0 0 15px rgba(16,185,129,0.3); }}
+                        .btn:hover {{ background: #059669; box-shadow: 0 0 25px rgba(16,185,129,0.6); }}
+                        .warning {{ color: #ef4444; font-size: 12px; margin-top: 15px; opacity: 0.9; }}
                     </style>
                 </head>
                 <body>
                     <div class="card">
                         <h2>🔒 Secure Delivery</h2>
-                        <p style="margin-bottom: 15px;"><b>Product:</b> {title}</p>
+                        <p style="margin-bottom: 15px; color: #94a3b8;"><b>Product:</b> {title}</p>
                         {photo_tag}
                         <div class="info">
-                            <p><b>📍 Location:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Click to Open in Maps</a></p>
-                            <p><b>📝 Note:</b> {description}</p>
+                            <p><b>📍 Location:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8; text-decoration: none;">Click to Open in Maps</a></p>
+                            <p style="margin-bottom: 0;"><b>📝 Note:</b> {description}</p>
                         </div>
                         <a href="{location_url}" class="btn" target="_blank">Open Google Maps</a>
                         <p class="warning">⚠️ This page is single-use for your privacy. Leave the area once completed.</p>
@@ -1225,7 +1223,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     else:
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-                    cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (f_price, u_id))
                     
                     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
                     rem_stock = cursor.fetchone()[0] or 0
@@ -1249,6 +1246,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ GERÇEKLEŞTİ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n👤 Alıcı ID: `{u_id}`\n🆔 Sipariş ID: `#{order_id}`"),
                             main_loop
                         )
+                        if rem_stock <= 2:
+                            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {t_cat} bölgesinde kalan aktif stok: {rem_stock} adet!"
+                            log_panel_event(warn_msg, "warning")
+                            asyncio.run_coroutine_threadsafe(
+                                bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{t_cat}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir."),
+                                main_loop
+                            )
             else:
                 conn.close()
 
@@ -1278,25 +1282,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 }}
                 body::before {{
                     content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(5, 10, 14, 0.88); z-index: 0;
+                    background: rgba(5, 10, 14, 0.9); z-index: 0;
                 }}
                 .login-card {{
                     position: relative; z-index: 1;
                     background: rgba(15, 23, 42, 0.85); padding: 35px; border-radius: 20px;
                     border: 1px solid rgba(16, 185, 129, 0.3); width: 100%; max-width: 360px; text-align: center;
-                    box-shadow: 0 0 30px rgba(16, 185, 129, 0.2); backdrop-filter: blur(10px);
+                    box-shadow: 0 0 35px rgba(16, 185, 129, 0.25); backdrop-filter: blur(12px);
                 }}
                 h2 {{ color: #10b981; margin-top: 0; font-weight: 800; }}
                 input {{
-                    width: 100%; padding: 12px; margin: 10px 0; background: rgba(5, 10, 14, 0.7);
-                    border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; color: white; box-sizing: border-box;
+                    width: 100%; padding: 12px 15px; margin: 10px 0; background: rgba(5, 10, 14, 0.75);
+                    border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; color: white; box-sizing: border-box;
                 }}
                 button {{
-                    background: #10b981; color: white; padding: 12px; border: none; border-radius: 8px;
-                    font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 14px;
-                    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); transition: 0.3s;
+                    background: #10b981; color: white; padding: 12px; border: none; border-radius: 10px;
+                    font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; font-size: 14px;
+                    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); transition: 0.3s;
                 }}
-                button:hover {{ background: #059669; }}
+                button:hover {{ background: #059669; box-shadow: 0 0 25px rgba(16,185,129,0.6); }}
             </style>
         </head>
         <body>
@@ -1325,7 +1329,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         <!DOCTYPE html>
         <html lang="tr">
         <head><meta charset="UTF-8"><title>Hata</title></head>
-        <body style="background:#050a0e;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
+        <body style="background:#050a0e;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:60px;">
             <h2>⚠️ {message}</h2>
         </body>
         </html>
@@ -1351,9 +1355,6 @@ class PromoState(StatesGroup):
 
 class DepositState(StatesGroup):
     amount = State()
-
-class BroadcastState(StatesGroup):
-    message = State()
 
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
@@ -1444,7 +1445,7 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
 
-# --- 💰 CÜZDAN & PROFİL SİSTEMİ (VIP) ---
+# --- 💰 CÜZDAN & BAKİYE YÜKLEME ---
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
 async def wallet_menu(message: types.Message):
     user_id = message.from_user.id
@@ -1452,13 +1453,12 @@ async def wallet_menu(message: types.Message):
         return
     lang = get_user_lang(user_id)
     t = LANG[lang]
-    bal, spent = get_user_profile(user_id)
-    status_str = "👑 VIP Müşteri" if spent >= 100 else "⭐ Standart Üye"
+    bal = get_user_balance(user_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]
     ])
-    await message.answer(t["profile_text"].format(uid=user_id, status=status_str, balance=bal, spent=spent), reply_markup=kb)
+    await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
 
 @dp.callback_query(F.data == "start_deposit")
 async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
@@ -1557,7 +1557,7 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         conn.close()
 
         update_user_balance(user_id, target_amount)
-        new_bal, _ = get_user_profile(user_id)
+        new_bal = get_user_balance(user_id)
 
         await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
         log_panel_event(f"📥 Bakiye Yükleme Onaylandı: Kullanıcı {user_id} - {target_amount} USDT", "success")
@@ -1627,39 +1627,6 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     except Exception as e:
         logging.error(e)
 
-# --- 📢 BROADCAST (TOPLU DUYURU KOMUTU) ---
-@dp.message(Command("broadcast"))
-async def cmd_broadcast(message: types.Message, state: FSMContext):
-    if message.chat.type != "private" or not is_admin(message.from_user.id):
-        return
-    await state.set_state(BroadcastState.message)
-    await message.answer("📢 Tüm kullanıcılara gönderilmesini istediğiniz duyuru mesajını yazın:")
-
-@dp.message(BroadcastState.message)
-async def process_broadcast(message: types.Message, state: FSMContext):
-    if message.chat.type != "private" or not is_admin(message.from_user.id):
-        return
-    broadcast_text = message.text
-    await state.clear()
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
-    users = cursor.fetchall()
-    conn.close()
-
-    sent_count = 0
-    for u in users:
-        try:
-            await bot.send_message(u[0], f"📢 **Önemli Duyuru:**\n\n{broadcast_text}")
-            sent_count += 1
-            await asyncio.sleep(0.05)
-        except:
-            pass
-
-    await message.answer(f"✅ Duyuru başarıyla **{sent_count}** kullanıcıya iletildi.")
-    log_panel_event(f"📢 Toplu Duyuru Gönderildi: {sent_count} kullanıcıya ulaştı.", "success")
-
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
@@ -1707,7 +1674,7 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ KATEGORİ & ÜRÜN LİSTELEME ---
+# --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
 @dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1817,7 +1784,7 @@ async def my_orders(message: types.Message):
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
-# --- ⚡ SATIN ALMA VE VIP FİYATLANDIRMA ---
+# --- ⚡ SATIN ALMA & BAKİYEDEN ÖDEME AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -1838,19 +1805,14 @@ async def process_buy(callback: types.CallbackQuery):
         return
 
     title, price, stock = drop
-    bal, spent = get_user_profile(user_id)
-    
-    # VIP İndirimi Kontrolü (Toplam harcama 100 USDT üstü ise %10 indirim)
-    is_vip = spent >= 100
-    final_buy_price = round(price * 0.9, 2) if is_vip else price
-    vip_info_str = "(👑 VIP İndirimli!)" if is_vip else ""
+    bal = get_user_balance(user_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["pay_balance"].format(price=final_buy_price), callback_data=f"buybal_{drop_id}")],
+        [InlineKeyboardButton(text=t["pay_balance"].format(price=price), callback_data=f"buybal_{drop_id}")],
         [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")],
         [InlineKeyboardButton(text=t["pay_promo"], callback_data=f"usepromo_{drop_id}")]
     ])
-    await callback.message.edit_text(t["buy_options"].format(title=title, price=final_buy_price, vip_info=vip_info_str, balance=bal), reply_markup=kb)
+    await callback.message.edit_text(t["buy_options"].format(title=title, price=price, balance=bal), reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("buybal_"))
 async def process_buy_with_balance(callback: types.CallbackQuery):
@@ -1872,17 +1834,14 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
         return
 
     title, price, stock, category = drop
-    bal, spent = get_user_profile(user_id)
-    
-    is_vip = spent >= 100
-    final_buy_price = round(price * 0.9, 2) if is_vip else price
+    bal = get_user_balance(user_id)
 
-    if bal < final_buy_price:
+    if bal < price:
         await callback.answer(t["insufficient_balance"], show_alert=True)
         conn.close()
         return
 
-    cursor.execute("UPDATE users SET balance = balance - ?, total_spent = total_spent + ? WHERE user_id = ?", (final_buy_price, final_buy_price, user_id))
+    cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
     
     new_stock = stock - 1
     if new_stock <= 0:
@@ -1890,7 +1849,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, final_buy_price))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
 
     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
@@ -1900,15 +1859,15 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     conn.close()
 
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    success_text = t["balance_success"].format(price=final_buy_price, link=secure_link)
+    success_text = t["balance_success"].format(price=price, link=secure_link)
 
     await callback.message.edit_text(success_text, parse_mode="Markdown")
     
-    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({final_buy_price} USDT)"
+    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({price} USDT)"
     log_panel_event(log_msg, "success")
 
     try:
-        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_buy_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
+        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
         if rem_stock <= 2:
             warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
             log_panel_event(warn_msg, "warning")
@@ -1936,9 +1895,7 @@ async def process_buy_crypto(callback: types.CallbackQuery):
         conn.close()
         return
     title, price, stock = drop
-    _, spent = get_user_profile(user_id)
-    is_vip = spent >= 100
-    final_price = round(price * 0.9, 2) if is_vip else price
+    final_price = price
 
     cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
@@ -2075,7 +2032,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         else:
             cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-        cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (final_price, user_id))
         
         cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
         rem_stock = cursor.fetchone()[0] or 0
@@ -2104,12 +2060,29 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
 
-# --- 🚀 ANA ÇALIŞTIRMA ---
+# --- ANONİM YANITLAMA KÖPRÜSÜ ---
+@dp.message()
+async def handle_admin_group_reply(message: types.Message):
+    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
+        original_text = message.reply_to_message.text or ""
+        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
+        if match:
+            target_user_id = int(match.group(1))
+            admin_reply_text = message.text
+            try:
+                async with bot.session:
+                    await bot.send_message(
+                        target_user_id,
+                        f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
+                    )
+                await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
+            except Exception as e:
+                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
+
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
-    asyncio.create_task(check_expired_orders_task())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
