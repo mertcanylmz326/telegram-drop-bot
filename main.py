@@ -20,7 +20,6 @@ BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
-# 📌 Özel Kullanıcı Adı ve Şifre
 ADMIN_USERNAME = "dionisus"
 ADMIN_PASSWORD = "weedstanbul34"
 
@@ -91,7 +90,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Bot and Secure Web Server are alive and running!")
             return
 
-        # 🔐 Web Admin Paneli
         if parsed_path.path == "/admin-web":
             if not is_logged_in:
                 self.send_login_page()
@@ -190,7 +188,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(dashboard_html.encode("utf-8"))
             return
 
-        # Oturumu Kapatma
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
             self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
@@ -198,7 +195,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # Tek Kullanımlık Güvenli Konum Sayfası
         if parsed_path.path.startswith("/drop/"):
             try:
                 order_id = int(parsed_path.path.split("/")[-1])
@@ -269,7 +265,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length).decode('utf-8')
         params = parse_qs(post_data)
 
-        # 🔑 Giriş İşlemi
         if parsed_path.path == "/admin-login":
             username = params.get("username", [""])[0]
             password = params.get("password", [""])[0]
@@ -283,7 +278,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.send_login_page(error="Hatalı kullanıcı adı veya şifre!")
             return
 
-        # ➕ Web Üzerinden Ürün Ekleme (Oturum Kontrollü)
         if parsed_path.path == "/admin-add":
             cookies_str = self.headers.get('Cookie', '')
             if 'admin_auth=true' not in cookies_str:
@@ -451,24 +445,6 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
         await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\nKullanıcı Adı: @{username}\n\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
-
-# --- ANONİM YANITLAMA KÖPRÜSÜ ---
-@dp.message()
-async def handle_admin_group_reply(message: types.Message):
-    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
-        original_text = message.reply_to_message.text or ""
-        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
-        if match:
-            target_user_id = int(match.group(1))
-            admin_reply_text = message.text
-            try:
-                await bot.send_message(
-                    target_user_id,
-                    f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
-                )
-                await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
-            except Exception as e:
-                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
 
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_drops(message: types.Message):
@@ -648,6 +624,25 @@ async def p_desc(message: types.Message, state: FSMContext):
     conn.close()
     await state.clear()
     await message.answer("✅ Ürün başarıyla eklendi!")
+
+# --- 🔒 ANONİM YANITLAMA KÖPRÜSÜ (EN ALTA TAŞINDI) ---
+@dp.message()
+async def handle_admin_group_reply(message: types.Message):
+    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
+        original_text = message.reply_to_message.text or ""
+        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
+        if match:
+            target_user_id = int(match.group(1))
+            admin_reply_text = message.text
+            try:
+                await bot.reset_webhook(drop_pending_updates=True) if False else None
+                await bot.send_message(
+                    target_user_id,
+                    f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
+                )
+                await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
+            except Exception as e:
+                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
 
 async def main():
     await dp.start_polling(bot)
