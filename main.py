@@ -23,6 +23,10 @@ ADMIN_GROUP_ID = -1004474292737
 ADMIN_WEB_USERNAME = "dionisus"
 ADMIN_WEB_PASSWORD = "weedstanbul34"
 
+# 🎟️ PROMO KOD AYARI
+PROMO_CODE = "welcomeweedstanbul"
+PROMO_DISCOUNT = 8.0  # 8 Dolar/USDT İndirim
+
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
@@ -30,7 +34,7 @@ RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
-main_loop = None  # Arka plan web sunucusundan async bildirim göndermek için
+main_loop = None
 
 # --- VERİTABANI KURULUMU ---
 def init_db():
@@ -60,9 +64,15 @@ def init_db():
             user_id INTEGER,
             drop_id INTEGER,
             status TEXT DEFAULT 'pending',
+            final_price REAL DEFAULT 0.0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN final_price REAL DEFAULT 0.0")
+    except:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -114,13 +124,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             total_drops = cursor.fetchone()[0]
             cursor.execute("SELECT SUM(stock) FROM drops WHERE is_sold = 0")
             total_active_stock = cursor.fetchone()[0] or 0
-            cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
-            total_revenue = cursor.fetchone()[0] or 0.0
+            
+            # Ciro hesabı (final_price varsa onu baz alalım)
+            cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
+            rev_res = cursor.fetchone()[0]
+            if rev_res is not None:
+                total_revenue = rev_res
+            else:
+                cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
+                total_revenue = cursor.fetchone()[0] or 0.0
+
+            # 📊 Grafik için son 7 günün ciro verileri
+            cursor.execute("""
+                SELECT DATE(created_at) as cday, SUM(final_price) 
+                FROM orders WHERE status = 'completed' 
+                GROUP BY cday ORDER BY cday DESC LIMIT 7
+            """)
+            chart_data = cursor.fetchall()
 
             content_html = ""
             if tab == "active":
                 cursor.execute("""
-                    SELECT orders.id, users.username, drops.title, drops.price, orders.status, orders.created_at 
+                    SELECT orders.id, users.username, drops.title, orders.final_price, orders.status, orders.created_at 
                     FROM orders 
                     JOIN drops ON orders.drop_id = drops.id 
                     LEFT JOIN users ON orders.user_id = users.user_id
@@ -130,9 +155,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 orders = cursor.fetchall()
                 rows = ""
                 for o in orders:
-                    o_id, uname, title, price, status, date = o
+                    o_id, uname, title, f_price, status, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    rows += f"<tr><td>#{o_id}</td><td>{username_str}</td><td>{title}</td><td>{price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
+                    rows += f"<tr><td>#{o_id}</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
                 
                 content_html = f"""
                 <div class="table-box">
@@ -145,7 +170,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 """
             elif tab == "pending":
                 cursor.execute("""
-                    SELECT orders.id, users.username, drops.title, drops.price, orders.created_at 
+                    SELECT orders.id, users.username, drops.title, orders.final_price, orders.created_at 
                     FROM orders 
                     JOIN drops ON orders.drop_id = drops.id 
                     LEFT JOIN users ON orders.user_id = users.user_id
@@ -155,14 +180,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 pending_orders = cursor.fetchall()
                 rows = ""
                 for o in pending_orders:
-                    o_id, uname, title, price, date = o
+                    o_id, uname, title, f_price, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
                     rows += f"""
                     <tr>
                         <td>#{o_id}</td>
                         <td>{username_str}</td>
                         <td>{title}</td>
-                        <td>{price} USDT</td>
+                        <td>{f_price} USDT</td>
                         <td>{date}</td>
                         <td>
                             <form action="/admin-approve" method="POST" style="margin:0;">
@@ -519,14 +544,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT orders.user_id, drops.id, drops.stock, orders.status, drops.title, drops.price 
+                SELECT orders.user_id, drops.id, drops.stock, orders.status, drops.title, orders.final_price, drops.category 
                 FROM orders 
                 JOIN drops ON orders.drop_id = drops.id 
                 WHERE orders.id = ?
             """, (order_id,))
             row = cursor.fetchone()
             if row:
-                u_id, d_id, stock, status, t_title, t_price = row
+                u_id, d_id, stock, status, t_title, f_price, t_cat = row
                 if status == 'pending':
                     new_stock = stock - 1
                     if new_stock <= 0:
@@ -534,21 +559,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     else:
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+                    
+                    # 🤖 Stok uyarısı kontrolü (Kategoride son 2 veya daha az kaldı mı?)
+                    cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
+                    rem_stock = cursor.fetchone()[0] or 0
+
                     conn.commit()
                     conn.close()
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
 
-                    # Bildirimler
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(
                             bot.send_message(u_id, f"🎉 Ödemeniz admin tarafından onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({secure_link})", parse_mode="Markdown"),
                             main_loop
                         )
                         asyncio.run_coroutine_threadsafe(
-                            bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ GERÇEKLEŞTİ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {t_price} USDT\n👤 Alıcı ID: `{u_id}`\n🆔 Sipariş ID: `#{order_id}`"),
+                            bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ GERÇEKLEŞTİ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n👤 Alıcı ID: `{u_id}`\n🆔 Sipariş ID: `#{order_id}`"),
                             main_loop
                         )
+                        if rem_stock <= 2:
+                            asyncio.run_coroutine_threadsafe(
+                                bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{t_cat}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir."),
+                                main_loop
+                            )
             else:
                 conn.close()
 
@@ -623,6 +657,9 @@ class AdminPassState(StatesGroup):
 
 class SupportState(StatesGroup):
     message = State()
+
+class PromoState(StatesGroup):
+    code = State()
 
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
@@ -728,8 +765,9 @@ async def show_stats(callback: types.CallbackQuery):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*), SUM(stock) FROM drops WHERE is_sold = 0")
     res = cursor.fetchone()
-    cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
-    rev = cursor.fetchone()[0] or 0.0
+    cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
+    rev_res = cursor.fetchone()[0]
+    rev = rev_res if rev_res is not None else 0.0
     conn.close()
     await callback.message.edit_text(f"📊 İstatistikler:\nAktif Stok: {res[1] or 0}\nToplam Ciro: {rev} USDT", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Geri", callback_data="back_admin")]]))
 
@@ -742,7 +780,7 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ KATEGORİ (SEMT) SEÇİM SİSTEMİ ---
+# --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_categories(message: types.Message):
     if message.chat.type != "private":
@@ -799,7 +837,7 @@ async def back_to_cats(callback: types.CallbackQuery):
     
     await callback.message.edit_text("🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:", reply_markup=kb)
 
-# --- 📦 MÜŞTERİ GEÇMİŞ SİPARİŞLERİM MENÜSÜ ---
+# --- 📦 GEÇMİŞ SİPARİŞLERİM ---
 @dp.message(F.text == "📦 Geçmiş Siparişlerim")
 async def my_orders(message: types.Message):
     if message.chat.type != "private":
@@ -808,7 +846,7 @@ async def my_orders(message: types.Message):
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT orders.id, drops.title, drops.price, orders.status, orders.created_at 
+        SELECT orders.id, drops.title, orders.final_price, orders.status, orders.created_at 
         FROM orders 
         JOIN drops ON orders.drop_id = drops.id 
         WHERE orders.user_id = ?
@@ -824,17 +862,94 @@ async def my_orders(message: types.Message):
     text = "📦 **Sipariş Geçmişiniz:**\n\n"
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for o in orders:
-        o_id, title, price, status, date = o
+        o_id, title, f_price, status, date = o
         status_emoji = "🟢 Tamamlandı" if status == 'completed' else ("⏰ Süresi Doldu" if status == 'expired' else "⏳ Onay Bekliyor")
-        text += f"• **Sipariş #{o_id}** | {title} - {price} USDT\n  Durum: {status_emoji} ({date})\n\n"
+        text += f"• **Sipariş #{o_id}** | {title} - {f_price} USDT\n  Durum: {status_emoji} ({date})\n\n"
         if status == 'completed':
             secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
             kb.inline_keyboard.append([InlineKeyboardButton(text=f"🔗 Sipariş #{o_id} Konumunu Aç", url=secure_link)])
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
+# --- 🎟️ PROMO KODLU SATIN ALMA AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
-async def process_buy(callback: types.CallbackQuery):
+async def process_buy(callback: types.CallbackQuery, state: FSMContext):
+    drop_id = int(callback.data.split("_")[1])
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+    drop = cursor.fetchone()
+    conn.close()
+
+    if not drop:
+        await callback.answer("⚠️ Bu ürün tükenmiş.", show_alert=True)
+        return
+
+    title, price, stock = drop
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎟️ İndirim Kuponu Kullan", callback_data=f"usepromo_{drop_id}")],
+        [InlineKeyboardButton(text="💳 Kuponsuz Devam Et", callback_data=f"nopromo_{drop_id}")]
+    ])
+    await callback.message.edit_text(f"📌 Ürün: {title}\n💰 Normal Tutar: {price} USDT\n\nİndirim kuponu kullanmak ister misiniz?", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("usepromo_"))
+async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
+    drop_id = int(callback.data.split("_")[1])
+    await state.update_data(drop_id=drop_id)
+    await state.set_state(PromoState.code)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ İptal", callback_data=f"buy_{drop_id}")]])
+    await callback.message.edit_text("🎟️ Lütfen indirim kuponu kodunu yazın:", reply_markup=kb)
+
+@dp.message(PromoState.code)
+async def verify_promo_code(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
+    data = await state.get_data()
+    drop_id = data.get("drop_id")
+    entered_code = message.text.strip()
+    await state.clear()
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+    drop = cursor.fetchone()
+    conn.close()
+
+    if not drop:
+        await message.answer("⚠️ Ürün artık mevcut değil.")
+        return
+
+    title, price, stock = drop
+    if entered_code == PROMO_CODE:
+        final_price = max(0.0, price - PROMO_DISCOUNT)
+        promo_applied = True
+    else:
+        final_price = price
+        promo_applied = False
+
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
+    order_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    msg = f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n📌 Ürün: {title}\n"
+    if promo_applied:
+        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{PROMO_DISCOUNT} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
+    else:
+        msg += f"❌ Geçersiz kupon! Tam Tutar: {final_price} USDT\n\n"
+
+    msg += f"🔒 Cüzdan Adresi:\n`{CRYPTO_WALLET}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın."
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 Ödemeyi Otomatik Kontrol Et", callback_data=f"autocheck_{order_id}")]])
+    await message.answer(msg, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("nopromo_"))
+async def process_buy_no_promo(callback: types.CallbackQuery):
     drop_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
     username = callback.from_user.username
@@ -850,13 +965,15 @@ async def process_buy(callback: types.CallbackQuery):
         conn.close()
         return
     title, price, stock = drop
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status) VALUES (?, ?, 'pending')", (user_id, drop_id))
+    final_price = price
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
     order_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
     payment_text = (
         f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
-        f"📌 Ürün: {title}\n💰 Tutar: {price} USDT\n\n"
+        f"📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n\n"
         f"🔒 Cüzdan Adresi:\n`{CRYPTO_WALLET}`\n\n"
         "⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın."
     )
@@ -869,13 +986,18 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     await callback.answer("Blokzincir taranıyor...", show_alert=True)
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT orders.user_id, drops.id, drops.price, drops.stock, orders.status, orders.created_at, drops.title FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.id = ?", (order_id,))
+    cursor.execute("""
+        SELECT orders.user_id, drops.id, drops.stock, orders.status, orders.created_at, drops.title, orders.final_price, drops.category 
+        FROM orders 
+        JOIN drops ON orders.drop_id = drops.id 
+        WHERE orders.id = ?
+    """, (order_id,))
     data = cursor.fetchone()
     if not data:
         await callback.answer("Sipariş bulunamadı.", show_alert=True)
         conn.close()
         return
-    user_id, drop_id, expected_price, stock, status, created_at_str, title = data
+    user_id, drop_id, stock, status, created_at_str, title, final_price, category = data
     if status == 'completed':
         await callback.answer("Zaten onaylanmış.", show_alert=True)
         conn.close()
@@ -899,7 +1021,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
                 if response.status == 200:
                     res_json = await response.json()
                     for tx in res_json.get("data", []):
-                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(float(expected_price) * 1000000):
+                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(float(final_price) * 1000000):
                             payment_verified = True
                             break
     except Exception as e:
@@ -912,15 +1034,22 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         else:
             cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+        
+        # Stok uyarısı kontrolü
+        cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
+        rem_stock = cursor.fetchone()[0] or 0
+
         conn.commit()
         conn.close()
+
         secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
         await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı.")
         await bot.send_message(user_id, f"🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({secure_link})", parse_mode="Markdown")
         
-        # Admin grubuna anlık satış bildirimi
         try:
-            await bot.send_message(ADMIN_GROUP_ID, f"🎉 **YENİ BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {expected_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
+            await bot.send_message(ADMIN_GROUP_ID, f"🎉 **YENİ BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
+            if rem_stock <= 2:
+                await bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{category}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir.")
         except Exception as e:
             logging.error(e)
     else:
