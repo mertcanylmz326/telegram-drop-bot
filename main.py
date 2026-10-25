@@ -3,6 +3,7 @@ import sqlite3
 import logging
 import os
 import threading
+import re
 import aiohttp
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -14,13 +15,16 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
-# --- AYARLAR VE TOKEN ---
-BOT_TOKEN = "8994954068:AAFZ0M5vwPYPx1XQMb-2C7fHpYX8eLof8NQ"
+# --- AYARLAR VE CÜZDAN İZOLASYONU ---
+BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
 ADMIN_WEB_USERNAME = "dionisus"
 ADMIN_WEB_PASSWORD = "weedstanbul34"
+
+PROMO_CODE = "welcomeweedstanbul"
+PROMO_DISCOUNT = 8.0
 
 WALLET_CONFIG = {
     "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",
@@ -38,11 +42,12 @@ REQUIRED_CHANNEL_URL = "https://t.me/+NReAegSp4l85NWZk"
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+main_loop = None
 
-# --- ÇEVİRİ SÖZLÜĞÜ ---
+# --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
     "tr": {
-        "welcome": "🌿 Merhaba! Weed Istanbul Güvenli Dispensary Botuna Hoş Geldiniz.\n\nAşağıdaki menüden dilediğiniz gibi ilerleyebilirsiniz:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botumuza hoş geldiniz.\n\nİster Mini App mağazamızdan hızlıca alışveriş yapın, ister 'Bot ile Devam Et' diyerek sohbet üzerinden ilerleyin:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_webapp": "🛍️ Mağazayı Aç (Mini App)",
         "btn_botshop": "🤖 Bot ile Devam Et",
@@ -66,7 +71,7 @@ LANG = {
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
-        "welcome": "🌿 Hello! Welcome to Weed Istanbul Secure Dispensary Bot.\n\nYou can proceed using the menu below:",
+        "welcome": "👋 Hello! Welcome to our secure automated delivery bot.\n\nYou can shop via our Mini App or continue directly through the bot:",
         "lang_set": "✅ Language set to English.",
         "btn_webapp": "🛍️ Open Store (Mini App)",
         "btn_botshop": "🤖 Continue via Bot",
@@ -91,17 +96,82 @@ LANG = {
     }
 }
 
-# --- VERİTABANI ---
+# --- VERİTABANI KURULUMU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS drops (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, price REAL, location_url TEXT, photo_ids TEXT, description TEXT, stock INTEGER DEFAULT 1, is_sold INTEGER DEFAULT 0, category TEXT DEFAULT 'Genel')''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, drop_id INTEGER, status TEXT DEFAULT 'pending', final_price REAL DEFAULT 0.0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS deposits (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount REAL, status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS panel_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT, log_type TEXT DEFAULT 'info', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS support_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, username TEXT, message TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS testimonials (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT, rating INTEGER DEFAULT 5, photo_url TEXT, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, is_banned INTEGER DEFAULT 0, language TEXT DEFAULT 'tr', balance REAL DEFAULT 0.0, total_spent REAL DEFAULT 0.0, referred_by INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS drops (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            price REAL,
+            location_url TEXT,
+            photo_ids TEXT,
+            description TEXT,
+            stock INTEGER DEFAULT 1,
+            is_sold INTEGER DEFAULT 0,
+            category TEXT DEFAULT 'Genel'
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            drop_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            final_price REAL DEFAULT 0.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deposits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            amount REAL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS panel_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message TEXT,
+            log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            message TEXT,
+            status TEXT DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS testimonials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT,
+            rating INTEGER DEFAULT 5,
+            photo_url TEXT,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            is_banned INTEGER DEFAULT 0,
+            language TEXT DEFAULT 'tr',
+            balance REAL DEFAULT 0.0,
+            total_spent REAL DEFAULT 0.0,
+            referred_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0"), ("total_spent", "REAL DEFAULT 0.0"), ("referred_by", "INTEGER")]:
         try: cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except: pass
@@ -175,7 +245,6 @@ def get_wallet_balances():
     return balances
 
 async def check_user_subscription(user_id: int) -> bool:
-    if user_id == ADMIN_ID: return True
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
         return member.status not in ["left", "kicked"]
@@ -207,7 +276,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- WEB PANEL HANDLER ---
+# --- 🎄 WEB SUNUCUSU & ADMIN PANELİ (MOBİL UYUMLU HAMBURGER MENÜ) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -218,147 +287,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"Weed Istanbul Dispensary Server Active!")
-            return
-
-        if parsed_path.path == "/webapp":
-            user_id = query_params.get("user_id", ["0"])[0]
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT balance, total_spent FROM users WHERE user_id = ?", (user_id,))
-            u_row = cursor.fetchone()
-            bal = u_row[0] if u_row and u_row[0] is not None else 0.0
-            spent = u_row[1] if u_row and u_row[1] is not None else 0.0
-            is_vip = spent >= 100
-
-            cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
-            categories = [r[0] for r in cursor.fetchall()]
-
-            cursor.execute("SELECT id, title, price, stock, category, photo_ids, description FROM drops WHERE is_sold = 0 AND stock > 0")
-            drops = cursor.fetchall()
-
-            cursor.execute("SELECT customer_name, rating, photo_url, comment, created_at FROM testimonials ORDER BY id DESC LIMIT 5")
-            testimonials = cursor.fetchall()
-
-            cursor.execute("""
-                SELECT orders.id, drops.title, orders.final_price, orders.status, orders.created_at 
-                FROM orders JOIN drops ON orders.drop_id = drops.id 
-                WHERE orders.user_id = ? ORDER BY orders.id DESC
-            """, (user_id,))
-            orders = cursor.fetchall()
-            conn.close()
-
-            vip_text = "👑 VIP Müşteri (%10 İndirim)" if is_vip else "⭐ Standart Üye"
-
-            drops_html = ""
-            for d in drops:
-                d_id, title, price, stock, cat, photo, desc = d
-                eff_price = round(price * 0.9, 2) if is_vip else price
-                price_display = f"<span style='text-decoration:line-through; color:#64748b; font-size:13px;'>{price} USDT</span> <b style='color:#00ff88; font-size:18px;'>{eff_price} USDT</b>" if is_vip else f"<b style='color:#00ff88; font-size:18px;'>{price} USDT</b>"
-                img_tag = f"<img src='{photo}' style='width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;' />" if photo else ""
-                drops_html += f"""
-                <div class="product-card" data-category="{cat or 'Genel'}">
-                    {img_tag}
-                    <h3 style="margin:0 0 5px 0; color:#f8fafc; font-size:16px;">{title}</h3>
-                    <p style="margin:0 0 8px 0; font-size:12px; color:#00ff88;">🌱 {cat or 'Genel'} | Stok: {stock}</p>
-                    <p style="margin:0 0 12px 0; font-size:13px; color:#94a3b8;">{desc or 'Özel güvenli teslimat drop.'}</p>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>{price_display}</div>
-                        <button onclick="buyProduct({d_id})" class="buy-btn">Satın Al</button>
-                    </div>
-                </div>
-                """
-
-            tests_html = ""
-            for tr in testimonials:
-                c_name, rating, p_url, comment, c_date = tr
-                stars = "⭐" * rating
-                p_tag = f"<img src='{p_url}' style='width:100%; height:120px; object-fit:cover; border-radius:8px; margin-top:8px;' />" if p_url else ""
-                tests_html += f"""
-                <div class="testi-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <b>{c_name}</b><span style="font-size:12px;">{stars}</span>
-                    </div>
-                    <p style="margin:0; font-size:13px; color:#cbd5e1;">"{comment}"</p>
-                    {p_tag}
-                </div>
-                """
-
-            orders_html = ""
-            for o in orders:
-                o_id, title, f_price, status, date = o
-                st_badge = "<span style='color:#00ff88;'>Tamamlandı</span>" if status == 'completed' else ("<span style='color:#ef4444;'>Süresi Doldu</span>" if status == 'expired' else "<span style='color:#f59e0b;'>Ödeme Bekliyor</span>")
-                link_btn = f"<a href='/drop/{o_id}' target='_blank' class='loc-btn'>Konumu Aç</a>" if status == 'completed' else ""
-                orders_html += f"""
-                <div class="order-item">
-                    <div><b>#{o_id}</b> - {title} ({f_price} USDT)</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; font-size:12px;">
-                        <span>{st_badge} ({date})</span>{link_btn}
-                    </div>
-                </div>
-                """
-
-            cats_filter_html = "<button class='cat-btn active' onclick='filterCat(\"all\")'>Tümü</button>"
-            for c in categories:
-                cats_filter_html += f"<button class='cat-btn' onclick='filterCat(\"{c}\")'>{c}</button>"
-
-            webapp_html = f"""
-            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Weed Istanbul Dispensary</title>
-            <script src="https://telegram.org/js/telegram-web-app.js"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-            <style>
-                body {{ background: #050b07; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 15px; box-sizing: border-box; }}
-                .header {{ background: rgba(10, 26, 15, 0.9); padding: 15px; border-radius: 14px; border: 1px solid rgba(0, 255, 136, 0.3); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }}
-                .logo-text {{ font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #00ff88; text-transform: uppercase; }}
-                .nav-tabs {{ display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }}
-                .tab-btn {{ background: #112217; color: #94a3b8; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }}
-                .tab-btn.active {{ background: #00ff88; color: #050b07; }}
-                .section {{ display: none; }} .section.active {{ display: block; }}
-                .product-card, .testi-card, .order-item {{ background: rgba(10, 26, 15, 0.8); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,255,136,0.15); margin-bottom: 15px; }}
-                .buy-btn, .loc-btn {{ background: #00ff88; color: #050b07; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; text-decoration: none; }}
-                .loc-btn {{ background: #38bdf8; color: #fff; }}
-                .cat-container {{ display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; }}
-                .cat-btn {{ background: #0a1a0f; color: #94a3b8; border: 1px solid #1e3a24; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }}
-                .cat-btn.active {{ background: rgba(0, 255, 136, 0.2); color: #00ff88; border-color: #00ff88; }}
-            </style>
-            </head>
-            <body>
-                <script>let tg = window.Telegram.WebApp; tg.expand();</script>
-                <div class="header">
-                    <div><div class="logo-text">🌱 WEED ISTANBUL</div><p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{vip_text}</p></div>
-                    <div style="text-align:right;"><span style="font-size:12px; color:#94a3b8; display:block;">Bakiye</span><b style="color:#00ff88; font-size:16px;">{bal} USDT</b></div>
-                </div>
-                <div class="nav-tabs">
-                    <button class="tab-btn active" onclick="switchTab('shop')">🛍️ Mağaza</button>
-                    <button class="tab-btn" onclick="switchTab('orders')">📦 Siparişlerim</button>
-                    <button class="tab-btn" onclick="switchTab('refs')">⭐ Referanslar</button>
-                </div>
-                <div id="shop" class="section active"><div class="cat-container">{cats_filter_html}</div><div id="product-list">{drops_html if drops_html else "<p style='text-align:center; color:#64748b;'>Aktif stok yok.</p>"}</div></div>
-                <div id="orders" class="section"><h3 style="color:#00ff88; margin-top:0;">📦 Geçmiş Siparişler</h3>{orders_html if orders_html else "<p style='text-align:center; color:#64748b;'>Henüz siparişiniz yok.</p>"}</div>
-                <div id="refs" class="section"><h3 style="color:#00ff88; margin-top:0;">⭐ Müşteri Yorumları</h3>{tests_html if tests_html else "<p style='text-align:center; color:#64748b;'>Yorum yok.</p>"}</div>
-                <script>
-                    function switchTab(tabId) {{
-                        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                        document.getElementById(tabId).classList.add('active');
-                        event.currentTarget.classList.add('active');
-                    }}
-                    function filterCat(cat) {{
-                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-                        event.currentTarget.classList.add('active');
-                        document.querySelectorAll('.product-card').forEach(card => {{
-                            if (cat === 'all' || card.dataset.category === cat) card.style.display = 'block';
-                            else card.style.display = 'none';
-                        }});
-                    }}
-                    function buyProduct(dropId) {{ tg.close(); }}
-                </script>
-            </body></html>
-            """
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(webapp_html.encode("utf-8"))
+            self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
         if parsed_path.path == "/admin-web":
@@ -368,6 +297,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             tab = query_params.get("tab", ["home"])[0]
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM drops")
+            total_drops = cursor.fetchone()[0]
             cursor.execute("SELECT SUM(stock) FROM drops WHERE is_sold = 0")
             total_active_stock = cursor.fetchone()[0] or 0
             cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
@@ -376,102 +307,80 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             content_html = ""
             if tab == "home":
                 cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
-                logs_html = "".join([f"<div style='background:rgba(10,26,15,0.7); padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px; border-left:3px solid #00ff88;'>{l[2]} - {l[0]}</div>" for l in cursor.fetchall()])
-                w_bals = get_wallet_balances()
+                logs_html = "".join([f"<div style='background:rgba(15,23,42,0.7); padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px;'>{l[2]} - {l[0]}</div>" for l in cursor.fetchall()])
                 content_html = f"""
                 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; margin-bottom:20px;">
-                    <div style="background:rgba(10,26,15,0.8); padding:18px; border-radius:14px; border:1px solid rgba(0,255,136,0.4);"><h3 style="color:#94a3b8; font-size:12px; margin:0;">TOPLAM CİRO</h3><p style="font-size:24px; font-weight:bold; color:#00ff88; margin:5px 0 0 0;">{total_revenue} USDT</p></div>
-                    <div style="background:rgba(10,26,15,0.8); padding:18px; border-radius:14px; border:1px solid rgba(239,68,68,0.4);"><h3 style="color:#94a3b8; font-size:12px; margin:0;">AKTİF STOK</h3><p style="font-size:24px; font-weight:bold; color:#ef4444; margin:5px 0 0 0;">{total_active_stock}</p></div>
+                    <div style="background:#0f172a; padding:15px; border-radius:12px; border:1px solid #10b981;"><h3>TOPLAM CİRO</h3><p style="font-size:24px; font-weight:bold;">{total_revenue} USDT</p></div>
+                    <div style="background:#0f172a; padding:15px; border-radius:12px; border:1px solid #ef4444;"><h3>AKTİF STOK</h3><p style="font-size:24px; font-weight:bold;">{total_active_stock}</p></div>
                 </div>
-                <div style="background:rgba(10,26,15,0.8); padding:20px; border-radius:14px; border:1px solid rgba(0,255,136,0.3); margin-bottom:20px;">
-                    <h3 style="margin-top:0; color:#00ff88; font-size:16px;">🔒 Cüzdan Bakiyeleri</h3>
-                    <ul style="list-style:none; padding:0; margin:0; font-size:13px;">
-                        <li style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between;"><div>🟢 <b>weedboot:</b> <code>{WALLET_CONFIG['weedboot']}</code></div><div style="color:#00ff88;">{w_bals.get('weedboot', {}).get('usdt', 0.0)} USDT</div></li>
-                    </ul>
-                </div>
-                <div style="background:rgba(10,26,15,0.8); padding:20px; border-radius:14px; border:1px solid rgba(0,255,136,0.2);"><h3 style="color:#00ff88; margin-top:0; font-size:16px;">Canlı Loglar</h3>{logs_html}</div>
+                <div style="background:#0f172a; padding:15px; border-radius:12px;"><h3>Canlı Loglar</h3>{logs_html}</div>
                 """
-            elif tab == "add":
-                content_html = """
-                <div style="background:rgba(10,26,15,0.85); padding:25px; border-radius:14px; border:1px solid rgba(0,255,136,0.3); max-width:600px;">
-                    <h2 style="color:#00ff88; margin-top:0;">➕ Yeni Ürün / Drop Ekle</h2>
-                    <form action="/admin-add-drop" method="POST">
-                        <label style="font-size:13px; color:#94a3b8;">Ürün Adı / Cinsi:</label>
-                        <input type="text" name="title" required placeholder="Örn: Amnesia Haze 5g" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
-                        
-                        <label style="font-size:13px; color:#94a3b8;">Bölge / Semt (Kategori):</label>
-                        <input type="text" name="category" required placeholder="Örn: Kadıköy" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
-                        
-                        <label style="font-size:13px; color:#94a3b8;">Fiyat (USDT):</label>
-                        <input type="number" step="0.01" name="price" required placeholder="50" style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
-                        
-                        <label style="font-size:13px; color:#94a3b8;">Google Maps Konum Linki:</label>
-                        <input type="url" name="location_url" required placeholder="https://maps.google.com/..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
-                        
-                        <label style="font-size:13px; color:#94a3b8;">Fotoğraf URL:</label>
-                        <input type="url" name="photo_url" placeholder="https://..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;">
-                        
-                        <label style="font-size:13px; color:#94a3b8;">Açıklama / Not:</label>
-                        <textarea name="description" rows="3" placeholder="Teslimat notu..." style="width:100%; padding:10px; margin:8px 0 15px 0; background:#050b07; border:1px solid #1e3a24; color:white; border-radius:6px; box-sizing:border-box;"></textarea>
-                        
-                        <button type="submit" style="background:#00ff88; color:#050b07; border:none; padding:12px; width:100%; border-radius:6px; font-weight:bold; cursor:pointer; font-size:15px;">Drop'u Sisteme Ekle</button>
-                    </form>
-                </div>
-                """
+            elif tab == "testimonials":
+                content_html = "<h2>⭐ Yorum Yönetimi</h2><p>Yorumlar burada listelenir.</p>"
+            elif tab == "support":
+                content_html = "<h2>💬 Canlı Destek Talepleri</h2><p>Aktif destek talepleri burada görünür.</p>"
             elif tab == "pending":
-                cursor.execute("SELECT orders.id, users.username, users.user_id, drops.title, orders.final_price, orders.created_at FROM orders JOIN users ON orders.user_id = users.user_id JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'pending' ORDER BY orders.id DESC")
-                pend_orders = cursor.fetchall()
-                p_html = "".join([f"<div style='background:rgba(10,26,15,0.8); padding:15px; border-radius:10px; border:1px solid rgba(245,158,11,0.3); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;'><div><b>Sipariş #{po[0]}</b> - {po[3]} ({po[4]} USDT)<br><span style='font-size:12px; color:#94a3b8;'>@{po[1]}</span></div><div><a href='/admin-approve-order?id={po[0]}' style='background:#00ff88; color:#050b07; padding:8px 14px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:13px; margin-right:5px;'>Onayla</a><a href='/admin-cancel-order?id={po[0]}' style='background:#ef4444; color:white; padding:8px 14px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:13px;'>İptal</a></div></div>" for po in pend_orders])
-                content_html = f"<h2>⏳ Onay Bekleyen Siparişler</h2>{p_html if p_html else '<p style=\'color:#64748b;\'>Bekleyen sipariş yok.</p>'}"
+                content_html = "<h2>⏳ Bekleyen Siparişler</h2><p>Onay bekleyen siparişler.</p>"
+            elif tab == "active":
+                content_html = "<h2>🟢 Tamamlanan Siparişler</h2><p>Tamamlanan satışlar.</p>"
+            elif tab == "passive":
+                content_html = "<h2>📦 Stoktakiler / Pasifler</h2><p>Tüm ürün stok yönetimi.</p>"
+            elif tab == "add":
+                content_html = "<h2>➕ Ürün Ekle</h2><p>Yeni drop ekleme formu.</p>"
+            elif tab == "users":
+                content_html = "<h2>👥 Kullanıcı Listesi</h2><p>Kayıtlı üyeler ve VIP durumları.</p>"
             conn.close()
 
             dashboard_html = f"""
-            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🌱 Panel</title>
+            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin Panel</title>
             <style>
-                body {{ background: #050b07; color: #f8fafc; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }}
-                .sidebar {{ width: 250px; background: rgba(8, 20, 12, 0.95); padding: 20px; border-right: 1px solid rgba(0,255,136,0.2); box-sizing: border-box; }}
-                .sidebar a {{ color: #94a3b8; display: block; padding: 10px 12px; text-decoration: none; margin-bottom: 6px; border-radius: 8px; font-size: 14px; font-weight: 600; }}
-                .sidebar a:hover, .sidebar a.active {{ background: rgba(0,255,136,0.15); color: #00ff88; }}
-                .main {{ flex: 1; padding: 25px; overflow-y: auto; box-sizing: border-box; }}
+                body {{ background:#050a0e; color:white; font-family:sans-serif; margin:0; display:flex; height:100vh; overflow:hidden; }}
+                .sidebar {{ width:250px; background:#0f172a; padding:20px; border-right:1px solid #334155; transition: transform 0.3s ease; z-index: 100; }}
+                .sidebar a {{ color:#94a3b8; display:block; padding:10px; text-decoration:none; margin-bottom:5px; border-radius:6px; }}
+                .sidebar a:hover {{ background:#10b981; color:white; }}
+                .main {{ flex:1; padding:20px; overflow-y:auto; box-sizing: border-box; }}
+                .mobile-header {{ display:none; background:#0f172a; padding:15px; border-bottom:1px solid #334155; align-items:center; justify-content:space-between; }}
+                .menu-btn {{ background:#10b981; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:16px; }}
+                @media(max-width: 768px) {{
+                    body {{ flex-direction: column; }}
+                    .sidebar {{ position: fixed; height: 100%; top: 0; left: 0; transform: translateX(-100%); }}
+                    .sidebar.open {{ transform: translateX(0); }}
+                    .mobile-header {{ display: flex; }}
+                    .main {{ height: calc(100vh - 60px); }}
+                }}
             </style>
             </head>
             <body>
-                <div class="sidebar">
-                    <h2 style="color:#00ff88; font-size:16px; text-align:center; margin-top:0;">🌱 WEED PANEL</h2>
-                    <a href="/admin-web?tab=home" class="{'active' if tab=='home' else ''}">🏠 Anasayfa</a>
-                    <a href="/admin-web?tab=pending" class="{'active' if tab=='pending' else ''}">⏳ Bekleyenler</a>
-                    <a href="/admin-web?tab=add" class="{'active' if tab=='add' else ''}">➕ Ürün Ekle</a>
-                    <a href="/admin-logout" style="color:#ef4444; margin-top:20px; text-align:center;">🚪 Çıkış</a>
+                <div class="mobile-header">
+                    <h3 style="margin:0; color:#10b981;">🎄 Admin Panel</h3>
+                    <button class="menu-btn" onclick="toggleMenu()">☰ Menü</button>
                 </div>
-                <div class="main">{content_html}</div>
+                <div class="sidebar" id="sidebar">
+                    <h2>🎄 Admin Panel</h2>
+                    <a href="/admin-web?tab=home">🏠 Anasayfa</a>
+                    <a href="/admin-web?tab=testimonials">⭐ Yorumlar</a>
+                    <a href="/admin-web?tab=support">💬 Destek</a>
+                    <a href="/admin-web?tab=pending">⏳ Bekleyenler</a>
+                    <a href="/admin-web?tab=active">🟢 Tamamlananlar</a>
+                    <a href="/admin-web?tab=passive">📦 Stoktakiler</a>
+                    <a href="/admin-web?tab=add">➕ Ürün Ekle</a>
+                    <a href="/admin-web?tab=users">👥 Kullanıcılar</a>
+                    <a href="/admin-logout" style="color:#ef4444; margin-top:20px;">🚪 Çıkış</a>
+                </div>
+                <div class="main">
+                    {content_html}
+                </div>
+                <script>
+                    function toggleMenu() {{
+                        document.getElementById('sidebar').classList.toggle('open');
+                    }}
+                </script>
             </body></html>
             """
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(dashboard_html.encode("utf-8"))
-            return
-
-        if parsed_path.path.startswith("/admin-"):
-            if not is_logged_in:
-                self.send_response(303)
-                self.send_header('Location', '/admin-web')
-                self.end_headers()
-                return
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            if parsed_path.path == "/admin-approve-order":
-                o_id = query_params.get("id", ["0"])[0]
-                cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
-                conn.commit()
-            elif parsed_path.path == "/admin-cancel-order":
-                o_id = query_params.get("id", ["0"])[0]
-                cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (o_id,))
-                conn.commit()
-            conn.close()
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=home')
-            self.end_headers()
             return
 
         if parsed_path.path == "/admin-logout":
@@ -481,34 +390,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        if parsed_path.path.startswith("/drop/"):
-            try:
-                order_id = int(parsed_path.path.split("/")[-1])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT orders.status, drops.title, drops.location_url, drops.photo_ids, drops.description FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.id = ?", (order_id,))
-                row = cursor.fetchone()
-                conn.close()
-                if not row or row[0] != 'completed':
-                    self.send_html_error("Geçersiz veya süresi dolmuş bağlantı.")
-                    return
-                status, title, loc, photo, desc = row
-                photo_tag = f'<img src="{photo}" style="width:100%; max-height:250px; object-fit:cover; border-radius:8px; margin-bottom:15px;" />' if photo else ''
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Konum</title></head>
-                <body style="background:#050b07;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
-                <div style="background:#0a1a0f;padding:25px;border-radius:12px;width:100%;max-width:380px;text-align:center;border:1px solid rgba(0,255,136,0.3);">
-                <h2 style="color:#00ff88;margin-top:0;">🌿 Güvenli Teslimat</h2>
-                <p><b>Ürün:</b> {title}</p>{photo_tag}
-                <div style="background:#050b07;padding:12px;border-radius:6px;margin:15px 0;text-align:left;font-size:14px;word-break:break-all;border:1px solid #112217;"><b>📍 Konum:</b> <a href="{loc}" target="_blank" style="color:#38bdf8;">Haritada Aç</a><br><br><b>📝 Not:</b> {desc}</div>
-                <a href="{loc}" target="_blank" style="display:block;background:#00ff88;color:#050b07;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;">Google Maps'i Aç</a>
-                </div></body></html>""".encode("utf-8"))
-            except Exception: self.send_html_error("Hata oluştu.")
-        else:
-            self.send_response(404)
-            self.end_headers()
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
@@ -523,32 +406,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.end_headers()
             else: self.send_login_page("Hatalı şifre!")
             return
-
-        if parsed_path.path == "/admin-add-drop":
-            is_logged_in = 'admin_auth=true' in self.headers.get('Cookie', '')
-            if not is_logged_in:
-                self.send_response(303)
-                self.send_header('Location', '/admin-web')
-                self.end_headers()
-                return
-            title = params.get("title", [""])[0]
-            category = params.get("category", ["Genel"])[0]
-            price = float(params.get("price", ["0"])[0])
-            location_url = params.get("location_url", [""])[0]
-            photo_url = params.get("photo_url", [""])[0]
-            description = params.get("description", [""])[0]
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category) VALUES (?, ?, ?, ?, ?, 1, ?)", (title, price, location_url, photo_url, description, category))
-            conn.commit()
-            conn.close()
-            log_panel_event(f"➕ Yeni Ürün Eklendi (Web): {title} ({price} USDT)", "success")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=home')
-            self.end_headers()
-            return
         self.send_response(404)
         self.end_headers()
 
@@ -556,21 +413,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Giriş</title></head>
-        <body style="background:#050b07;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
-        <div style="background:#0a1a0f;padding:30px;border-radius:15px;border:1px solid #00ff88;width:100%;max-width:320px;text-align:center;">
-        <h2 style="color:#00ff88; margin-top:0;">🌿 Admin Giriş</h2><p style="color:#ef4444; font-size:13px;">{error}</p>
+        self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Giriş</title></head>
+        <body style="background:#050a0e;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+        <div style="background:#0f172a;padding:30px;border-radius:15px;border:1px solid #10b981;width:100%;max-width:320px;text-align:center;">
+        <h2>Admin Giriş</h2><p style="color:#ef4444;">{error}</p>
         <form action="/admin-login" method="POST">
-        <input type="text" name="username" required placeholder="Kullanıcı Adı" style="width:100%;padding:10px;margin:8px 0;background:#050b07;border:1px solid #1e3a24;color:white;border-radius:6px;box-sizing:border-box;">
-        <input type="password" name="password" required placeholder="Şifre" style="width:100%;padding:10px;margin:8px 0;background:#050b07;border:1px solid #1e3a24;color:white;border-radius:6px;box-sizing:border-box;">
-        <button type="submit" style="background:#00ff88;color:#050b07;border:none;padding:10px;width:100%;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:10px;">Giriş Yap</button>
+        <input type="text" name="username" required placeholder="Kullanıcı Adı" style="width:100%;padding:10px;margin:8px 0;background:#050a0e;border:1px solid #334155;color:white;border-radius:6px;box-sizing:border-box;">
+        <input type="password" name="password" required placeholder="Şifre" style="width:100%;padding:10px;margin:8px 0;background:#050a0e;border:1px solid #334155;color:white;border-radius:6px;box-sizing:border-box;">
+        <button type="submit" style="background:#10b981;color:white;border:none;padding:10px;width:100%;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:10px;">Giriş Yap</button>
         </form></div></body></html>""".encode("utf-8"))
-
-    def send_html_error(self, message):
-        self.send_response(400)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(f"<body style='background:#050b07;color:white;text-align:center;padding-top:50px;'><h2>⚠️ {message}</h2></body>".encode("utf-8"))
 
 def run_health_server():
     port = int(os.environ.get("PORT", 10000))
@@ -578,17 +429,9 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- BOT FSM & ÜRÜN EKLEME SİSTEMİ ---
+# --- FSM VE BOT KODLARI ---
 class SupportState(StatesGroup):
     message = State()
-
-class AddDropState(StatesGroup):
-    title = State()
-    category = State()
-    price = State()
-    location_url = State()
-    photo_url = State()
-    description = State()
 
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
@@ -612,88 +455,29 @@ async def cmd_start(message: types.Message):
     if is_user_banned(user_id):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
+    
+    args = message.text.split()
+    referred_by = int(args[1].replace("ref", "")) if len(args) > 1 and args[1].startswith("ref") and args[1].replace("ref", "").isdigit() else None
 
     if not await check_user_subscription(user_id):
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📢 Kanala Katıl", url=REQUIRED_CHANNEL_URL)],
             [InlineKeyboardButton(text="🔄 Kontrol Et", callback_data="check_sub")]
         ])
-        await message.answer(f"🚀 Devam etmek için kanalımıza katılmalısınız:\n{REQUIRED_CHANNEL_URL}", reply_markup=kb)
+        await message.answer(f"🚀 Kanala katılmalısınız: {REQUIRED_CHANNEL_URL}", reply_markup=kb)
         return
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     if not cursor.fetchone():
-        cursor.execute("INSERT INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
+        cursor.execute("INSERT INTO users (user_id, username, referred_by) VALUES (?, ?, ?)", (user_id, message.from_user.username, referred_by))
     conn.commit()
     conn.close()
 
     lang = get_user_lang(user_id)
     await message.answer(LANG[lang]["welcome"], reply_markup=main_keyboard(lang, user_id))
 
-# --- TELEGRAM BOT ÜZERİNDEN ÜRÜN EKLEME (ADMIN) ---
-@dp.message(Command("urunekle"))
-async def cmd_urunekle(message: types.Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Bu komutu sadece admin kullanabilir.")
-        return
-    await state.set_state(AddDropState.title)
-    await message.answer("🌿 **Yeni Drop / Ürün Ekleme Sihirbazı**\n\n1️⃣ Lütfen ürün adını / cinsini yazın (Örn: *Amnesia Haze 5g*):")
-
-@dp.message(AddDropState.title)
-async def process_drop_title(message: types.Message, state: FSMContext):
-    await state.update_data(title=message.text)
-    await state.set_state(AddDropState.category)
-    await message.answer("2️⃣ Lütfen bölge / semt adını yazın (Örn: *Kadıköy*):")
-
-@dp.message(AddDropState.category)
-async def process_drop_category(message: types.Message, state: FSMContext):
-    await state.update_data(category=message.text)
-    await state.set_state(AddDropState.price)
-    await message.answer("3️⃣ Fiyatı USDT cinsinden yazın (Örn: *50*):")
-
-@dp.message(AddDropState.price)
-async def process_drop_price(message: types.Message, state: FSMContext):
-    try:
-        price = float(message.text)
-        await state.update_data(price=price)
-        await state.set_state(AddDropState.location_url)
-        await message.answer("4️⃣ Google Maps konum linkini gönderin:")
-    except ValueError:
-        await message.answer("⚠️ Lütfen geçerli bir sayı girin (Örn: 50 veya 45.5):")
-
-@dp.message(AddDropState.location_url)
-async def process_drop_location(message: types.Message, state: FSMContext):
-    await state.update_data(location_url=message.text)
-    await state.set_state(AddDropState.photo_url)
-    await message.answer("5️⃣ Fotoğraf URL'sini gönderin (İstemiyorsanız `yok` yazabilirsiniz):")
-
-@dp.message(AddDropState.photo_url)
-async def process_drop_photo(message: types.Message, state: FSMContext):
-    photo = "" if message.text.lower() == "yok" else message.text
-    await state.update_data(photo_url=photo)
-    await state.set_state(AddDropState.description)
-    await message.answer("6️⃣ Teslimat için kısa bir açıklama / not yazın:")
-
-@dp.message(AddDropState.description)
-async def process_drop_finish(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    await state.clear()
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category) 
-        VALUES (?, ?, ?, ?, ?, 1, ?)
-    """, (data['title'], data['price'], data['location_url'], data['photo_url'], message.text, data['category']))
-    conn.commit()
-    conn.close()
-
-    log_panel_event(f"➕ Yeni Ürün Eklendi (Bot): {data['title']} ({data['price']} USDT)", "success")
-    await message.answer(f"✅ **Drop Başarıyla Eklendi!**\n\n📌 *{data['title']}* - {data['price']} USDT\n📍 Semt: {data['category']}\n\nArtık hem web panelinde hem de bot mağazasında aktif!")
-
-# --- DİĞER BOT FONKSİYONLARI ---
 @dp.callback_query(F.data == "check_sub")
 async def check_sub_callback(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -714,47 +498,16 @@ async def set_language(callback: types.CallbackQuery):
     await callback.message.edit_text(t["lang_set"])
     await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang, user_id))
 
-@dp.message(F.text.in_(["🌐 Dil Değiştir", "🌐 Change Language", "/lang"]))
+@dp.message(F.text.in_([LANG["tr"]["btn_lang"], LANG["en"]["btn_lang"]]))
 async def change_lang_menu(message: types.Message):
     if message.chat.type != "private" or is_user_banned(message.from_user.id): return
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
     ])
-    await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
+    await message.answer("Lütfen dil seçiniz:", reply_markup=kb)
 
-@dp.message(F.text.in_(["❓ Nasıl Çalışır? (SSS)", "❓ How It Works (FAQ)", "/faq"]))
-async def faq_menu(message: types.Message):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id): return
-    await message.answer("💡 **SSS / FAQ:**\n\nİster Mini App butonuna basarak modern arayüzden, ister 'Bot ile Devam Et' diyerek klasik sohbetten alışveriş yapabilirsiniz.")
-
-@dp.message(F.text.in_(["📞 Canlı Destek", "📞 Live Support", "/support"]))
-async def support_start(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id): return
-    lang = get_user_lang(user_id)
-    await state.set_state(SupportState.message)
-    await message.answer(LANG[lang]["support_ask"])
-
-@dp.message(SupportState.message)
-async def forward_support_to_group(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id): return
-    lang = get_user_lang(user_id)
-    user_msg = message.text
-    username = message.from_user.username or "Bulunmuyor"
-    await state.clear()
-    await message.answer(LANG[lang]["support_sent"])
-    try:
-        conn = sqlite3.connect("drop_bot.db")
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO support_tickets (user_id, username, message, status) VALUES (?, ?, ?, 'open')", (user_id, username, user_msg))
-        conn.commit()
-        conn.close()
-        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 ID: `{user_id}` (@{username})\n💬 Mesaj:\n{user_msg}")
-    except Exception as e: logging.error(e)
-
-# Klasik Mağaza Akışı
-@dp.message(F.text.in_(["🤖 Bot ile Devam Et", "🤖 Continue via Bot", "/shop"]))
+# --- 🤖 BOT İLE DEVAM ET (KLASİK MAĞAZA AKIŞI) ---
+@dp.message(F.text.in_([LANG["tr"]["btn_botshop"], LANG["en"]["btn_botshop"]]))
 async def bot_shop_categories(message: types.Message):
     user_id = message.from_user.id
     if message.chat.type != "private" or is_user_banned(user_id): return
@@ -774,7 +527,7 @@ async def bot_shop_categories(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌱 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"botcat_{c_name}")])
     
     await message.answer(t["select_cat"], reply_markup=kb)
 
@@ -819,7 +572,7 @@ async def bot_back_to_cats(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌱 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"botcat_{c_name}")])
     
     await callback.message.edit_text(t["select_cat"], reply_markup=kb)
 
@@ -893,7 +646,7 @@ async def bot_pay_with_balance(callback: types.CallbackQuery):
 
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
     await callback.message.edit_text(t["balance_success"].format(price=final_buy_price, link=secure_link), parse_mode="Markdown")
-    log_panel_event(f"⚡ Bakiye Satışı: #{order_id} - {title} ({final_buy_price} USDT)", "success")
+    log_panel_event(f"⚡ Bot Üzerinden Bakiye Satışı: #{order_id} - {title} ({final_buy_price} USDT)", "success")
 
 @dp.callback_query(F.data.startswith("botpaycrypto_"))
 async def bot_pay_crypto(callback: types.CallbackQuery):
@@ -924,12 +677,44 @@ async def bot_pay_crypto(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
     await callback.message.edit_text(msg, reply_markup=kb)
 
+# --- FAQ & SUPPORT ---
+@dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
+async def faq_menu(message: types.Message):
+    if message.chat.type != "private" or is_user_banned(message.from_user.id): return
+    await message.answer("💡 **SSS / FAQ:**\n\nİster Mini App butonuna basarak modern arayüzden, ister 'Bot ile Devam Et' diyerek klasik sohbetten alışveriş yapabilirsiniz.")
+
+@dp.message(F.text.in_([LANG["tr"]["btn_support"], LANG["en"]["btn_support"]]))
+async def support_start(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id): return
+    lang = get_user_lang(user_id)
+    await state.set_state(SupportState.message)
+    await message.answer(LANG[lang]["support_ask"])
+
+@dp.message(SupportState.message)
+async def forward_support_to_group(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id): return
+    lang = get_user_lang(user_id)
+    user_msg = message.text
+    username = message.from_user.username or "Bulunmuyor"
+    await state.clear()
+    await message.answer(LANG[lang]["support_sent"])
+    try:
+        conn = sqlite3.connect("drop_bot.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO support_tickets (user_id, username, message, status) VALUES (?, ?, ?, 'open')", (user_id, username, user_msg))
+        conn.commit()
+        conn.close()
+        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 ID: `{user_id}` (@{username})\n💬 Mesaj:\n{user_msg}")
+    except Exception as e: logging.error(e)
+
 async def main():
+    global main_loop
+    main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(check_expired_orders_task())
-    await bot.delete_webhook(drop_pending_updates=True)
-    logging.info("🚀 Bot başlatıldı!")
-    await dp.start_polling(bot, skip_updates=True)
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
