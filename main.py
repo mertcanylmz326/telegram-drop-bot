@@ -15,9 +15,9 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
 
-# --- YENİ VE TERTEMİZ BOT TOKEN'I ---
+# --- AYARLAR VE CÜZDAN İZOLASYONU ---
 BOT_TOKEN = "8917981396:AAFliW6Hl6gT8CQZP9BgJrPYGQEAggga6WA"
-ADMIN_ID = 1012940363
+ADMIN_IDS = [1012940363, 952698894]  # Çoklu Admin Listesi
 ADMIN_GROUP_ID = -1004474292737  
 
 ADMIN_WEB_USERNAME = "dionisus"
@@ -234,7 +234,9 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
     ''')
-    cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (ADMIN_ID,))
+    for admin_id in ADMIN_IDS:
+        cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (admin_id,))
+    
     conn.commit()
     conn.close()
 
@@ -283,12 +285,7 @@ def log_panel_event(message, log_type="info"):
         logging.error(e)
 
 def is_admin(user_id: int) -> bool:
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
-    res = cursor.fetchone()
-    conn.close()
-    return res is not None
+    return user_id in ADMIN_IDS
 
 def is_user_banned(user_id: int) -> bool:
     conn = sqlite3.connect("drop_bot.db")
