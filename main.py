@@ -712,15 +712,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 50% 20%, rgba(15, 23, 42, 0.88) 0%, rgba(2, 6, 9, 0.95) 100%); z-index: 0; }}
                     #snowflake-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }}
                     
-                    /* Sol Açılır Şık Sidebar / Drawer */
-                    .sidebar {{ width: 280px; background: rgba(10, 18, 26, 0.9); border-right: 1px solid rgba(220, 38, 38, 0.25); box-shadow: 5px 0 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 10; backdrop-filter: blur(20px); transition: 0.3s ease; }}
+                    /* Üst Header / Hamburger Butonu */
+                    .top-nav-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(10, 18, 26, 0.85); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 100; box-sizing: border-box; }}
+                    .menu-toggle-btn {{ background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.3s; width: auto; box-shadow: none; }}
+                    .menu-toggle-btn:hover {{ background: rgba(239, 68, 68, 0.3); transform: scale(1.02); }}
+
+                    /* Sol Açılır Pencere (Slide-out Drawer) */
+                    .sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 1000; opacity: 0; visibility: hidden; transition: 0.3s ease; }}
+                    .sidebar-overlay.open {{ opacity: 1; visibility: visible; }}
+
+                    .sidebar {{ position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: rgba(10, 18, 26, 0.95); border-right: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 10px 0 30px rgba(0,0,0,0.7); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 1001; backdrop-filter: blur(20px); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); }}
+                    .sidebar.open {{ left: 0; }}
+
                     .sidebar .brand {{ font-size: 18px; font-weight: 900; color: #f87171; text-align: center; margin-bottom: 25px; text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); display: flex; align-items: center; justify-content: center; gap: 8px; }}
+                    .sidebar .close-drawer {{ background: transparent; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; text-align: right; width: 100%; margin-bottom: 10px; padding: 0; box-shadow: none; }}
+                    .sidebar .close-drawer:hover {{ color: white; transform: none; background: transparent; }}
+
                     .sidebar a {{ background: rgba(255, 255, 255, 0.02); color: #cbd5e1; padding: 12px 16px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid rgba(255, 255, 255, 0.04); transition: 0.3s; display: flex; align-items: center; gap: 10px; }}
                     .sidebar a.active, .sidebar a:hover {{ background: linear-gradient(135deg, rgba(220, 38, 38, 0.25), rgba(16, 185, 129, 0.2)); color: #f8fafc; border-color: rgba(239, 68, 68, 0.5); transform: translateX(6px); box-shadow: 0 0 15px rgba(220, 38, 38, 0.2); }}
                     .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; color: #fca5a5 !important; margin-top: auto; border: 1px solid rgba(239, 68, 68, 0.3) !important; text-align: center; justify-content: center; }}
                     
-                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; z-index: 2; }}
-                    .header-title {{ color: #f8fafc; font-size: 24px; font-weight: 800; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }}
+                    .main-content {{ flex: 1; padding: 100px 35px 35px 35px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; margin: 0 auto; width: 100%; z-index: 2; }}
+                    .header-title {{ color: #f8fafc; font-size: 24px; font-weight: 800; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 2px 10px rgba(0,0,0,0.5); flex-wrap: wrap; gap: 15px; }}
                     
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                     .card {{ background: rgba(15, 23, 42, 0.75); padding: 22px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }}
@@ -731,7 +744,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
                     
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.8); padding: 25px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }}
+                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.8); padding: 25px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow-x: auto; }}
                     
                     input, textarea {{ width: 100%; padding: 12px 15px; margin: 8px 0 16px 0; background: rgba(5, 10, 14, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 14px; transition: 0.3s; }}
                     input:focus, textarea:focus {{ border-color: #ef4444; outline: none; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }}
@@ -745,13 +758,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     
                     .action-btn {{ padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
                     .edit-btn {{ background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid rgba(217, 119, 6, 0.4); }}
-                    
-                    @media (max-width: 768px) {{ body {{ flex-direction: column; }} .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; }} .main-content {{ padding: 20px; }} }}
                 </style>
             </head>
             <body>
                 <canvas id="snowflake-canvas"></canvas>
-                <div class="sidebar">
+                
+                <!-- Üst Navbar ve Menü Butonu -->
+                <div class="top-nav-bar">
+                    <button class="menu-toggle-btn" onclick="toggleSidebar()">
+                        <span>📂</span> Menüyü Aç / Sekmeler
+                    </button>
+                    <span style="font-weight: 800; color: #f87171; font-size: 15px; text-shadow: 0 0 10px rgba(239,68,68,0.5);">🎄 Weed Istanbul Admin</span>
+                </div>
+
+                <!-- Sol Açılır Pencere / Çekmece (Drawer) -->
+                <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+                <div class="sidebar" id="sidebarDrawer">
+                    <button class="close-drawer" onclick="toggleSidebar()">✕ Kapat</button>
                     <div class="brand">🎄 Weed Istanbul 🎅</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
                     <a href="/admin-web?tab=wallet_txs" class="{"active" if tab == "wallet_txs" else ""}">💰 Cüzdan Hareketleri</a>
@@ -765,6 +788,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Kullanıcılar & Bakiyeler</a>
                     <a href="/admin-logout" class="logout-link">🚪 Güvenli Çıkış</a>
                 </div>
+
                 <div class="main-content">
                     <div class="header-title">
                         <span>🎁 Merry Christmas & Happy New Year Admin Hub 🎄</span>
@@ -773,7 +797,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
+
                 <script>
+                    function toggleSidebar() {{
+                        const sidebar = document.getElementById('sidebarDrawer');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        sidebar.classList.toggle('open');
+                        overlay.classList.toggle('open');
+                    }}
+
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
                     let width = canvas.width = window.innerWidth;
@@ -1503,7 +1535,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
 async def handle_admin_group_reply(message: types.Message):
     if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
         match = re.search(r"Kullanıcı ID:\s*`(\d+)`", message.reply_to_message.text or "")
-        if match:
+    if match:
             try:
                 await bot.send_message(int(match.group(1)), f"💬 **Destek Ekibi Yanıtı:**\n\n{message.text}")
                 await message.reply("✅ Yanıt iletildi.")
