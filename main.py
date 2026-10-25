@@ -32,9 +32,6 @@ CRYPTO_WALLET = WALLET_CONFIG["weedboot"]
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
-REQUIRED_CHANNEL = -1004474292737
-REQUIRED_CHANNEL_URL = "https://t.me/+NReAegSp4l85NWZk"
-
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -173,15 +170,6 @@ def get_wallet_balances():
         except Exception as e: logging.error(e)
         balances[key] = {"usdt": usdt_bal, "trx": trx_bal}
     return balances
-
-async def check_user_subscription(user_id: int) -> bool:
-    if user_id == ADMIN_ID: return True
-    try:
-        member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-        return member.status not in ["left", "kicked"]
-    except Exception as e:
-        logging.error(e)
-        return True
 
 async def auto_backup_task():
     while True:
@@ -613,14 +601,6 @@ async def cmd_start(message: types.Message):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
 
-    if not await check_user_subscription(user_id):
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Kanala Katıl", url=REQUIRED_CHANNEL_URL)],
-            [InlineKeyboardButton(text="🔄 Kontrol Et", callback_data="check_sub")]
-        ])
-        await message.answer(f"🚀 Devam etmek için kanalımıza katılmalısınız:\n{REQUIRED_CHANNEL_URL}", reply_markup=kb)
-        return
-
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
@@ -631,6 +611,18 @@ async def cmd_start(message: types.Message):
 
     lang = get_user_lang(user_id)
     await message.answer(LANG[lang]["welcome"], reply_markup=main_keyboard(lang, user_id))
+
+# --- ADMIN PANELİNE ERİŞİM KOMUTU (/admin) ---
+@dp.message(Command("admin"))
+async def cmd_admin(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Bu komutu sadece admin kullanabilir.")
+        return
+    admin_url = f"{RENDER_EXTERNAL_URL}/admin-web"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🖥️ Web Paneli Aç", url=admin_url)]
+    ])
+    await message.answer("🔐 **Yönetim Paneli Bağlantısı:**\n\nAşağıdaki butona tıklayarak web paneline giriş yapabilirsin:", reply_markup=kb)
 
 # --- TELEGRAM BOT ÜZERİNDEN ÜRÜN EKLEME (ADMIN) ---
 @dp.message(Command("urunekle"))
@@ -694,16 +686,6 @@ async def process_drop_finish(message: types.Message, state: FSMContext):
     await message.answer(f"✅ **Drop Başarıyla Eklendi!**\n\n📌 *{data['title']}* - {data['price']} USDT\n📍 Semt: {data['category']}\n\nArtık hem web panelinde hem de bot mağazasında aktif!")
 
 # --- DİĞER BOT FONKSİYONLARI ---
-@dp.callback_query(F.data == "check_sub")
-async def check_sub_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if not await check_user_subscription(user_id):
-        await callback.answer("❌ Henüz kanala katılmadınız!", show_alert=True)
-        return
-    await callback.answer("✅ Üyelik onaylandı!")
-    lang = get_user_lang(user_id)
-    await callback.message.answer(LANG[lang]["welcome"], reply_markup=main_keyboard(lang, user_id))
-
 @dp.callback_query(F.data.startswith("setlang_"))
 async def set_language(callback: types.CallbackQuery):
     user_id = callback.from_user.id
