@@ -93,8 +93,8 @@ LANG = {
         "success_order": "✅ Sipariş #{id} onaylandı.",
         "success_msg": "🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
-        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna iletilsin:",
-        "support_sent": "✅ Destek mesajınız admin grubuna iletildi.",
+        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna ve web paneline iletilsin:",
+        "support_sent": "✅ Destek mesajınız iletildi.",
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
@@ -192,6 +192,17 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT,
             log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            message TEXT,
+            status TEXT DEFAULT 'open',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -301,7 +312,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (KAR ANİMASYONLU & 3'LÜ CÜZDAN GÖRSELİ) ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (CANLI DESTEK CRM SEKMESİ İLE) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -416,6 +427,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }}
                     }});
                 </script>
+                """
+            elif tab == "support":
+                cursor.execute("SELECT id, user_id, username, message, status, created_at FROM support_tickets ORDER BY id DESC")
+                tickets = cursor.fetchall()
+                rows = ""
+                for t_item in tickets:
+                    t_id, t_uid, t_uname, t_msg, t_status, t_date = t_item
+                    uname_str = f"@{t_uname}" if t_uname else "N/A"
+                    status_badge = "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:3px 8px; border-radius:6px;'>OPEN</span>" if t_status == 'open' else "<span style='color:#64748b; font-weight:bold; background:rgba(100,116,139,0.2); padding:3px 8px; border-radius:6px;'>CLOSED</span>"
+                    
+                    reply_form = f"""
+                    <form action="/admin-support-reply" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
+                        <input type="hidden" name="ticket_id" value="{t_id}">
+                        <input type="hidden" name="user_id" value="{t_uid}">
+                        <input type="text" name="reply_text" placeholder="Yanıtını yaz..." required style="margin:0; padding:6px; font-size:12px; height:32px;">
+                        <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto; height:32px; line-height:12px;">Gönder</button>
+                    </form>
+                    """
+                    rows += f"<tr><td>#{t_id}</td><td>{t_uid} ({uname_str})</td><td style='max-width:250px; word-break:break-all;'>{t_msg}</td><td>{t_date}</td><td>{status_badge}</td><td>{reply_form}</td></tr>"
+
+                content_html = f"""
+                <div class="table-box">
+                    <h2>💬 Canlı Destek CRM Paneli (Müşteri Talepleri)</h2>
+                    <table>
+                        <tr><th>Ticket ID</th><th>Kullanıcı</th><th>Mesaj</th><th>Tarih</th><th>Durum</th><th>İşlem / Yanıtla</th></tr>
+                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Aktif destek talebi bulunmuyor.</td></tr>"}
+                    </table>
+                </div>
                 """
             elif tab == "users":
                 cursor.execute("SELECT user_id, username, is_banned, language, balance FROM users ORDER BY user_id DESC")
@@ -811,6 +850,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="sidebar">
                     <div class="brand">🎄 Weed Istanbul 🌿</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
+                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Live Support</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
@@ -997,7 +1037,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-balance":
+        if parsed_path.path == "/admin-support-reply":
+            ticket_id = params.get("ticket_id", ["0"])[0]
+            target_uid = int(params.get("user_id", ["0"])[0])
+            reply_text = params.get("reply_text", [""])[0]
+
+            if reply_text and target_uid:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE support_tickets SET status = 'closed' WHERE id = ?", (ticket_id,))
+                conn.commit()
+                conn.close()
+
+                if main_loop:
+                    asyncio.run_coroutine_threadsafe(
+                        bot.send_message(target_uid, f"💬 **Destek Ekibi Yanıtı:**\n\n{reply_text}"),
+                        main_loop
+                    )
+                log_panel_event(f"💬 Canlı Destek Yanıtlandı: Kullanıcı {target_uid} -> '{reply_text}'", "success")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=support')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-balance":
             target_uid = params.get("user_id", ["0"])[0]
             op = params.get("op", ["add"])[0]
             try:
@@ -1506,6 +1569,7 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
         conn = sqlite3.connect("drop_bot.db")
         cursor = conn.cursor()
         cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+        cursor.execute("INSERT INTO support_tickets (user_id, username, message, status) VALUES (?, ?, ?, 'open')", (user_id, username, user_msg))
         conn.commit()
         conn.close()
         log_panel_event(f"📩 Yeni Destek Talebi: @{username} (ID: {user_id})", "info")
