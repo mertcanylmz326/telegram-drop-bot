@@ -1176,8 +1176,12 @@ async def main():
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(check_expired_orders_task())
+    
+    # Kilitleri ve takılı kalan eski webhook'ları temizle
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
+    logging.info("🚀 Bot polling modunda başlatılıyor...")
+    
+    await dp.start_polling(bot,, skip_updates=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
