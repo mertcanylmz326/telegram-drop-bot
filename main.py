@@ -28,9 +28,9 @@ PROMO_DISCOUNT = 8.0
 
 # Üçlü Cüzdan Yapısı (Güvenlik ve İzolasyon)
 WALLET_CONFIG = {
-    "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",  # Operasyon / Bot Cüzdanı (Ödemelerin geleceği adres)
-    "giris": "TRC20_GIRIS_DEPO_CUZDANI_ADRESI_BURAYA",      # Ana Kasa / Depo Cüzdanı
-    "cikis": "TRC20_CIKIS_ARACI_CUZDANI_ADRESI_BURAYA"      # Aracı / Buffer Cüzdanı
+    "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",  # Operasyon / Bot Cüzdanı
+    "giris": "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY",      # Ana Kasa / Depo Cüzdanı
+    "cikis": "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"       # Aracı / Buffer Cüzdanı
 }
 
 CRYPTO_WALLET = WALLET_CONFIG["weedboot"] # Bot doğrudan operasyon cüzdanını kullanır
@@ -290,6 +290,37 @@ def is_user_banned(user_id: int) -> bool:
     conn.close()
     return res is not None and res[0] == 1
 
+# --- BLOKZİNCİR CÜZDAN BAKİYE ÇEKME FONKSİYONU ---
+def get_wallet_balances():
+    balances = {}
+    for key, addr in WALLET_CONFIG.items():
+        usdt_bal = 0.0
+        trx_bal = 0.0
+        try:
+            import urllib.request
+            import json
+            # TRX ve TRC20 bakiye sorgusu için TronGrid API
+            url = f"https://api.trongrid.io/v1/accounts/{addr}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=3) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode())
+                    acc_data = data.get("data", [])
+                    if acc_data:
+                        # TRX (Balance)
+                        trx_bal = acc_data[0].get("balance", 0) / 1000000.0
+                        # TRC20 (USDT)
+                        trc20 = acc_data[0].get("trc20", [])
+                        for token in trc20:
+                            # USDT sözleşme kontrolü
+                            if USDT_CONTRACT in token:
+                                usdt_bal = float(token[USDT_CONTRACT]) / 1000000.0
+                                break
+        except Exception as e:
+            logging.error(f"Cüzdan bakiye çekme hatası ({addr}): {e}")
+        balances[key] = {"usdt": usdt_bal, "trx": trx_bal}
+    return balances
+
 # --- KANAL ÜYELİK KONTROLÜ ---
 async def check_user_subscription(user_id: int) -> bool:
     try:
@@ -312,7 +343,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (CANLI DESTEK CRM SEKMESİ İLE) ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (CANLI CÜZDAN BAKİYELERİ İLE) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -369,6 +400,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Today"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
+                # Canlı Cüzdan Bakiyelerini Çek
+                w_bals = get_wallet_balances()
+
                 content_html = f"""
                 <div class="stats-grid">
                     <div class="card neon-green"><h3>🎅 TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
@@ -376,14 +410,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
-                <!-- 3'lü Cüzdan İzolasyon Durum Paneli -->
+                <!-- 3'lü Cüzdan İzolasyon & Canlı Bakiye Paneli -->
                 <div class="form-box" style="border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 30px;">
-                    <h2>🔒 3'lü Cüzdan İzolasyon ve Güvenlik Durumu</h2>
-                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Operasyonel gizlilik ve fon güvenliği için aktif cüzdan mimarisi:</p>
+                    <h2>🔒 3'lü Cüzdan İzolasyon & Canlı Bakiye Durumu</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Operasyonel gizlilik ve fon güvenliği için aktif cüzdan mimarisi ve anlık bakiyeler:</p>
                     <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-                        <li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">🟢 <b>weedboot (Bot / Operasyon):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['weedboot']}</code></li>
-                        <li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">🔵 <b>Giriş (Ana Depo / Kasa):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['giris']}</code></li>
-                        <li style="padding: 8px 0;">🟡 <b>Çıkış (Aracı / Buffer):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['cikis']}</code></li>
+                        <li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>🟢 <b>weedboot (Bot / Operasyon):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['weedboot']}</code></div>
+                            <div style="background: rgba(16, 185, 129, 0.15); padding: 4px 10px; border-radius: 6px; color: #10b981; font-weight: bold;"><b>{w_bals.get('weedboot', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('weedboot', {}).get('trx', 0.0)} TRX</div>
+                        </li>
+                        <li style="padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>🔵 <b>Giriş (Ana Depo / Kasa):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['giris']}</code></div>
+                            <div style="background: rgba(56, 189, 248, 0.15); padding: 4px 10px; border-radius: 6px; color: #38bdf8; font-weight: bold;"><b>{w_bals.get('giris', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('giris', {}).get('trx', 0.0)} TRX</div>
+                        </li>
+                        <li style="padding: 10px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>🟡 <b>Çıkış (Aracı / Buffer):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['cikis']}</code></div>
+                            <div style="background: rgba(245, 158, 11, 0.15); padding: 4px 10px; border-radius: 6px; color: #f59e0b; font-weight: bold;"><b>{w_bals.get('cikis', {}).get('usdt', 0.0)} USDT</b> | {w_bals.get('cikis', {}).get('trx', 0.0)} TRX</div>
+                        </li>
                     </ul>
                 </div>
 
