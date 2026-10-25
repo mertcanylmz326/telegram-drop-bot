@@ -35,6 +35,90 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
+# --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
+LANG = {
+    "tr": {
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
+        "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
+        "btn_products": "🛍️ Ürünler / Droplar",
+        "btn_orders": "📦 Geçmiş Siparişlerim",
+        "btn_faq": "❓ Nasıl Çalışır? (SSS)",
+        "btn_support": "📞 Destek",
+        "btn_lang": "🌐 Dil Değiştir",
+        "no_stock": "❌ Şu anda stokta hazır drop bulunmamaktadır.",
+        "select_cat": "🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:",
+        "back_cats": "🔙 Bölgelere Dön",
+        "no_cat_stock": "Bu bölgede aktif ürün kalmadı.",
+        "my_orders_title": "📦 **Sipariş Geçmişiniz:**",
+        "no_orders": "📦 Henüz bir sipariş geçmişiniz bulunmuyor.",
+        "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
+        "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
+        "sold_out": "⚠️ Bu ürün tükenmiş.",
+        "choose_promo": "İndirim kuponu kullanmak ister misiniz?",
+        "use_promo": "🎟️ İndirim Kuponu Kullan",
+        "no_promo": "💳 Kuponsuz Devam Et",
+        "ask_promo": "🎟️ Lütfen indirim kuponu kodunu yazın:",
+        "cancel": "❌ İptal",
+        "invalid_drop": "⚠️ Ürün artık mevcut değil.",
+        "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
+        "promo_applied": "💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{discount} USDT\n💵 **Ödenecek Tutar: {final} USDT**\n\n",
+        "promo_invalid": "❌ Geçersiz kupon! Tam Tutar: {final} USDT\n\n",
+        "wallet_text": "🔒 Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.",
+        "check_btn": "🔄 Ödemeyi Otomatik Kontrol Et",
+        "scan": "Blokzincir taranıyor...",
+        "not_found": "Sipariş bulunamadı.",
+        "already_approved": "Zaten onaylanmış.",
+        "expired": "Süresi dolmuş.",
+        "time_out": "⏰ Süre aşımı nedeniyle iptal edildi.",
+        "success_order": "✅ Sipariş #{id} onaylandı.",
+        "success_msg": "🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
+        "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
+        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna iletilsin:",
+        "support_sent": "✅ Destek mesajınız admin grubuna iletildi.",
+        "banned": "❌ Erişiminiz engellenmiştir."
+    },
+    "en": {
+        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select your language:",
+        "lang_set": "✅ Language set to English.",
+        "btn_products": "🛍️ Products / Drops",
+        "btn_orders": "📦 My Orders",
+        "btn_faq": "❓ How It Works (FAQ)",
+        "btn_support": "📞 Support",
+        "btn_lang": "🌐 Change Language",
+        "no_stock": "❌ There are currently no ready drops in stock.",
+        "select_cat": "🏙️ Please select the **region / district** you want to view:",
+        "back_cats": "🔙 Back to Regions",
+        "no_cat_stock": "No active products left in this region.",
+        "my_orders_title": "📦 **Your Order History:**",
+        "no_orders": "📦 You don't have any order history yet.",
+        "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
+        "open_loc": "🔗 Open Order #{id} Location",
+        "sold_out": "⚠️ This product is sold out.",
+        "choose_promo": "Would you like to use a discount promo code?",
+        "use_promo": "🎟️ Use Promo Code",
+        "no_promo": "💳 Continue Without Code",
+        "ask_promo": "🎟️ Please enter your promo code:",
+        "cancel": "❌ Cancel",
+        "invalid_drop": "⚠️ Product is no longer available.",
+        "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
+        "promo_applied": "💰 Regular Price: {price} USDT\n🎟️ Promo Discount: -{discount} USDT\n💵 **Total to Pay: {final} USDT**\n\n",
+        "promo_invalid": "❌ Invalid code! Full Price: {final} USDT\n\n",
+        "wallet_text": "🔒 Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after payment.",
+        "check_btn": "🔄 Auto-Check Payment",
+        "scan": "Scanning blockchain...",
+        "not_found": "Order not found.",
+        "already_approved": "Already approved.",
+        "expired": "Expired.",
+        "time_out": "⏰ Canceled due to timeout.",
+        "success_order": "✅ Order #{id} approved.",
+        "success_msg": "🎉 Your payment is approved!\n\n👉 [Open Secure Location Page]({link})",
+        "wait_tx": "⚠️ Transfer not reflected yet, please wait.",
+        "support_ask": "📞 Type your support message to send to the admin team:",
+        "support_sent": "✅ Your support message has been sent to the admin team.",
+        "banned": "❌ Your access has been restricted."
+    }
+}
+
 # --- VERİTABANI KURULUMU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
@@ -78,11 +162,16 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             is_banned INTEGER DEFAULT 0,
+            language TEXT DEFAULT 'tr',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'tr'")
     except:
         pass
 
@@ -94,6 +183,23 @@ def init_db():
     conn.close()
 
 init_db()
+
+def get_user_lang(user_id: int) -> str:
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT language FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    if res and res[0] in ["tr", "en"]:
+        return res[0]
+    return "tr"
+
+def set_user_lang(user_id: int, lang: str):
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user_id))
+    conn.commit()
+    conn.close()
 
 def log_panel_event(message, log_type="info"):
     try:
@@ -121,10 +227,9 @@ def is_user_banned(user_id: int) -> bool:
     conn.close()
     return res is not None and res[0] == 1
 
-# --- OTOMATİK VERİTABANI YEDEĞİ GÖREVİ (24 Saatte Bir) ---
 async def auto_backup_task():
     while True:
-        await asyncio.sleep(86400) # 24 Saat
+        await asyncio.sleep(86400)
         try:
             if os.path.exists("drop_bot.db"):
                 file = FSInputFile("drop_bot.db")
@@ -133,7 +238,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- GELİŞMİŞ WEB SUNUCUSU (PROFESYONEL UI) ---
+# --- GELİŞMİŞ WEB SUNUCUSU ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -181,7 +286,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-                # Chart.js Verileri
                 cursor.execute("""
                     SELECT DATE(created_at) as cday, SUM(final_price) 
                     FROM orders WHERE status = 'completed' 
@@ -240,11 +344,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </script>
                 """
             elif tab == "users":
-                cursor.execute("SELECT user_id, username, is_banned FROM users ORDER BY user_id DESC")
+                cursor.execute("SELECT user_id, username, is_banned, language FROM users ORDER BY user_id DESC")
                 users_list = cursor.fetchall()
                 rows = ""
                 for u in users_list:
-                    uid, uname, is_b = u
+                    uid, uname, is_b, u_lang = u
                     username_str = f"@{uname}" if uname else "N/A"
                     status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
                     ban_btn = f"""
@@ -252,18 +356,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <input type="hidden" name="user_id" value="{uid}">
                         <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
                         <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:5px 10px; font-size:11px; width:auto;">
-                            {'Unban User' if is_b == 1 else 'Ban User'}
+                            {'Unban' if is_b == 1 else 'Ban'}
                         </button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
                     <h2>👥 User Management (CRM)</h2>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Status</th><th>Action</th></tr>
-                        {rows if rows else "<tr><td colspan='4' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Status</th><th>Action</th></tr>
+                        {rows if rows else "<tr><td colspan='5' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -444,8 +548,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
                     body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    
-                    /* Modern Sleek Sidebar */
                     .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; }}
                     .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 30px; letter-spacing: 0.5px; }}
                     .sidebar a {{ background: transparent; color: #9ca3af; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
@@ -453,9 +555,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
                     .logout-link:hover {{ background: #dc2626 !important; }}
                     
-                    /* Right Main Content Panel */
                     .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
-                    .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; }}
+                    .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
                     
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                     .card {{ background: #111827; padding: 22px; border-radius: 14px; border: 1px solid #1f2937; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
@@ -478,26 +579,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         body {{ flex-direction: column; }}
                         .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 15px; }}
                         .sidebar .brand {{ width: 100%; margin-bottom: 15px; }}
-                        .sidebar a {{ flex: 1; min-width: 100px; font-size: 12px; text-align: center; padding: 10px 5px; margin-bottom: 0; }}
+                        .sidebar a {{ flex: 1; min-width: 90px; font-size: 11px; text-align: center; padding: 10px 4px; margin-bottom: 0; }}
                         .main-content {{ padding: 20px; }}
                         .grid-2 {{ grid-template-columns: 1fr; }}
+                        .header-title {{ flex-direction: column; align-items: flex-start; gap: 10px; }}
                     }}
                 </style>
             </head>
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
-                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Aktif Siparişler</a>
-                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyenler</a>
-                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif Ürünler</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Müşteriler (CRM)</a>
-                    <a href="/admin-logout" class="logout-link">🚪 Çıkış Yap</a>
+                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
+                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
+                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
+                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
+                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 CRM (Users)</a>
+                    <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
 
                 <div class="main-content">
-                    <h1 class="header-title">👑 Weed Istanbul Management System</h1>
+                    <div class="header-title">
+                        <span>👑 Weed Istanbul Management System</span>
+                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🌐 Multi-Language Active (TR / EN)</span>
+                    </div>
                     {edit_form_html}
                     {content_html}
                 </div>
@@ -558,7 +663,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Güvenli Teslimat - #{order_id}</title>
+                    <title>Secure Delivery - #{order_id}</title>
                     <style>
                         body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
                         .card {{ background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
@@ -571,15 +676,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </head>
                 <body>
                     <div class="card">
-                        <h2>🔒 Güvenli Teslimat</h2>
-                        <p style="margin-bottom: 15px;"><b>Ürün:</b> {title}</p>
+                        <h2>🔒 Secure Delivery</h2>
+                        <p style="margin-bottom: 15px;"><b>Product:</b> {title}</p>
                         {photo_tag}
                         <div class="info">
-                            <p><b>📍 Konum:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Haritada Açmak İçin Tıkla</a></p>
-                            <p><b>📝 İpucu Notu:</b> {description}</p>
+                            <p><b>📍 Location:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Click to Open in Maps</a></p>
+                            <p><b>📝 Note:</b> {description}</p>
                         </div>
-                        <a href="{location_url}" class="btn" target="_blank">Google Maps ile Aç</a>
-                        <p class="warning">⚠️ Bu sayfa gizliliğiniz için tek kullanımlıktır. İşleminiz bitince bölgeden ayrılın.</p>
+                        <a href="{location_url}" class="btn" target="_blank">Open Google Maps</a>
+                        <p class="warning">⚠️ This page is single-use for your privacy. Leave the area once completed.</p>
                     </div>
                 </body>
                 </html>
@@ -722,13 +827,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     conn.close()
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
+                    u_lang = get_user_lang(u_id)
+                    success_text = LANG[u_lang]["success_msg"].format(link=secure_link)
 
                     log_msg = f"🎉 Manuel Onay & Satış: #{order_id} - {t_title} ({f_price} USDT)"
                     log_panel_event(log_msg, "success")
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(
-                            bot.send_message(u_id, f"🎉 Ödemeniz admin tarafından onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({secure_link})", parse_mode="Markdown"),
+                            bot.send_message(u_id, success_text, parse_mode="Markdown"),
                             main_loop
                         )
                         asyncio.run_coroutine_threadsafe(
@@ -823,11 +930,13 @@ class PromoState(StatesGroup):
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
 
-def main_keyboard():
+def main_keyboard(lang="tr"):
+    t = LANG[lang]
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🛍️ Ürünler / Droplar"), KeyboardButton(text="📦 Geçmiş Siparişlerim")],
-            [KeyboardButton(text="❓ Nasıl Çalışır? (SSS)"), KeyboardButton(text="📞 Destek")]
+            [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
+            [KeyboardButton(text=t["btn_faq"]), KeyboardButton(text=t["btn_support"])],
+            [KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
     )
@@ -836,57 +945,88 @@ def main_keyboard():
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
         return
-    if is_user_banned(message.from_user.id):
+    user_id = message.from_user.id
+    if is_user_banned(user_id):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
+    
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (message.from_user.id, message.from_user.username))
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
     conn.commit()
     conn.close()
-    await message.answer("👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz.", reply_markup=main_keyboard())
 
-@dp.message(F.text == "❓ Nasıl Çalışır? (SSS)")
-async def faq_menu(message: types.Message):
+    lang = get_user_lang(user_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
+    ])
+    await message.answer(LANG[lang]["welcome"], reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("setlang_"))
+async def set_language(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    new_lang = callback.data.split("_")[1]
+    set_user_lang(user_id, new_lang)
+    t = LANG[new_lang]
+    await callback.answer()
+    await callback.message.edit_text(t["lang_set"])
+    await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang))
+
+@dp.message(F.text.in_(["🌐 Dil Değiştir", "🌐 Change Language"]))
+async def change_lang_menu(message: types.Message):
     if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Ödeme Nasıl Yapılır?", callback_data="faq_pay")],
-        [InlineKeyboardButton(text="⏱️ Teslimat Süreci", callback_data="faq_delivery")],
-        [InlineKeyboardButton(text="🔒 Gizlilik", callback_data="faq_security")]
+        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
     ])
-    await message.answer("💡 **Sık Sorulan Sorular (SSS)**", reply_markup=kb)
+    await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
+
+@dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
+async def faq_menu(message: types.Message):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Ödeme / Payment", callback_data="faq_pay")],
+        [InlineKeyboardButton(text="⏱️ Teslimat / Delivery", callback_data="faq_delivery")],
+        [InlineKeyboardButton(text="🔒 Gizlilik / Privacy", callback_data="faq_security")]
+    ])
+    await message.answer("💡 **FAQ / SSS**", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("faq_"))
 async def faq_callback(callback: types.CallbackQuery):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
     action = callback.data.split("_")[1]
-    if action == "pay":
-        text = "💳 Ürün seçtikten sonra verilen USDT cüzdanına tutarı gönderip onaylatırsın."
-    elif action == "delivery":
-        text = "⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir."
+    if lang == "tr":
+        text = "💳 Ürün seçtikten sonra verilen USDT cüzdanına tutarı gönderip onaylatırsın." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
     else:
-        text = "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır."
+        text = "💳 After selecting a product, send the amount to the given USDT wallet." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
     await callback.answer()
     await callback.message.answer(text)
 
-@dp.message(F.text == "📞 Destek")
+@dp.message(F.text.in_([LANG["tr"]["btn_support"], LANG["en"]["btn_support"]]))
 async def support_start(message: types.Message, state: FSMContext):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
     await state.set_state(SupportState.message)
-    await message.answer("📞 Destek mesajınızı yazın, admin grubuna iletilsin:")
+    await message.answer(LANG[lang]["support_ask"])
 
 @dp.message(SupportState.message)
 async def forward_support_to_group(message: types.Message, state: FSMContext):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
-        return
-    user_msg = message.text
     user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    user_msg = message.text
     username = message.from_user.username or "Bulunmuyor"
     await state.clear()
-    await message.answer("✅ Destek mesajınız admin grubuna iletildi.")
+    await message.answer(LANG[lang]["support_sent"])
     try:
         conn = sqlite3.connect("drop_bot.db")
         cursor = conn.cursor()
@@ -946,10 +1086,14 @@ async def back_admin(callback: types.CallbackQuery):
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
 # --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
-@dp.message(F.text == "🛍️ Ürünler / Droplar")
+@dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
@@ -957,7 +1101,7 @@ async def list_categories(message: types.Message):
     conn.close()
 
     if not categories:
-        await message.answer("❌ Şu anda stokta hazır drop bulunmamaktadır.")
+        await message.answer(t["no_stock"])
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
@@ -965,12 +1109,16 @@ async def list_categories(message: types.Message):
         c_name = cat[0] or "Genel"
         kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"cat_{c_name}")])
     
-    await message.answer("🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:", reply_markup=kb)
+    await message.answer(t["select_cat"], reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("cat_"))
 async def list_drops_by_category(callback: types.CallbackQuery):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     cat_name = callback.data.split("_", 1)[1]
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -979,20 +1127,24 @@ async def list_drops_by_category(callback: types.CallbackQuery):
     conn.close()
 
     if not drops:
-        await callback.answer("Bu bölgede aktif ürün kalmadı.", show_alert=True)
+        await callback.answer(t["no_cat_stock"], show_alert=True)
         return
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for d in drops:
         kb.inline_keyboard.append([InlineKeyboardButton(text=f"{d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
-    kb.inline_keyboard.append([InlineKeyboardButton(text="🔙 Bölgelere Dön", callback_data="back_cats")])
+    kb.inline_keyboard.append([InlineKeyboardButton(text=t["back_cats"], callback_data="back_cats")])
 
-    await callback.message.edit_text(f"📦 **{cat_name}** bölgesindeki mevcut droplar:", reply_markup=kb)
+    await callback.message.edit_text(f"📦 **{cat_name}**:", reply_markup=kb)
 
 @dp.callback_query(F.data == "back_cats")
 async def back_to_cats(callback: types.CallbackQuery):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
@@ -1004,14 +1156,17 @@ async def back_to_cats(callback: types.CallbackQuery):
         c_name = cat[0] or "Genel"
         kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"cat_{c_name}")])
     
-    await callback.message.edit_text("🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:", reply_markup=kb)
+    await callback.message.edit_text(t["select_cat"], reply_markup=kb)
 
 # --- 📦 GEÇMİŞ SİPARİŞLERİM ---
-@dp.message(F.text == "📦 Geçmiş Siparişlerim")
+@dp.message(F.text.in_([LANG["tr"]["btn_orders"], LANG["en"]["btn_orders"]]))
 async def my_orders(message: types.Message):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
-        return
     user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("""
@@ -1025,26 +1180,30 @@ async def my_orders(message: types.Message):
     conn.close()
 
     if not orders:
-        await message.answer("📦 Henüz bir sipariş geçmişiniz bulunmuyor.")
+        await message.answer(t["no_orders"])
         return
 
-    text = "📦 **Sipariş Geçmişiniz:**\n\n"
+    text = t["my_orders_title"] + "\n\n"
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for o in orders:
         o_id, title, f_price, status, date = o
-        status_emoji = "🟢 Tamamlandı" if status == 'completed' else ("⏰ Süresi Doldu" if status == 'expired' else "⏳ Onay Bekliyor")
-        text += f"• **Sipariş #{o_id}** | {title} - {f_price} USDT\n  Durum: {status_emoji} ({date})\n\n"
+        st_str = "Completed" if status == 'completed' else ("Expired" if status == 'expired' else "Pending")
+        text += t["order_item"].format(id=o_id, title=title, price=f_price, status=st_str, date=date)
         if status == 'completed':
             secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
-            kb.inline_keyboard.append([InlineKeyboardButton(text=f"🔗 Sipariş #{o_id} Konumunu Aç", url=secure_link)])
+            kb.inline_keyboard.append([InlineKeyboardButton(text=t["open_loc"].format(id=o_id), url=secure_link)])
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
 # --- 🎟️ PROMO KODLU SATIN ALMA AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery, state: FSMContext):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     drop_id = int(callback.data.split("_")[1])
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -1053,30 +1212,38 @@ async def process_buy(callback: types.CallbackQuery, state: FSMContext):
     conn.close()
 
     if not drop:
-        await callback.answer("⚠️ Bu ürün tükenmiş.", show_alert=True)
+        await callback.answer(t["sold_out"], show_alert=True)
         return
 
     title, price, stock = drop
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎟️ İndirim Kuponu Kullan", callback_data=f"usepromo_{drop_id}")],
-        [InlineKeyboardButton(text="💳 Kuponsuz Devam Et", callback_data=f"nopromo_{drop_id}")]
+        [InlineKeyboardButton(text=t["use_promo"], callback_data=f"usepromo_{drop_id}")],
+        [InlineKeyboardButton(text=t["no_promo"], callback_data=f"nopromo_{drop_id}")]
     ])
-    await callback.message.edit_text(f"📌 Ürün: {title}\n💰 Normal Tutar: {price} USDT\n\nİndirim kuponu kullanmak ister misiniz?", reply_markup=kb)
+    await callback.message.edit_text(f"📌 Product: {title}\n💰 Regular Price: {price} USDT\n\n{t['choose_promo']}", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("usepromo_"))
 async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     drop_id = int(callback.data.split("_")[1])
     await state.update_data(drop_id=drop_id)
     await state.set_state(PromoState.code)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ İptal", callback_data=f"buy_{drop_id}")]])
-    await callback.message.edit_text("🎟️ Lütfen indirim kuponu kodunu yazın:", reply_markup=kb)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data=f"buy_{drop_id}")]])
+    await callback.message.edit_text(t["ask_promo"], reply_markup=kb)
 
 @dp.message(PromoState.code)
 async def verify_promo_code(message: types.Message, state: FSMContext):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     data = await state.get_data()
     drop_id = data.get("drop_id")
     entered_code = message.text.strip()
@@ -1089,7 +1256,7 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
     conn.close()
 
     if not drop:
-        await message.answer("⚠️ Ürün artık mevcut değil.")
+        await message.answer(t["invalid_drop"])
         return
 
     title, price, stock = drop
@@ -1100,43 +1267,45 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
         final_price = price
         promo_applied = False
 
-    user_id = message.from_user.id
     username = message.from_user.username
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
     order_id = cursor.lastrowid
     conn.commit()
     conn.close()
 
-    msg = f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n📌 Ürün: {title}\n"
+    msg = t["order_created"].format(id=order_id, title=title)
     if promo_applied:
-        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{PROMO_DISCOUNT} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
+        msg += t["promo_applied"].format(price=price, discount=PROMO_DISCOUNT, final=final_price)
     else:
-        msg += f"❌ Geçersiz kupon! Tam Tutar: {final_price} USDT\n\n"
+        msg += t["promo_invalid"].format(final=final_price)
 
-    msg += f"🔒 Cüzdan Adresi:\n`{CRYPTO_WALLET}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın."
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 Ödemeyi Otomatik Kontrol Et", callback_data=f"autocheck_{order_id}")]])
+    msg += t["wallet_text"].format(wallet=CRYPTO_WALLET)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
     await message.answer(msg, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("nopromo_"))
 async def process_buy_no_promo(callback: types.CallbackQuery):
-    if is_user_banned(callback.from_user.id):
-        return
-    drop_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
+    if is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    drop_id = int(callback.data.split("_")[1])
     username = callback.from_user.username
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
     
     cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
     drop = cursor.fetchone()
     if not drop:
-        await callback.answer("⚠️ Bu ürün tükenmiş.", show_alert=True)
+        await callback.answer(t["sold_out"], show_alert=True)
         conn.close()
         return
     title, price, stock = drop
@@ -1146,21 +1315,20 @@ async def process_buy_no_promo(callback: types.CallbackQuery):
     conn.commit()
     conn.close()
 
-    payment_text = (
-        f"✅ Sipariş Oluşturuldu! (Sipariş No: #{order_id})\n\n"
-        f"📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n\n"
-        f"🔒 Cüzdan Adresi:\n`{CRYPTO_WALLET}`\n\n"
-        "⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.NOT:Ödeme yapıldıktan 2-3 dk sonra 'ONAY İSTE' butonuna tıklamanız önerilir!!!"
-    )
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 Ödemeyi Otomatik Kontrol Et", callback_data=f"autocheck_{order_id}")]])
-    await callback.message.edit_text(payment_text, reply_markup=kb)
+    msg = t["order_created"].format(id=order_id, title=title) + f"💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
+    await callback.message.edit_text(msg, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("autocheck_"))
 async def check_blockchain_payment(callback: types.CallbackQuery):
-    if is_user_banned(callback.from_user.id):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
         return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
     order_id = int(callback.data.split("_")[1])
-    await callback.answer("Blokzincir taranıyor...", show_alert=True)
+    await callback.answer(t["scan"], show_alert=True)
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("""
@@ -1171,23 +1339,23 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     """, (order_id,))
     data = cursor.fetchone()
     if not data:
-        await callback.answer("Sipariş bulunamadı.", show_alert=True)
+        await callback.answer(t["not_found"], show_alert=True)
         conn.close()
         return
     user_id, drop_id, stock, status, created_at_str, title, final_price, category = data
     if status == 'completed':
-        await callback.answer("Zaten onaylanmış.", show_alert=True)
+        await callback.answer(t["already_approved"], show_alert=True)
         conn.close()
         return
     if status == 'expired':
-        await callback.answer("Süresi dolmuş.", show_alert=True)
+        await callback.answer(t["expired"], show_alert=True)
         conn.close()
         return
     if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
         cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (order_id,))
         conn.commit()
         conn.close()
-        await callback.message.edit_text("⏰ Süre aşımı nedeniyle iptal edildi.")
+        await callback.message.edit_text(t["time_out"])
         return
 
     api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=10"
@@ -1219,8 +1387,10 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
 
         secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-        await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı.")
-        await bot.send_message(user_id, f"🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({secure_link})", parse_mode="Markdown")
+        success_text = t["success_msg"].format(link=secure_link)
+
+        await callback.message.edit_text(t["success_order"].format(id=order_id))
+        await bot.send_message(user_id, success_text, parse_mode="Markdown")
         
         log_msg = f"🎉 Otomatik Satış: #{order_id} - {title} ({final_price} USDT)"
         log_panel_event(log_msg, "success")
@@ -1235,7 +1405,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
             logging.error(e)
     else:
         conn.close()
-        await callback.answer("⚠️ Henüz transfer yansımadı, bekleyin.", show_alert=True)
+        await callback.answer(t["wait_tx"], show_alert=True)
 
 # --- ANONİM YANITLAMA KÖPRÜSÜ ---
 @dp.message()
@@ -1258,7 +1428,7 @@ async def handle_admin_group_reply(message: types.Message):
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
-    asyncio.create_task(auto_backup_task()) # Arka planda 24 saatlik veritabanı yedeği al
+    asyncio.create_task(auto_backup_task())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
