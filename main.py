@@ -15,7 +15,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
-# --- AYARLAR VE YENİ TOKEN (GÜNCELLENDİ) ---
+# --- AYARLAR VE TOKEN ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
@@ -277,7 +277,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🌿 FULL FUNCTIONAL WEB PANEL HANDLER ---
+# --- WEB PANEL HANDLER ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -726,7 +726,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(dashboard_html.encode("utf-8"))
             return
 
-        # --- PANEL AKSİYON GET ENDPOINTLERİ (Silme, Onaylama vb.) ---
+        # --- PANEL AKSİYON GET ENDPOINTLERİ ---
         if parsed_path.path.startswith("/admin-"):
             if not is_logged_in:
                 self.send_response(303)
@@ -968,7 +968,7 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz:", reply_markup=kb)
 
-# --- 🤖 BOT İLE DEVAM ET (KLASİK MAĞAZA AKIŞI) ---
+# --- BOT İLE DEVAM ET (KLASİK MAĞAZA AKIŞI) ---
 @dp.message(F.text.in_([LANG["tr"]["btn_botshop"], LANG["en"]["btn_botshop"]]))
 async def bot_shop_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1177,11 +1177,11 @@ async def main():
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(check_expired_orders_task())
     
-    # Kilitleri ve takılı kalan eski webhook'ları temizle
+    # Webhook temizliği ve polling başlatma
     await bot.delete_webhook(drop_pending_updates=True)
     logging.info("🚀 Bot polling modunda başlatılıyor...")
     
-    await dp.start_polling(bot,, skip_updates=True)
+    await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":
     asyncio.run(main())
