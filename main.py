@@ -277,7 +277,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🌿 WEED SHOP WEB SUNUCUSU & HAREKETLİ NOEL BABALI PANEL ---
+# --- 🌿 WEED SHOP WEB SUNUCUSU & GRAFİK TİPOGRAFİK PANEL ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -330,7 +330,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="product-card" data-category="{cat or 'Genel'}">
                     {img_tag}
                     <h3 style="margin:0 0 5px 0; color:#f8fafc; font-size:16px;">{title}</h3>
-                    <p style="margin:0 0 8px 0; font-size:12px; color:#00ff88;">🌿 {cat or 'Genel'} | Stok: {stock}</p>
+                    <p style="margin:0 0 8px 0; font-size:12px; color:#00ff88;">🌱 {cat or 'Genel'} | Stok: {stock}</p>
                     <p style="margin:0 0 12px 0; font-size:13px; color:#94a3b8;">{desc or 'Özel güvenli teslimat drop.'}</p>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>{price_display}</div>
@@ -378,10 +378,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Weed Istanbul Dispensary</title>
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+                <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
                 <style>
-                    body {{ background: #050b07; color: #f8fafc; font-family: -apple-system, sans-serif; margin: 0; padding: 15px; box-sizing: border-box; animation: fadeIn 0.4s ease-in-out; }}
+                    body {{ background: #050b07; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; padding: 15px; box-sizing: border-box; animation: fadeIn 0.4s ease-in-out; }}
                     @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(6px); }} to {{ opacity: 1; transform: translateY(0); }} }}
                     .header {{ background: rgba(10, 26, 15, 0.9); padding: 15px; border-radius: 14px; border: 1px solid rgba(0, 255, 136, 0.3); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,255,136,0.08); }}
+                    .logo-text {{ font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: #00ff88; letter-spacing: 1.2px; text-transform: uppercase; text-shadow: 0 0 10px rgba(0,255,136,0.4); }}
                     .nav-tabs {{ display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }}
                     .tab-btn {{ background: #112217; color: #94a3b8; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; transition: 0.2s; }}
                     .tab-btn.active {{ background: #00ff88; color: #050b07; box-shadow: 0 0 12px rgba(0,255,136,0.4); }}
@@ -399,7 +401,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script>let tg = window.Telegram.WebApp; tg.expand();</script>
                 <div class="header">
                     <div>
-                        <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul</h3>
+                        <div class="logo-text">🌱 WEED ISTANBUL</div>
                         <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{vip_text}</p>
                     </div>
                     <div style="text-align:right;">
@@ -521,9 +523,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             users_active = "active" if tab == "users" else ""
 
             dashboard_html = f"""
-            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🌿 Weed Istanbul Panel</title>
+            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🌱 Weed Istanbul Panel</title>
+            <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
             <style>
-                body {{ background: #050b07; color: #f8fafc; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; position: relative; animation: fadeIn 0.4s ease-in-out; }}
+                body {{ background: #050b07; color: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; position: relative; animation: fadeIn 0.4s ease-in-out; }}
                 @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
                 #pollen-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }}
                 .sidebar {{ width: 250px; background: rgba(8, 20, 12, 0.95); padding: 20px; border-right: 1px solid rgba(0,255,136,0.2); transition: transform 0.3s ease; z-index: 1000; backdrop-filter: blur(10px); box-sizing: border-box; }}
@@ -531,6 +534,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 .sidebar a:hover, .sidebar a.active {{ background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }}
                 .main {{ flex: 1; padding: 25px; overflow-y: auto; box-sizing: border-box; z-index: 2; position: relative; }}
                 .mobile-header {{ display:none; background: rgba(8,20,12,0.95); padding: 15px; border-bottom: 1px solid rgba(0,255,136,0.2); align-items: center; justify-content: space-between; z-index: 1001; position: relative; backdrop-filter: blur(10px); }}
+                .logo-title {{ font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #00ff88; letter-spacing: 1px; text-transform: uppercase; }}
                 .menu-btn {{ background: #00ff88; color: #050b07; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }}
                 @keyframes bounceSanta {{ 0%, 100% {{ transform: translateY(0) rotate(0deg); }} 50% {{ transform: translateY(-6px) rotate(6deg); }} }}
                 .santa-anim {{ display: inline-block; animation: bounceSanta 1.5s infinite ease-in-out; margin-left: 6px; }}
@@ -546,11 +550,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <canvas id="pollen-canvas"></canvas>
                 <div class="mobile-header">
-                    <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul <span class="santa-anim">🎅</span></h3>
+                    <div class="logo-title">🌱 WEED ISTANBUL <span class="santa-anim">🎅</span></div>
                     <button class="menu-btn" onclick="toggleMenu()">☰ Menü</button>
                 </div>
                 <div class="sidebar" id="sidebar">
-                    <h2 style="color:#00ff88; font-size:18px; text-align:center; margin-top:0; letter-spacing:1px;">🌿 WEED PANEL <span class="santa-anim">🎅</span></h2>
+                    <h2 class="logo-title" style="text-align:center; margin-top:0; font-size:18px;">🌱 WEED PANEL <span class="santa-anim">🎅</span></h2>
                     <a href="/admin-web?tab=home" class="{home_active}">🏠 Anasayfa</a>
                     <a href="/admin-web?tab=testimonials" class="{test_active}">⭐ Yorumlar</a>
                     <a href="/admin-web?tab=support" class="{supp_active}">💬 Destek</a>
@@ -804,7 +808,7 @@ async def bot_shop_categories(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌿 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌱 {c_name}", callback_data=f"botcat_{c_name}")])
     
     await message.answer(t["select_cat"], reply_markup=kb)
 
@@ -849,7 +853,7 @@ async def bot_back_to_cats(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌿 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌱 {c_name}", callback_data=f"botcat_{c_name}")])
     
     await callback.message.edit_text(t["select_cat"], reply_markup=kb)
 
