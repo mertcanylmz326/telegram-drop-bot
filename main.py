@@ -20,8 +20,8 @@ BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
-ADMIN_USERNAME = "dionisus"
-ADMIN_PASSWORD = "weedstanbul34"
+ADMIN_WEB_USERNAME = "dionisus"
+ADMIN_WEB_PASSWORD = "weedstanbul34"
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
@@ -57,7 +57,10 @@ def init_db():
         )
     ''')
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT
+        )
     ''')
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
@@ -80,6 +83,7 @@ def is_admin(user_id: int) -> bool:
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
+        query_params = parse_qs(parsed_path.query)
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
 
@@ -95,6 +99,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.send_login_page()
                 return
 
+            tab = query_params.get("tab", ["active"])[0]
+
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM drops")
@@ -103,16 +109,110 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             total_active_stock = cursor.fetchone()[0] or 0
             cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
             total_revenue = cursor.fetchone()[0] or 0.0
-            
-            cursor.execute("SELECT id, title, price, stock, is_sold FROM drops ORDER BY id DESC LIMIT 10")
-            recent_drops = cursor.fetchall()
-            conn.close()
 
-            drops_html = ""
-            for d in recent_drops:
-                d_id, title, price, stock, is_sold = d
-                status_badge = "🟢 Aktif" if is_sold == 0 and stock > 0 else "🔴 Tükendi"
-                drops_html += f"<tr><td>#{d_id}</td><td>{title}</td><td>{price} USDT</td><td>{stock} Adet</td><td>{status_badge}</td></tr>"
+            content_html = ""
+            if tab == "active":
+                # Aktif Siparişler Tablosu (Kullanıcı adı dahil)
+                cursor.execute("""
+                    SELECT orders.id, users.username, drops.title, drops.price, orders.status, orders.created_at 
+                    FROM orders 
+                    JOIN drops ON orders.drop_id = drops.id 
+                    LEFT JOIN users ON orders.user_id = users.user_id
+                    WHERE orders.status = 'completed'
+                    ORDER BY orders.id DESC
+                """)
+                orders = cursor.fetchall()
+                rows = ""
+                for o in orders:
+                    o_id, uname, title, price, status, date = o
+                    username_str = f"@{uname}" if uname else "Bulunmuyor"
+                    rows += f"<tr><td>#{o_id}</td><td>{username_str}</td><td>{title}</td><td>{price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
+                
+                content_html = f"""
+                <div class="table-box">
+                    <h2>🟢 Aktif / Tamamlanan Siparişler</h2>
+                    <table>
+                        <tr><th>Sipariş ID</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
+                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
+                    </table>
+                </div>
+                """
+            elif tab == "passive":
+                # Pasif / Stoktaki Düzenlenebilir Ürünler
+                cursor.execute("SELECT id, title, price, stock, description, location_url FROM drops WHERE is_sold = 0")
+                drops = cursor.fetchall()
+                rows = ""
+                for d in drops:
+                    d_id, title, price, stock, desc, loc = d
+                    rows += f"""
+                    <tr>
+                        <td>#{d_id}</td>
+                        <td>{title}</td>
+                        <td>{price} USDT</td>
+                        <td>{stock} Adet</td>
+                        <td>
+                            <a href="/admin-edit?id={d_id}" class="action-btn edit-btn">Düzenle</a>
+                        </td>
+                    </tr>
+                    """
+                content_html = f"""
+                <div class="table-box">
+                    <h2>📦 Pasif / Stoktaki Ürünler (Düzenlenebilir)</h2>
+                    <table>
+                        <tr><th>ID</th><th>Başlık</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
+                        {rows if rows else "<tr><td colspan='5' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
+                    </table>
+                </div>
+                """
+            elif tab == "add":
+                content_html = """
+                <div class="form-box">
+                    <h2>➕ Yeni Drop Ekle</h2>
+                    <form action="/admin-add" method="POST">
+                        <label>Ürün Başlığı:</label>
+                        <input type="text" name="title" required placeholder="Örn: Taksim Drop">
+                        <label>Fiyat (USDT):</label>
+                        <input type="number" step="0.1" name="price" required placeholder="20">
+                        <label>Stok Adedi:</label>
+                        <input type="number" name="stock" required value="1">
+                        <label>Google Maps Konum Linki:</label>
+                        <input type="text" name="location" required placeholder="https://maps.app.goo.gl/...">
+                        <label>Açıklama / İpucu Notu:</label>
+                        <textarea name="description" rows="3" required placeholder="Bina girişindeki saksının arkasında..."></textarea>
+                        <button type="submit">Stoğa Ekle</button>
+                    </form>
+                </div>
+                """
+
+            # Ürün Düzenleme Sayfası Sekmesi
+            edit_form_html = ""
+            if tab == "edit":
+                edit_id = query_params.get("id", ["0"])[0]
+                cursor.execute("SELECT title, price, stock, location_url, description FROM drops WHERE id = ?", (edit_id,))
+                drop_data = cursor.fetchone()
+                if drop_data:
+                    e_title, e_price, e_stock, e_loc, e_desc = drop_data
+                    edit_form_html = f"""
+                    <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
+                        <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
+                        <form action="/admin-update" method="POST">
+                            <input type="hidden" name="id" value="{edit_id}">
+                            <label>Ürün Başlığı:</label>
+                            <input type="text" name="title" value="{e_title}" required>
+                            <label>Fiyat (USDT):</label>
+                            <input type="number" step="0.1" name="price" value="{e_price}" required>
+                            <label>Stok Adedi:</label>
+                            <input type="number" name="stock" value="{e_stock}" required>
+                            <label>Google Maps Konum Linki:</label>
+                            <input type="text" name="location" value="{e_loc}" required>
+                            <label>Açıklama / İpucu Notu:</label>
+                            <textarea name="description" rows="3" required>{e_desc}</textarea>
+                            <button type="submit" style="background: #16a34a;">Güncellemeyi Kaydet</button>
+                        </form>
+                    </div>
+                    """
+
+            conn.close()
 
             dashboard_html = f"""
             <!DOCTYPE html>
@@ -123,15 +223,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <title>Admin Dashboard</title>
                 <style>
                     body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; margin: 0; }}
-                    .container {{ max-width: 800px; margin: 0 auto; }}
+                    .container {{ max-width: 900px; margin: 0 auto; }}
                     .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
                     h1 {{ color: #38bdf8; margin: 0; }}
                     .logout-btn {{ background: #ef4444; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; }}
                     .logout-btn:hover {{ background: #dc2626; }}
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }}
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
                     .card {{ background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }}
                     .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 14px; }}
                     .card p {{ margin: 0; font-size: 24px; font-weight: bold; color: #38bdf8; }}
+                    .nav-tabs {{ display: flex; gap: 10px; margin-bottom: 25px; }}
+                    .nav-tabs a {{ background: #1e293b; color: #94a3b8; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; border: 1px solid #334155; }}
+                    .nav-tabs a.active {{ background: #2563eb; color: white; border-color: #2563eb; }}
                     .form-box, .table-box {{ background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 30px; }}
                     input, textarea {{ width: 100%; padding: 10px; margin: 8px 0 15px 0; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: white; box-sizing: border-box; }}
                     button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }}
@@ -139,6 +242,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                     th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }}
                     th {{ color: #94a3b8; }}
+                    .action-btn {{ padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }}
+                    .edit-btn {{ background: #ca8a04; color: white; }}
+                    .edit-btn:hover {{ background: #a16207; }}
                 </style>
             </head>
             <body>
@@ -154,30 +260,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div class="card"><h3>TOPLAM ÇEŞİT</h3><p>{total_drops}</p></div>
                     </div>
 
-                    <div class="form-box">
-                        <h2>➕ Hızlı Web'den Drop Ekle</h2>
-                        <form action="/admin-add" method="POST">
-                            <label>Ürün Başlığı:</label>
-                            <input type="text" name="title" required placeholder="Örn: Taksim Drop">
-                            <label>Fiyat (USDT):</label>
-                            <input type="number" step="0.1" name="price" required placeholder="20">
-                            <label>Stok Adedi:</label>
-                            <input type="number" name="stock" required value="1">
-                            <label>Google Maps Konum Linki:</label>
-                            <input type="text" name="location" required placeholder="https://maps.app.goo.gl/...">
-                            <label>Açıklama / İpucu Notu:</label>
-                            <textarea name="description" rows="3" required placeholder="Bina girişindeki saksının arkasında..."></textarea>
-                            <button type="submit">Stoğa Ekle</button>
-                        </form>
+                    <div class="nav-tabs">
+                        <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Aktif Siparişler</a>
+                        <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif Ürünler</a>
+                        <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Yeni Drop Ekle</a>
                     </div>
 
-                    <div class="table-box">
-                        <h2>📦 Son Eklenen Droplar</h2>
-                        <table>
-                            <tr><th>ID</th><th>Başlık</th><th>Fiyat</th><th>Stok</th><th>Durum</th></tr>
-                            {drops_html}
-                        </table>
-                    </div>
+                    {edit_form_html}
+                    {content_html}
                 </div>
             </body>
             </html>
@@ -186,6 +276,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(dashboard_html.encode("utf-8"))
+            return
+
+        if parsed_path.path == "/admin-edit":
+            if not is_logged_in:
+                self.send_login_page()
+                return
+            edit_id = query_params.get("id", ["0"])[0]
+            self.send_response(303)
+            self.send_header('Location', f'/admin-web?tab=edit&id={edit_id}')
+            self.end_headers()
             return
 
         if parsed_path.path == "/admin-logout":
@@ -269,7 +369,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             username = params.get("username", [""])[0]
             password = params.get("password", [""])[0]
 
-            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            if username == ADMIN_WEB_USERNAME and password == ADMIN_WEB_PASSWORD:
                 self.send_response(303)
                 self.send_header('Set-Cookie', 'admin_auth=true; Path=/; HttpOnly')
                 self.send_header('Location', '/admin-web')
@@ -278,12 +378,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.send_login_page(error="Hatalı kullanıcı adı veya şifre!")
             return
 
-        if parsed_path.path == "/admin-add":
-            cookies_str = self.headers.get('Cookie', '')
-            if 'admin_auth=true' not in cookies_str:
-                self.send_html_error("Yetkisiz Erişim!")
-                return
+        cookies_str = self.headers.get('Cookie', '')
+        if 'admin_auth=true' not in cookies_str:
+            self.send_html_error("Yetkisiz Erişim!")
+            return
 
+        if parsed_path.path == "/admin-add":
             title = params.get("title", [""])[0]
             try:
                 price = float(params.get("price", [0])[0])
@@ -303,7 +403,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.close()
 
             self.send_response(303)
-            self.send_header('Location', '/admin-web')
+            self.send_header('Location', '/admin-web?tab=passive')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-update":
+            drop_id = params.get("id", ["0"])[0]
+            title = params.get("title", [""])[0]
+            try:
+                price = float(params.get("price", [0])[0])
+                stock = int(params.get("stock", [1])[0])
+            except:
+                price, stock = 0.0, 1
+            location = params.get("location", [""])[0]
+            description = params.get("description", [""])[0]
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE drops SET title = ?, price = ?, stock = ?, location_url = ?, description = ?
+                WHERE id = ?
+            """, (title, price, stock, location, description, drop_id))
+            conn.commit()
+            conn.close()
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
         else:
             self.send_response(404)
@@ -367,7 +491,10 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- BOT VE FSM KODLARI ---
+# --- FSM VE BOT KODLARI ---
+class AdminPassState(StatesGroup):
+    password = State()
+
 class AddDrop(StatesGroup):
     title = State()
     price = State()
@@ -397,7 +524,7 @@ async def cmd_start(message: types.Message):
         return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (message.from_user.id, message.from_user.username))
     conn.commit()
     conn.close()
     await message.answer("👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz.", reply_markup=main_keyboard())
@@ -442,9 +569,108 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer("✅ Destek mesajınız admin grubuna iletildi.")
     try:
+        conn = sqlite3.connect("drop_bot.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+        conn.commit()
+        conn.close()
         await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\nKullanıcı Adı: @{username}\n\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
+
+# --- 🔒 ŞİFRELİ /admin KOMUTU (ŞİFRE: 1881) ---
+@dp.message(Command("admin"))
+async def cmd_admin(message: types.Message, state: FSMContext):
+    if message.chat.type != "private" or not is_admin(message.from_user.id):
+        return
+    
+    await state.set_state(AdminPassState.password)
+    await message.answer("🔐 Yönetim paneline erişmek için lütfen admin şifresini girin:")
+
+@dp.message(AdminPassState.password)
+async def process_admin_password(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
+    
+    entered_pass = message.text.strip()
+    if entered_pass == "1881":
+        await state.clear()
+        web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
+            [InlineKeyboardButton(text="➕ Telegram'dan Drop Ekle", callback_data="add_drop")],
+            [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
+        ])
+        await message.answer("✅ Şifre Doğru!\n\n👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
+    else:
+        await state.clear()
+        await message.answer("❌ Hatalı şifre! Erişim reddedildi.")
+
+@dp.callback_query(F.data == "stats")
+async def show_stats(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        return
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*), SUM(stock) FROM drops WHERE is_sold = 0")
+    res = cursor.fetchone()
+    cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
+    rev = cursor.fetchone()[0] or 0.0
+    conn.close()
+    await callback.message.edit_text(f"📊 İstatistikler:\nAktif Stok: {res[1] or 0}\nToplam Ciro: {rev} USDT", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Geri", callback_data="back_admin")]]))
+
+@dp.callback_query(F.data == "back_admin")
+async def back_admin(callback: types.CallbackQuery):
+    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
+        [InlineKeyboardButton(text="➕ Telegram'dan Drop Ekle", callback_data="add_drop")],
+        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
+    ])
+    await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
+
+@dp.callback_query(F.data == "add_drop")
+async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
+    if not is_admin(callback.from_user.id):
+        return
+    await state.set_state(AddDrop.title)
+    await callback.message.answer("1️⃣ Başlık girin:")
+
+@dp.message(AddDrop.title)
+async def p_title(message: types.Message, state: FSMContext):
+    await state.update_data(title=message.text)
+    await state.set_state(AddDrop.price)
+    await message.answer("2️⃣ Fiyat (USDT):")
+
+@dp.message(AddDrop.price)
+async def p_price(message: types.Message, state: FSMContext):
+    await state.update_data(price=float(message.text))
+    await state.set_state(AddDrop.stock)
+    await message.answer("3️⃣ Stok Adedi:")
+
+@dp.message(AddDrop.stock)
+async def p_stock(message: types.Message, state: FSMContext):
+    await state.update_data(stock=int(message.text))
+    await state.set_state(AddDrop.location)
+    await message.answer("4️⃣ Konum Linki:")
+
+@dp.message(AddDrop.location)
+async def p_loc(message: types.Message, state: FSMContext):
+    await state.update_data(location=message.text)
+    await state.set_state(AddDrop.description)
+    await message.answer("5️⃣ Açıklama Notu:")
+
+@dp.message(AddDrop.description)
+async def p_desc(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO drops (title, price, location_url, photo_ids, description, stock) VALUES (?, ?, ?, ?, ?, ?)",
+                   (data['title'], data['price'], data['location'], "", message.text, data['stock']))
+    conn.commit()
+    conn.close()
+    await state.clear()
+    await message.answer("✅ Ürün başarıyla eklendi!")
 
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_drops(message: types.Message):
@@ -467,8 +693,12 @@ async def list_drops(message: types.Message):
 async def process_buy(callback: types.CallbackQuery):
     drop_id = int(callback.data.split("_")[1])
     user_id = callback.from_user.id
+    username = callback.from_user.username
+
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    
     cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
     drop = cursor.fetchone()
     if not drop:
@@ -546,90 +776,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     else:
         conn.close()
         await callback.answer("⚠️ Henüz transfer yansımadı, bekleyin.", show_alert=True)
-
-@dp.message(Command("admin"))
-async def cmd_admin(message: types.Message):
-    if message.chat.type != "private":
-        return
-    
-    # Eğer bu ID veritabanındaki adminlerde yoksa sana ID'ni söylüyoruz
-    if not is_admin(message.from_user.id):
-        await message.answer(f"⚠️ Bu komuta yetkiniz yok!\nSizin Telegram ID'niz: `{message.from_user.id}`\n(Koddaki ADMIN_ID ile eşleşmiyor)")
-        return
-
-    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-        [InlineKeyboardButton(text="➕ Telegram'dan Drop Ekle", callback_data="add_drop")],
-        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-    ])
-    await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
-
-@dp.callback_query(F.data == "stats")
-async def show_stats(callback: types.CallbackQuery):
-    if not is_admin(callback.from_user.id):
-        return
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*), SUM(stock) FROM drops WHERE is_sold = 0")
-    res = cursor.fetchone()
-    cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
-    rev = cursor.fetchone()[0] or 0.0
-    conn.close()
-    await callback.message.edit_text(f"📊 İstatistikler:\nAktif Stok: {res[1] or 0}\nToplam Ciro: {rev} USDT", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Geri", callback_data="back_admin")]]))
-
-@dp.callback_query(F.data == "back_admin")
-async def back_admin(callback: types.CallbackQuery):
-    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-        [InlineKeyboardButton(text="➕ Telegram'dan Drop Ekle", callback_data="add_drop")],
-        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-    ])
-    await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
-
-@dp.callback_query(F.data == "add_drop")
-async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
-    if not is_admin(callback.from_user.id):
-        return
-    await state.set_state(AddDrop.title)
-    await callback.message.answer("1️⃣ Başlık girin:")
-
-@dp.message(AddDrop.title)
-async def p_title(message: types.Message, state: FSMContext):
-    await state.update_data(title=message.text)
-    await state.set_state(AddDrop.price)
-    await message.answer("2️⃣ Fiyat (USDT):")
-
-@dp.message(AddDrop.price)
-async def p_price(message: types.Message, state: FSMContext):
-    await state.update_data(price=float(message.text))
-    await state.set_state(AddDrop.stock)
-    await message.answer("3️⃣ Stok Adedi:")
-
-@dp.message(AddDrop.stock)
-async def p_stock(message: types.Message, state: FSMContext):
-    await state.update_data(stock=int(message.text))
-    await state.set_state(AddDrop.location)
-    await message.answer("4️⃣ Konum Linki:")
-
-@dp.message(AddDrop.location)
-async def p_loc(message: types.Message, state: FSMContext):
-    await state.update_data(location=message.text)
-    await state.set_state(AddDrop.description)
-    await message.answer("5️⃣ Açıklama Notu:")
-
-@dp.message(AddDrop.description)
-async def p_desc(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO drops (title, price, location_url, photo_ids, description, stock) VALUES (?, ?, ?, ?, ?, ?)",
-                   (data['title'], data['price'], data['location'], "", message.text, data['stock']))
-    conn.commit()
-    conn.close()
-    await state.clear()
-    await message.answer("✅ Ürün başarıyla eklendi!")
 
 # --- ANONİM YANITLAMA KÖPRÜSÜ ---
 @dp.message()
