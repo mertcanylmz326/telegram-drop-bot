@@ -30,6 +30,10 @@ CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
+# Zorunlu Kanal Bilgisi
+REQUIRED_CHANNEL = "@anonymouspumptrades"
+REQUIRED_CHANNEL_URL = "https://t.me/anonymouspumptrades"
+
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
@@ -268,6 +272,19 @@ def is_user_banned(user_id: int) -> bool:
     conn.close()
     return res is not None and res[0] == 1
 
+# --- KANAL ÜYELİK KONTROLÜ (DÜZELTME BURADA) ---
+async def check_user_subscription(user_id: int) -> bool:
+    try:
+        member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        # Üye ayrılmış, yasaklanmış veya solmuşsa geçersiz say
+        if member.status in ["left", "kicked"]:
+            return False
+        return True
+    except Exception as e:
+        logging.error(f"Kanal üyelik kontrol hatası: {e}")
+        # Hata durumunda (örn. bot kanalda admin değilse veya api hatası) geçmesine izin verelim ki takılmasın
+        return True
+
 async def auto_backup_task():
     while True:
         await asyncio.sleep(86400)
@@ -279,7 +296,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- GELİŞMİŞ WEB SUNUCUSU ---
+# --- GELİŞMİŞ WEB SUNUCUSU (Aynen Korundu) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -985,6 +1002,7 @@ def main_keyboard(lang="tr"):
         resize_keyboard=True
     )
 
+# --- DÜZELTİLMİŞ /START KOMUTU ---
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     if message.chat.type != "private":
@@ -994,6 +1012,20 @@ async def cmd_start(message: types.Message):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
     
+    # Kanal üyeliğini kontrol et
+    is_member = await check_user_subscription(user_id)
+    if not is_member:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Kanala Katıl", url=REQUIRED_CHANNEL_URL)],
+            [InlineKeyboardButton(text="🔄 Kontrol Et / Tekrar Dene", callback_data="check_sub")]
+        ])
+        await message.answer(
+            f"🚀 To use this bot, you must join our channel: {REQUIRED_CHANNEL_URL}\n\n"
+            f"Lütfen önce kanala katılıp aşağıdaki butona tıklayın.",
+            reply_markup=kb
+        )
+        return
+
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
@@ -1005,6 +1037,28 @@ async def cmd_start(message: types.Message):
         [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
     ])
     await message.answer(LANG[lang]["welcome"], reply_markup=kb)
+
+# Kullanıcı kanala katıldıktan sonra kontrol butonuna basarsa
+@dp.callback_query(F.data == "check_sub")
+async def check_sub_callback(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    is_member = await check_user_subscription(user_id)
+    if not is_member:
+        await callback.answer("❌ Henüz kanala katıldığınızı algılayamadık. Lütfen önce kanala katılın!", show_alert=True)
+        return
+
+    await callback.answer("✅ Üyelik onaylandı!")
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, callback.from_user.username))
+    conn.commit()
+    conn.close()
+
+    lang = get_user_lang(user_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
+    ])
+    await callback.message.edit_text(LANG[lang]["welcome"], reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("setlang_"))
 async def set_language(callback: types.CallbackQuery):
@@ -1420,7 +1474,6 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
         conn.close()
         return
 
-    # Bakiyeden düş
     cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
     
     new_stock = stock - 1
@@ -1650,10 +1703,11 @@ async def handle_admin_group_reply(message: types.Message):
             target_user_id = int(match.group(1))
             admin_reply_text = message.text
             try:
-                await bot.send_message(
-                    target_user_id,
-                    f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
-                )
+                async with bot.session:
+                    await bot.send_message(
+                        target_user_id,
+                        f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
+                    )
                 await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
             except Exception as e:
                 await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
