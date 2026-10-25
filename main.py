@@ -49,13 +49,13 @@ main_loop = None
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
     "tr": {
-        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Aşağıdaki menüden dilediğiniz işlemi seçebilirsiniz:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
-        "btn_wallet": "💰 Cüzdanım / Bakiye",
+        "btn_wallet": "💰 Cüzdanım & Profil",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
-        "btn_support": "📞 Destek",
+        "btn_support": "📞 Canlı Destek",
         "btn_lang": "🌐 Dil Değiştir",
         "no_stock": "❌ Şu anda stokta hazır drop bulunmamaktadır.",
         "select_cat": "🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:",
@@ -66,13 +66,13 @@ LANG = {
         "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
-        "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
+        "profile_text": "👤 **Hesap ve Cüzdan Profili**\n\n🆔 Kullanıcı ID: `{uid}`\n👑 Hesap Statüsü: **{status}**\n💵 Güncel Bakiye: **{balance} USDT**\n🛍️ Toplam Harcama: **{spent} USDT**\n\n*VIP Statüsü: Toplam 100 USDT ve üzeri harcamalarda otomatik aktif olur!*",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
         "deposit_invoice": "📥 **Bakiye Yükleme Talebi (#{id})**\n\n💵 Yüklenecek Tutar: **{amount} USDT**\n🔒 Yatırım Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Tutarı gönderdikten sonra aşağıdaki butona basın.",
         "deposit_check_btn": "🔄 Yatırımı Otomatik Kontrol Et",
         "deposit_success": "🎉 Ödemeniz onaylandı! **{amount} USDT** bakiyenize eklendi.\n💵 Yeni Toplam Bakiye: **{balance} USDT**",
-        "buy_options": "📌 Ürün: {title}\n💰 Fiyat: {price} USDT\n💵 Bakiyeniz: {balance} USDT\n\nLütfen ödeme yöntemini seçin:",
+        "buy_options": "📌 Ürün: {title}\n💰 Fiyat: {price} USDT {vip_info}\n💵 Bakiyeniz: {balance} USDT\n\nLütfen ödeme yöntemini seçin:",
         "pay_balance": "⚡ Bakiyeden Öde ({price} USDT)",
         "pay_crypto": "🔒 Blokzincir ile Öde",
         "pay_promo": "🎟️ Kupon Kullan",
@@ -93,18 +93,18 @@ LANG = {
         "success_order": "✅ Sipariş #{id} onaylandı.",
         "success_msg": "🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
-        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna ve web paneline iletilsin:",
-        "support_sent": "✅ Destek mesajınız iletildi.",
+        "support_ask": "📞 Destek mesajınızı yazın, admin ekibine ve web paneline iletilsin:",
+        "support_sent": "✅ Destek mesajınız iletildi. En kısa sürede yanıt alacaksınız.",
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
-        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select your language:",
+        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select an option from the menu below:",
         "lang_set": "✅ Language set to English.",
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
-        "btn_wallet": "💰 My Wallet / Balance",
+        "btn_wallet": "💰 My Wallet & Profile",
         "btn_faq": "❓ How It Works (FAQ)",
-        "btn_support": "📞 Support",
+        "btn_support": "📞 Live Support",
         "btn_lang": "🌐 Change Language",
         "no_stock": "❌ There are currently no ready drops in stock.",
         "select_cat": "🏙️ Please select the **region / district** you want to view:",
@@ -115,13 +115,13 @@ LANG = {
         "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
         "open_loc": "🔗 Open Order #{id} Location",
         "sold_out": "⚠️ This product is sold out.",
-        "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
+        "profile_text": "👤 **Account & Wallet Profile**\n\n🆔 User ID: `{uid}`\n👑 Account Status: **{status}**\n💵 Current Balance: **{balance} USDT**\n🛍️ Total Spent: **{spent} USDT**\n\n*VIP Status: Automatically activates on total spends of 100 USDT and above!*",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
         "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after sending funds.",
         "deposit_check_btn": "🔄 Auto-Check Deposit",
         "deposit_success": "🎉 Payment approved! **{amount} USDT** added to your balance.\n💵 New Total Balance: **{balance} USDT**",
-        "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
+        "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT {vip_info}\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
         "pay_balance": "⚡ Pay from Balance ({price} USDT)",
         "pay_crypto": "🔒 Pay via Blockchain",
         "pay_promo": "🎟️ Use Promo Code",
@@ -214,10 +214,11 @@ def init_db():
             is_banned INTEGER DEFAULT 0,
             language TEXT DEFAULT 'tr',
             balance REAL DEFAULT 0.0,
+            total_spent REAL DEFAULT 0.0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0")]:
+    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0"), ("total_spent", "REAL DEFAULT 0.0")]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -249,13 +250,15 @@ def set_user_lang(user_id: int, lang: str):
     conn.commit()
     conn.close()
 
-def get_user_balance(user_id: int) -> float:
+def get_user_profile(user_id: int):
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT balance, total_spent FROM users WHERE user_id = ?", (user_id,))
     res = cursor.fetchone()
     conn.close()
-    return res[0] if res and res[0] is not None else 0.0
+    if res:
+        return res[0] or 0.0, res[1] or 0.0
+    return 0.0, 0.0
 
 def update_user_balance(user_id: int, amount: float):
     conn = sqlite3.connect("drop_bot.db")
@@ -299,7 +302,6 @@ def get_wallet_balances():
         try:
             import urllib.request
             import json
-            # TRX ve TRC20 bakiye sorgusu için TronGrid API
             url = f"https://api.trongrid.io/v1/accounts/{addr}"
             req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=3) as response:
@@ -307,21 +309,18 @@ def get_wallet_balances():
                     data = json.loads(response.read().decode())
                     acc_data = data.get("data", [])
                     if acc_data:
-                        # TRX (Balance)
                         trx_bal = acc_data[0].get("balance", 0) / 1000000.0
-                        # TRC20 (USDT)
                         trc20 = acc_data[0].get("trc20", [])
                         for token in trc20:
-                            # USDT sözleşme kontrolü
                             if USDT_CONTRACT in token:
                                 usdt_bal = float(token[USDT_CONTRACT]) / 1000000.0
                                 break
         except Exception as e:
-            logging.error(f"Cüzdan bakiye çekme hatası ({addr}): {e}")
+            logging.error(e)
         balances[key] = {"usdt": usdt_bal, "trx": trx_bal}
     return balances
 
-# --- KANAL ÜYELİK KONTROLÜ ---
+# --- KANAL ÜYELİK KONTROLÜ & OTOMATİK ZAMANLAYICI ---
 async def check_user_subscription(user_id: int) -> bool:
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
@@ -329,7 +328,7 @@ async def check_user_subscription(user_id: int) -> bool:
             return False
         return True
     except Exception as e:
-        logging.error(f"Kanal üyelik kontrol hatası: {e}")
+        logging.error(e)
         return True
 
 async def auto_backup_task():
@@ -341,9 +340,26 @@ async def auto_backup_task():
                 await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
-            logging.error(f"Yedek alma hatası: {e}")
+            logging.error(e)
 
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (CANLI CÜZDAN BAKİYELERİ İLE) ---
+async def check_expired_orders_task():
+    while True:
+        await asyncio.sleep(60)
+        try:
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            expiry_limit = datetime.now() - timedelta(minutes=15)
+            cursor.execute("SELECT id, drop_id FROM orders WHERE status = 'pending' AND created_at < ?", (expiry_limit.strftime("%Y-%m-%d %H:%M:%S"),))
+            expired_orders = cursor.fetchall()
+            for ord_id, drp_id in expired_orders:
+                cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (ord_id,))
+                cursor.execute("UPDATE drops SET stock = stock + 1, is_sold = 0 WHERE id = ?", (drp_id,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logging.error(e)
+
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -400,7 +416,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Today"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
-                # Canlı Cüzdan Bakiyelerini Çek
                 w_bals = get_wallet_balances()
 
                 content_html = f"""
@@ -500,13 +515,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "users":
-                cursor.execute("SELECT user_id, username, is_banned, language, balance FROM users ORDER BY user_id DESC")
+                cursor.execute("SELECT user_id, username, is_banned, language, balance, total_spent FROM users ORDER BY user_id DESC")
                 users_list = cursor.fetchall()
                 rows = ""
                 for u in users_list:
-                    uid, uname, is_b, u_lang, u_bal = u
+                    uid, uname, is_b, u_lang, u_bal, u_spent = u
                     username_str = f"@{uname}" if uname else "N/A"
                     status_badge = "<span style='color:#ef4444; font-weight:bold; background:rgba(239,68,68,0.2); padding:3px 8px; border-radius:6px;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold; background:rgba(16,185,129,0.2); padding:3px 8px; border-radius:6px;'>ACTIVE</span>"
+                    vip_badge = "👑 <b>VIP</b>" if (u_spent or 0) >= 100 else "⭐ Standart"
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
@@ -524,14 +540,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <button type="submit" name="op" value="sub" style="background:#ef4444; padding:4px 8px; font-size:11px; width:auto; height:28px; line-height:10px;">-</button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b style='color:#38bdf8; font-size:15px;'>{u_bal} USDT</b></td><td>{bal_form}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{vip_badge}</td><td><b style='color:#38bdf8; font-size:15px;'>{u_bal} USDT</b></td><td>{u_spent or 0} USDT</td><td>{bal_form}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>🎅 CRM & Cüzdan Bakiye Yönetimi</h2>
+                    <h2>🎅 CRM & Cüzdan Bakiye Yönetimi (VIP Sistem)</h2>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye</th><th>Bakiye Düzenle</th><th>Status</th><th>Ban / Unban</th></tr>
-                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Statü</th><th>Bakiye</th><th>Toplam Harcama</th><th>Bakiye Düzenle</th><th>Durum</th><th>İşlem</th></tr>
+                        {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -729,7 +745,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         background: rgba(5, 10, 14, 0.88);
                         z-index: 0;
                     }}
-                    /* Kar Efekti Canvas */
                     #snowflake-canvas {{
                         position: fixed;
                         top: 0;
@@ -789,7 +804,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         background: #dc2626 !important;
                         color: white !important;
                     }}
-                    
                     .main-content {{
                         flex: 1;
                         padding: 35px;
@@ -810,7 +824,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         justify-content: space-between;
                         align-items: center;
                     }}
-                    
                     .stats-grid {{
                         display: grid;
                         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -829,10 +842,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 15px rgba(16, 185, 129, 0.15); }}
                     .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 15px rgba(239, 68, 68, 0.15); }}
                     .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 15px rgba(245, 158, 11, 0.15); }}
-                    
                     .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
                     .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
-                    
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
                     .form-box, .table-box {{
                         background: rgba(15, 23, 42, 0.75);
@@ -887,7 +898,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
             </head>
             <body>
-                <!-- Kar Yağışı Canvas Efekti -->
                 <canvas id="snowflake-canvas"></canvas>
 
                 <div class="sidebar">
@@ -898,7 +908,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
                     <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & Balances</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & VIP</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
 
@@ -911,7 +921,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {content_html}
                 </div>
 
-                <!-- Kar Efekti Scripti -->
                 <script>
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
@@ -1216,6 +1225,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     else:
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+                    cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (f_price, u_id))
                     
                     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
                     rem_stock = cursor.fetchone()[0] or 0
@@ -1239,13 +1249,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ GERÇEKLEŞTİ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n👤 Alıcı ID: `{u_id}`\n🆔 Sipariş ID: `#{order_id}`"),
                             main_loop
                         )
-                        if rem_stock <= 2:
-                            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {t_cat} bölgesinde kalan aktif stok: {rem_stock} adet!"
-                            log_panel_event(warn_msg, "warning")
-                            asyncio.run_coroutine_threadsafe(
-                                bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{t_cat}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir."),
-                                main_loop
-                            )
             else:
                 conn.close()
 
@@ -1349,6 +1352,9 @@ class PromoState(StatesGroup):
 class DepositState(StatesGroup):
     amount = State()
 
+class BroadcastState(StatesGroup):
+    message = State()
+
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
 
@@ -1438,7 +1444,7 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
 
-# --- 💰 CÜZDAN & BAKİYE YÜKLEME ---
+# --- 💰 CÜZDAN & PROFİL SİSTEMİ (VIP) ---
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
 async def wallet_menu(message: types.Message):
     user_id = message.from_user.id
@@ -1446,12 +1452,13 @@ async def wallet_menu(message: types.Message):
         return
     lang = get_user_lang(user_id)
     t = LANG[lang]
-    bal = get_user_balance(user_id)
+    bal, spent = get_user_profile(user_id)
+    status_str = "👑 VIP Müşteri" if spent >= 100 else "⭐ Standart Üye"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]
     ])
-    await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
+    await message.answer(t["profile_text"].format(uid=user_id, status=status_str, balance=bal, spent=spent), reply_markup=kb)
 
 @dp.callback_query(F.data == "start_deposit")
 async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
@@ -1550,7 +1557,7 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         conn.close()
 
         update_user_balance(user_id, target_amount)
-        new_bal = get_user_balance(user_id)
+        new_bal, _ = get_user_profile(user_id)
 
         await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
         log_panel_event(f"📥 Bakiye Yükleme Onaylandı: Kullanıcı {user_id} - {target_amount} USDT", "success")
@@ -1620,6 +1627,39 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
     except Exception as e:
         logging.error(e)
 
+# --- 📢 BROADCAST (TOPLU DUYURU KOMUTU) ---
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: types.Message, state: FSMContext):
+    if message.chat.type != "private" or not is_admin(message.from_user.id):
+        return
+    await state.set_state(BroadcastState.message)
+    await message.answer("📢 Tüm kullanıcılara gönderilmesini istediğiniz duyuru mesajını yazın:")
+
+@dp.message(BroadcastState.message)
+async def process_broadcast(message: types.Message, state: FSMContext):
+    if message.chat.type != "private" or not is_admin(message.from_user.id):
+        return
+    broadcast_text = message.text
+    await state.clear()
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
+    users = cursor.fetchall()
+    conn.close()
+
+    sent_count = 0
+    for u in users:
+        try:
+            await bot.send_message(u[0], f"📢 **Önemli Duyuru:**\n\n{broadcast_text}")
+            sent_count += 1
+            await asyncio.sleep(0.05)
+        except:
+            pass
+
+    await message.answer(f"✅ Duyuru başarıyla **{sent_count}** kullanıcıya iletildi.")
+    log_panel_event(f"📢 Toplu Duyuru Gönderildi: {sent_count} kullanıcıya ulaştı.", "success")
+
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
@@ -1667,7 +1707,7 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
+# --- 🏙️ KATEGORİ & ÜRÜN LİSTELEME ---
 @dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1777,7 +1817,7 @@ async def my_orders(message: types.Message):
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
-# --- ⚡ SATIN ALMA & BAKİYEDEN ÖDEME AKIŞI ---
+# --- ⚡ SATIN ALMA VE VIP FİYATLANDIRMA ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -1798,14 +1838,19 @@ async def process_buy(callback: types.CallbackQuery):
         return
 
     title, price, stock = drop
-    bal = get_user_balance(user_id)
+    bal, spent = get_user_profile(user_id)
+    
+    # VIP İndirimi Kontrolü (Toplam harcama 100 USDT üstü ise %10 indirim)
+    is_vip = spent >= 100
+    final_buy_price = round(price * 0.9, 2) if is_vip else price
+    vip_info_str = "(👑 VIP İndirimli!)" if is_vip else ""
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["pay_balance"].format(price=price), callback_data=f"buybal_{drop_id}")],
+        [InlineKeyboardButton(text=t["pay_balance"].format(price=final_buy_price), callback_data=f"buybal_{drop_id}")],
         [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")],
         [InlineKeyboardButton(text=t["pay_promo"], callback_data=f"usepromo_{drop_id}")]
     ])
-    await callback.message.edit_text(t["buy_options"].format(title=title, price=price, balance=bal), reply_markup=kb)
+    await callback.message.edit_text(t["buy_options"].format(title=title, price=final_buy_price, vip_info=vip_info_str, balance=bal), reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("buybal_"))
 async def process_buy_with_balance(callback: types.CallbackQuery):
@@ -1827,14 +1872,17 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
         return
 
     title, price, stock, category = drop
-    bal = get_user_balance(user_id)
+    bal, spent = get_user_profile(user_id)
+    
+    is_vip = spent >= 100
+    final_buy_price = round(price * 0.9, 2) if is_vip else price
 
-    if bal < price:
+    if bal < final_buy_price:
         await callback.answer(t["insufficient_balance"], show_alert=True)
         conn.close()
         return
 
-    cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
+    cursor.execute("UPDATE users SET balance = balance - ?, total_spent = total_spent + ? WHERE user_id = ?", (final_buy_price, final_buy_price, user_id))
     
     new_stock = stock - 1
     if new_stock <= 0:
@@ -1842,7 +1890,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, final_buy_price))
     order_id = cursor.lastrowid
 
     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
@@ -1852,15 +1900,15 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     conn.close()
 
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    success_text = t["balance_success"].format(price=price, link=secure_link)
+    success_text = t["balance_success"].format(price=final_buy_price, link=secure_link)
 
     await callback.message.edit_text(success_text, parse_mode="Markdown")
     
-    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({price} USDT)"
+    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({final_buy_price} USDT)"
     log_panel_event(log_msg, "success")
 
     try:
-        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
+        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_buy_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
         if rem_stock <= 2:
             warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
             log_panel_event(warn_msg, "warning")
@@ -1888,7 +1936,9 @@ async def process_buy_crypto(callback: types.CallbackQuery):
         conn.close()
         return
     title, price, stock = drop
-    final_price = price
+    _, spent = get_user_profile(user_id)
+    is_vip = spent >= 100
+    final_price = round(price * 0.9, 2) if is_vip else price
 
     cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
@@ -2025,6 +2075,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         else:
             cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
+        cursor.execute("UPDATE users SET total_spent = total_spent + ? WHERE user_id = ?", (final_price, user_id))
         
         cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
         rem_stock = cursor.fetchone()[0] or 0
@@ -2053,29 +2104,12 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
 
-# --- ANONİM YANITLAMA KÖPRÜSÜ ---
-@dp.message()
-async def handle_admin_group_reply(message: types.Message):
-    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
-        original_text = message.reply_to_message.text or ""
-        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
-        if match:
-            target_user_id = int(match.group(1))
-            admin_reply_text = message.text
-            try:
-                async with bot.session:
-                    await bot.send_message(
-                        target_user_id,
-                        f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
-                    )
-                await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
-            except Exception as e:
-                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
-
+# --- 🚀 ANA ÇALIŞTIRMA ---
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
+    asyncio.create_task(check_expired_orders_task())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
