@@ -708,16 +708,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>🎄 Weed Istanbul Gelişmiş Panel 🌿</title>
                 <style>
-                    body {{ background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; position: relative; overflow-x: hidden; }}
-                    body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(5, 10, 14, 0.93) 0%, rgba(10, 18, 26, 0.90) 100%); z-index: 0; }}
+                    body {{ background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: block; min-height: 100vh; position: relative; overflow-x: hidden; }}
+                    body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(5, 10, 14, 0.93) 0%, rgba(10, 18, 26, 0.90) 100%); z-index: 0; pointer-events: none; }}
                     #snowflake-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }}
-                    .sidebar {{ width: 270px; background: rgba(10, 18, 26, 0.85); border-right: 1px solid rgba(16, 185, 129, 0.2); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 2; backdrop-filter: blur(16px); }}
-                    .sidebar .brand {{ font-size: 19px; font-weight: 900; color: #10b981; text-align: center; margin-bottom: 25px; text-shadow: 0 0 15px rgba(16, 185, 129, 0.7); }}
-                    .sidebar a {{ background: transparent; color: #94a3b8; padding: 11px 14px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid transparent; transition: 0.3s; display: block; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.4); transform: translateX(4px); }}
+                    
+                    /* Üst Bar ve Buton (Her Cihazda Sabit) */
+                    .top-nav-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(10, 18, 26, 0.95); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(16, 185, 129, 0.3); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 99999; box-sizing: border-box; }}
+                    .menu-toggle-btn {{ background: linear-gradient(135deg, #10b981, #059669); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); z-index: 100000; }}
+                    .menu-toggle-btn:active {{ transform: scale(0.95); }}
+
+                    /* Sol Açılır Çekmece (Drawer) - Hem Mobilde Hem Masaüstünde Gizli ve Kayarak Açılır */
+                    .sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 99990; opacity: 0; visibility: hidden; transition: 0.3s ease; }}
+                    .sidebar-overlay.open {{ opacity: 1; visibility: visible; }}
+
+                    .sidebar {{ position: fixed; top: 0; left: -320px; width: 280px; height: 100%; background: rgba(10, 18, 26, 0.99); border-right: 1px solid rgba(16, 185, 129, 0.4); box-shadow: 20px 0 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 99995; backdrop-filter: blur(25px); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); }}
+                    .sidebar.open {{ left: 0; }}
+
+                    .sidebar .brand {{ font-size: 18px; font-weight: 900; color: #10b981; text-align: center; margin-bottom: 20px; text-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }}
+                    .close-drawer {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 8px; }}
+                    .close-drawer:hover {{ background: rgba(16, 185, 129, 0.2); color: white; }}
+
+                    .sidebar a {{ background: rgba(255, 255, 255, 0.02); color: #94a3b8; padding: 12px 16px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid rgba(255, 255, 255, 0.04); transition: 0.3s; display: block; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: rgba(16, 185, 129, 0.5); transform: translateX(6px); }}
                     .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; color: #ef4444 !important; margin-top: auto; border: 1px solid rgba(239, 68, 68, 0.3) !important; text-align: center; }}
-                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; z-index: 2; }}
-                    .header-title {{ color: #f8fafc; font-size: 24px; font-weight: 800; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
+                    
+                    /* Ana İçerik */
+                    .main-content {{ padding: 85px 20px 30px 20px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; margin: 0 auto; width: 100%; z-index: 2; position: relative; }}
+                    .header-title {{ color: #f8fafc; font-size: 22px; font-weight: 800; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }}
+                    
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                     .card {{ background: rgba(15, 23, 42, 0.7); padding: 22px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(10px); }}
                     .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }}
@@ -725,23 +743,39 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }}
                     .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 12px; font-weight: 700; }}
                     .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
+                    
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.75); padding: 25px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(10px); }}
+                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.75); padding: 25px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(10px); overflow-x: auto; }}
+                    
                     input, textarea {{ width: 100%; padding: 12px 15px; margin: 8px 0 16px 0; background: rgba(5, 10, 14, 0.75); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 14px; }}
                     input:focus, textarea:focus {{ border-color: #10b981; outline: none; }}
+                    
                     button {{ background: #10b981; color: white; padding: 12px 20px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.3s; }}
                     button:hover {{ background: #059669; }}
+                    
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                     th, td {{ padding: 14px 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; }}
                     th {{ color: #94a3b8; font-weight: 700; font-size: 11px; text-transform: uppercase; }}
+                    
                     .action-btn {{ padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
                     .edit-btn {{ background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid rgba(217, 119, 6, 0.4); }}
-                    @media (max-width: 768px) {{ body {{ flex-direction: column; }} .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; }} .main-content {{ padding: 20px; }} }}
                 </style>
             </head>
             <body>
                 <canvas id="snowflake-canvas"></canvas>
-                <div class="sidebar">
+                
+                <!-- Üst Navbar ve Menü Butonu -->
+                <div class="top-nav-bar">
+                    <button class="menu-toggle-btn" type="button" onclick="openSidebar()">
+                        ☰ Menü / Sekmeler
+                    </button>
+                    <span style="font-weight: 800; color: #10b981; font-size: 13px; text-shadow: 0 0 10px rgba(16,185,129,0.5);">🌿 Weed Istanbul</span>
+                </div>
+
+                <!-- Sol Açılır Çekmece -->
+                <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+                <div class="sidebar" id="sidebarDrawer">
+                    <button class="close-drawer" type="button" onclick="closeSidebar()">✕ Menüyü Kapat</button>
                     <div class="brand">🎄 Weed Istanbul 🌿</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
                     <a href="/admin-web?tab=wallet_txs" class="{"active" if tab == "wallet_txs" else ""}">💰 Cüzdan Transferleri</a>
@@ -755,6 +789,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & Balances</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
+
                 <div class="main-content">
                     <div class="header-title">
                         <span>🎅 Weed Istanbul Gelişmiş Yönetim Paneli</span>
@@ -763,7 +798,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
+
                 <script>
+                    function openSidebar() {{
+                        const sidebar = document.getElementById('sidebarDrawer');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        if (sidebar && overlay) {{
+                            sidebar.classList.add('open');
+                            overlay.classList.add('open');
+                        }}
+                    }}
+
+                    function closeSidebar() {{
+                        const sidebar = document.getElementById('sidebarDrawer');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        if (sidebar && overlay) {{
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('open');
+                        }}
+                    }}
+
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
                     let width = canvas.width = window.innerWidth;
