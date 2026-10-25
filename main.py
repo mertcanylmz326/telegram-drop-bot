@@ -14,12 +14,11 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# --- GÜÇLENDİRİLMİŞ WEB SUNUCUSU (WEB KONUM SAYFASI DESTEKLİ) ---
+# --- GÜÇLENDİRİLMİŞ WEB SUNUCUSU (GÜVENLİ KONUM SAYFASI) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
         
-        # Sağlık kontrolü (Render için)
         if parsed_path.path == "/":
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
@@ -27,12 +26,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Bot and Secure Web Server are alive and running!")
             return
 
-        # Şifreli / süreli drop görüntüleme sayfası (/drop/SİPARİŞ_ID)
         if parsed_path.path.startswith("/drop/"):
             try:
                 order_id = int(parsed_path.path.split("/")[-1])
                 
-                # Veritabanından sipariş ve konum bilgilerini çek
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -54,7 +51,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
 
-                # Şık, karanlık temalı gizli web arayüzü
                 html_content = f"""
                 <!DOCTYPE html>
                 <html lang="tr">
@@ -117,16 +113,15 @@ def run_health_server():
     server = HTTPServer(('0.0.0.0', port), SecureDropHandler)
     server.serve_forever()
 
-# Web sunucusunu arka planda başlatıyoruz
 threading.Thread(target=run_health_server, daemon=True).start()
 
 # --- AYARLAR ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
+ADMIN_GROUP_ID = -1004474292737  # 📌 Admin grup ID'niz buraya entegre edildi
+
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-
-# Render üzerindeki web servis adresini otomatik alıyoruz (Gerekirse manuel de yazılabilir)
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
 logging.basicConfig(level=logging.INFO)
@@ -145,6 +140,7 @@ def init_db():
             location_url TEXT,
             photo_ids TEXT,
             description TEXT,
+            stock INTEGER DEFAULT 1,
             is_sold INTEGER DEFAULT 0
         )
     ''')
@@ -181,6 +177,7 @@ def is_admin(user_id: int) -> bool:
 class AddDrop(StatesGroup):
     title = State()
     price = State()
+    stock = State()
     location = State()
     photo = State()
     description = State()
@@ -194,18 +191,24 @@ class BulkAddState(StatesGroup):
 class AdminManageState(StatesGroup):
     user_id = State()
 
+class SupportState(StatesGroup):
+    message = State()
+
 # --- KULLANICI MENÜSÜ ---
 def main_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🛍️ Ürünler / Droplar")],
-            [KeyboardButton(text="❓ Nasıl Çalışır?"), KeyboardButton(text="📞 Destek")]
+            [KeyboardButton(text="❓ Nasıl Çalışır? (SSS)"), KeyboardButton(text="📞 Destek")]
         ],
         resize_keyboard=True
     )
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    if message.chat.type != "private":
+        return
+    
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (message.from_user.id,))
@@ -213,17 +216,80 @@ async def cmd_start(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Merhaba! Otomatik teslimat botuna hoş geldiniz.\n\n"
-        "Aşağıdaki menüden mevcut dropları inceleyebilir ve sipariş verebilirsiniz.",
+        "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz.\n\n"
+        "Aşağıdaki menüden mevcut dropları inceleyebilir, SSS bölümüne göz atabilir veya destek alabilirsiniz.",
         reply_markup=main_keyboard()
     )
 
-# --- ÜRÜN LİSTELEME ---
+# --- AKILLI SSS (SIK SORULAN SORULAR) MENÜSÜ ---
+@dp.message(F.text == "❓ Nasıl Çalışır? (SSS)")
+async def faq_menu(message: types.Message):
+    if message.chat.type != "private":
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Ödeme Nasıl Yapılır?", callback_data="faq_pay")],
+        [InlineKeyboardButton(text="⏱️ Teslimat Süreci Nasıl İşler?", callback_data="faq_delivery")],
+        [InlineKeyboardButton(text="🔒 Gizliliğim Güvende mi?", callback_data="faq_security")]
+    ])
+    await message.answer("💡 **Sık Sorulan Sorular (SSS)**\n\nMerak ettiğiniz konuları aşağıdan seçebilirsiniz:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("faq_"))
+async def faq_callback(callback: types.CallbackQuery):
+    action = callback.data.split("_")[1]
+    if action == "pay":
+        text = "💳 **Ödeme Nasıl Yapılır?**\n\nÜrün seçtikten sonra size verilen USDT (TRC20) cüzdan adresine tam tutarı gönderirsiniz. Ardından 'Ödemeyi Otomatik Kontrol Et' butonuna basarak anında onaylatırsınız."
+    elif action == "delivery":
+        text = "⏱️ **Teslimat Süreci**\n\nÖdemeniz blokzincirde onaylandığı an sistem size otomatik olarak şifreli ve tek kullanımlık bir web bağlantısı gönderir. Bekleme süresi yoktur."
+    elif action == "security":
+        text = "🔒 **Gizlilik ve Güvenlik**\n\nHiçbir konum veya fotoğraf Telegram geçmişinizde saklanmaz. Size özel açılan web sayfası kısa süre sonra kendini imha eder."
+    else:
+        text = "Bilgi bulunamadı."
+    await callback.answer()
+    await callback.message.answer(text)
+
+# --- CANLI DESTEK SİSTEMİ (GRUBA AKTARIMLI) ---
+@dp.message(F.text == "📞 Destek")
+async def support_start(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
+    await state.set_state(SupportState.message)
+    await message.answer(
+        "📞 **Canlı Destek Hattı**\n\n"
+        "Lütfen yetkiliye iletmek istediğiniz soru veya sorun mesajınızı yazın. "
+        "Mesajınız doğrudan admin grubuna iletilecektir:"
+    )
+
+@dp.message(SupportState.message)
+async def forward_support_to_group(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
+    user_msg = message.text
+    user_id = message.from_user.id
+    username = message.from_user.username or "Bulunmuyor"
+    
+    await state.clear()
+    await message.answer("✅ Destek mesajınız admin grubuna iletildi. En kısa sürede dönüş yapılacaktır.")
+
+    admin_group_text = (
+        f"📩 **YENİ DESTEK MESAJI**\n\n"
+        f"👤 Kullanıcı ID: `{user_id}`\n"
+        f"Kullanıcı Adı: @{username}\n\n"
+        f"💬 Mesaj:\n{user_msg}"
+    )
+
+    try:
+        await bot.send_message(ADMIN_GROUP_ID, admin_group_text)
+    except Exception as e:
+        logging.error(f"Destek mesajı gruba gönderilemedi: {e}")
+
+# --- ÜRÜN LİSTELEME (STOK KONTROLLÜ) ---
 @dp.message(F.text == "🛍️ Ürünler / Droplar")
 async def list_drops(message: types.Message):
+    if message.chat.type != "private":
+        return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title, price FROM drops WHERE is_sold = 0")
+    cursor.execute("SELECT id, title, price, stock FROM drops WHERE is_sold = 0 AND stock > 0")
     drops = cursor.fetchall()
     conn.close()
 
@@ -233,9 +299,9 @@ async def list_drops(message: types.Message):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for drop in drops:
-        drop_id, title, price = drop
+        drop_id, title, price, stock = drop
         kb.inline_keyboard.append([
-            InlineKeyboardButton(text=f"{title} - {price} USDT", callback_data=f"buy_{drop_id}")
+            InlineKeyboardButton(text=f"{title} - {price} USDT (Stok: {stock})", callback_data=f"buy_{drop_id}")
         ])
 
     await message.answer("📦 Satın almak istediğiniz drop'u seçin:", reply_markup=kb)
@@ -249,7 +315,7 @@ async def process_buy(callback: types.CallbackQuery):
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     
-    cursor.execute("SELECT title, price FROM drops WHERE id = ? AND is_sold = 0", (drop_id,))
+    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
     drop = cursor.fetchone()
 
     if not drop:
@@ -257,7 +323,7 @@ async def process_buy(callback: types.CallbackQuery):
         conn.close()
         return
 
-    title, price = drop
+    title, price, stock = drop
     
     cursor.execute("INSERT INTO orders (user_id, drop_id, status) VALUES (?, ?, 'pending')", (user_id, drop_id))
     order_id = cursor.lastrowid
@@ -281,7 +347,7 @@ async def process_buy(callback: types.CallbackQuery):
 
     await callback.message.edit_text(payment_text, reply_markup=kb)
 
-# --- BLOKZİNCİR KONTROLÜ VE ŞİFRELİ LİNK TESLİMATI ---
+# --- BLOKZİNCİR KONTROLÜ VE STOK DÜŞÜRME ---
 @dp.callback_query(F.data.startswith("autocheck_"))
 async def check_blockchain_payment(callback: types.CallbackQuery):
     order_id = int(callback.data.split("_")[1])
@@ -292,7 +358,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT orders.user_id, drops.id, drops.price, orders.status, orders.created_at 
+        SELECT orders.user_id, drops.id, drops.price, drops.stock, orders.status, orders.created_at 
         FROM orders 
         JOIN drops ON orders.drop_id = drops.id 
         WHERE orders.id = ?
@@ -304,7 +370,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         return
 
-    user_id, drop_id, expected_price, status, created_at_str = data
+    user_id, drop_id, expected_price, stock, status, created_at_str = data
 
     if status == 'completed':
         await callback.answer("Bu sipariş zaten onaylanmış ve teslim edilmiştir.", show_alert=True)
@@ -316,7 +382,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         return
 
-    # Timeout (15 Dakika) Kontrolü
     created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
     if datetime.now() - created_at > timedelta(minutes=15):
         cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (order_id,))
@@ -346,12 +411,16 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         logging.error(f"API Hatası: {e}")
 
     if payment_verified:
-        cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
+        new_stock = stock - 1
+        if new_stock <= 0:
+            cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
+        else:
+            cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
+            
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
         conn.commit()
         conn.close()
 
-        # Şifreli / süreli web sayfasının linkini oluşturuyoruz
         secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
 
         msg_text = (
@@ -374,17 +443,17 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
 # --- ADMIN PANELİ ---
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message):
-    if not is_admin(message.from_user.id):
+    if message.chat.type != "private" or not is_admin(message.from_user.id):
         return
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Tekli Drop Ekle", callback_data="add_drop")],
+        [InlineKeyboardButton(text="➕ Tekli Drop Ekle (Stoklu)", callback_data="add_drop")],
         [InlineKeyboardButton(text="📦 Toplu Drop Ekle", callback_data="bulk_add")],
         [InlineKeyboardButton(text="📊 Satış Raporları & İstatistik", callback_data="stats")],
         [InlineKeyboardButton(text="📢 Toplu Duyuru Gönder", callback_data="start_broadcast")],
         [InlineKeyboardButton(text="👥 Admin Ekle / Çıkar", callback_data="manage_admins")]
     ])
-    await message.answer("👑 **Gelişmiş Yönetim Paneli (Güvenli Mod)**", reply_markup=kb)
+    await message.answer("👑 **Gelişmiş Yönetim Paneli (Grup Modu)**", reply_markup=kb)
 
 @dp.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
@@ -394,19 +463,16 @@ async def show_stats(callback: types.CallbackQuery):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM drops")
     total_drops = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM drops WHERE is_sold = 1")
-    sold_drops = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM drops WHERE is_sold = 0")
-    active_drops = cursor.fetchone()[0]
+    cursor.execute("SELECT SUM(stock) FROM drops WHERE is_sold = 0")
+    total_active_stock = cursor.fetchone()[0] or 0
     cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
     total_revenue = cursor.fetchone()[0] or 0.0
     conn.close()
 
     stats_text = (
         "📊 **Satış Raporları ve İstatistikler**\n\n"
-        f"📦 Toplam Drop Sayısı: `{total_drops}`\n"
-        f"🟢 Aktif Stok: `{active_drops}`\n"
-        f"🔴 Satılan Ürün: `{sold_drops}`\n"
+        f"📦 Toplam Ürün Çeşidi: `{total_drops}`\n"
+        f"🟢 Toplam Aktif Stok Adedi: `{total_active_stock}`\n"
         f"💰 Toplam Ciro: `{total_revenue} USDT`"
     )
     await callback.message.edit_text(stats_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -418,13 +484,13 @@ async def back_to_admin(callback: types.CallbackQuery):
     if not is_admin(callback.from_user.id):
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="➕ Tekli Drop Ekle", callback_data="add_drop")],
+        [InlineKeyboardButton(text="➕ Tekli Drop Ekle (Stoklu)", callback_data="add_drop")],
         [InlineKeyboardButton(text="📦 Toplu Drop Ekle", callback_data="bulk_add")],
         [InlineKeyboardButton(text="📊 Satış Raporları & İstatistik", callback_data="stats")],
         [InlineKeyboardButton(text="📢 Toplu Duyuru Gönder", callback_data="start_broadcast")],
         [InlineKeyboardButton(text="👥 Admin Ekle / Çıkar", callback_data="manage_admins")]
     ])
-    await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli (Güvenli Mod)**", reply_markup=kb)
+    await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli (Grup Modu)**", reply_markup=kb)
 
 @dp.callback_query(F.data == "manage_admins")
 async def manage_admins(callback: types.CallbackQuery):
@@ -453,7 +519,7 @@ async def start_add_admin(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(AdminManageState.user_id)
 async def process_add_admin(message: types.Message, state: FSMContext):
-    if message.from_user.id != ADMIN_ID:
+    if message.chat.type != "private" or message.from_user.id != ADMIN_ID:
         return
     try:
         new_id = int(message.text.strip())
@@ -467,6 +533,7 @@ async def process_add_admin(message: types.Message, state: FSMContext):
     except Exception:
         await message.answer("⚠️ Geçersiz ID.")
 
+# --- STOKLU TEKLİ DROP EKLEME WIZARD ---
 @dp.callback_query(F.data == "add_drop")
 async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
@@ -476,42 +543,60 @@ async def start_add_drop(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(AddDrop.title)
 async def process_title(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     await state.update_data(title=message.text)
     await state.set_state(AddDrop.price)
     await message.answer("2️⃣ Fiyatı girin (USDT cinsinden, örn: 20):")
 
 @dp.message(AddDrop.price)
 async def process_price(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     await state.update_data(price=float(message.text))
+    await state.set_state(AddDrop.stock)
+    await message.answer("3️⃣ Stok / Adet miktarını girin (Örn: 5):")
+
+@dp.message(AddDrop.stock)
+async def process_stock(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
+    await state.update_data(stock=int(message.text))
     await state.set_state(AddDrop.location)
-    await message.answer("3️⃣ Google Maps / Konum Linkini girin:")
+    await message.answer("4️⃣ Google Maps / Konum Linkini girin:")
 
 @dp.message(AddDrop.location)
 async def process_location(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     await state.update_data(location=message.text)
     await state.set_state(AddDrop.photo)
-    await message.answer("4️⃣ Drop yerinin Fotoğrafını gönderin (Sadece 1 adet):")
+    await message.answer("5️⃣ Drop yerinin Fotoğrafını gönderin (Sadece 1 adet):")
 
 @dp.message(AddDrop.photo, F.photo)
 async def process_photo(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     photo_id = message.photo[-1].file_id
     await state.update_data(photo=photo_id)
     await state.set_state(AddDrop.description)
-    await message.answer("5️⃣ Müşteri için Açıklama / İpucu Notu girin:")
+    await message.answer("6️⃣ Müşteri için Açıklama / İpucu Notu girin:")
 
 @dp.message(AddDrop.description)
 async def process_desc(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     data = await state.get_data()
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO drops (title, price, location_url, photo_ids, description)
-        VALUES (?, ?, ?, ?, ?)
-    """, (data['title'], data['price'], data['location'], data['photo'], message.text))
+        INSERT INTO drops (title, price, location_url, photo_ids, description, stock)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (data['title'], data['price'], data['location'], data['photo'], message.text, data['stock']))
     conn.commit()
     conn.close()
     await state.clear()
-    await message.answer("✅ Tekli Drop Başarıyla Eklendi ve Stoğa Girdi!")
+    await message.answer("✅ Stoklu Drop Başarıyla Eklendi ve Stoğa Girdi!")
 
 @dp.callback_query(F.data == "bulk_add")
 async def start_bulk_add(callback: types.CallbackQuery, state: FSMContext):
@@ -521,34 +606,37 @@ async def start_bulk_add(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(
         "📦 **Toplu Drop Ekleme Modu**\n\n"
         "Her satıra bir ürün gelecek şekilde şu formatta gönder:\n"
-        "`Başlık | Fiyat | KonumLink | Aciklama`"
+        "`Başlık | Fiyat | Stok | KonumLink | Aciklama`"
     )
 
 @dp.message(BulkAddState.data)
 async def process_bulk_data(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     lines = message.text.split("\n")
     added_count = 0
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     for line in lines:
         parts = line.split("|")
-        if len(parts) >= 4:
+        if len(parts) >= 5:
             title = parts[0].strip()
             try:
                 price = float(parts[1].strip())
+                stock = int(parts[2].strip())
             except:
-                price = 0.0
-            location = parts[2].strip()
-            desc = parts[3].strip()
+                price, stock = 0.0, 1
+            location = parts[3].strip()
+            desc = parts[4].strip()
             cursor.execute("""
-                INSERT INTO drops (title, price, location_url, photo_ids, description)
-                VALUES (?, ?, ?, ?, ?)
-            """, (title, price, location, "", desc))
+                INSERT INTO drops (title, price, location_url, photo_ids, description, stock)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (title, price, location, "", desc, stock))
             added_count += 1
     conn.commit()
     conn.close()
     await state.clear()
-    await message.answer(f"✅ Toplam **{added_count} adet** drop toplu olarak eklendi!")
+    await message.answer(f"✅ Toplam **{added_count} adet** ürün toplu olarak eklendi!")
 
 @dp.callback_query(F.data == "start_broadcast")
 async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
@@ -559,6 +647,8 @@ async def start_broadcast(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(BroadcastState.message)
 async def send_broadcast(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
+        return
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users")
