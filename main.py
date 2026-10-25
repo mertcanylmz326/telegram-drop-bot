@@ -417,9 +417,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 content_html = f"""
                 <div class="stats-grid">
-                    <div class="card neon-green"><h3>🎄 TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
-                    <div class="card neon-red"><h3>🎁 ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
-                    <div class="card neon-gold"><h3>⭐ PRODUCT VARIETY</h3><p>{total_drops}</p></div>
+                    <div class="card neon-green"><h3>🎅 TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
+                    <div class="card neon-red"><h3>🎄 ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
+                    <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
                 <div class="form-box" style="border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 30px;">
@@ -558,7 +558,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <p style="color:#94a3b8; font-size:13px; margin-bottom:15px;">Sistemde kayıtlı tüm kullanıcılara anlık bildirim mesajı gönderir.</p>
                     <form action="/admin-broadcast" method="POST">
                         <label>Duyuru Mesajı (Markdown Destekli):</label>
-                        <textarea name="message" rows="6" required placeholder="🎄 Mutlu Yıllar! Yeni yıl dropları eklendi, fırsatları kaçırmayın..."></textarea>
+                        <textarea name="message" rows="6" required placeholder="🎄 Yeni droplar eklendi! Fırsatları kaçırmayın..."></textarea>
                         <button type="submit" style="background:#10b981; margin-top:15px;">Tüm Kullanıcılara Gönder</button>
                     </form>
                 </div>
@@ -706,127 +706,74 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <html lang="tr">
             <head>
                 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>🎄 Merry Christmas & Happy New Year - Admin Panel 🎁</title>
+                <title>🎄 Weed Istanbul Gelişmiş Panel 🌿</title>
                 <style>
-                    body {{ background: #020609 url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; position: relative; overflow-x: hidden; }}
-                    body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 50% 20%, rgba(15, 23, 42, 0.88) 0%, rgba(2, 6, 9, 0.95) 100%); z-index: 0; }}
+                    body {{ background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; position: relative; overflow-x: hidden; }}
+                    body::before {{ content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, rgba(5, 10, 14, 0.93) 0%, rgba(10, 18, 26, 0.90) 100%); z-index: 0; }}
                     #snowflake-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }}
-                    
-                    /* Üst Bar ve Buton (En Üst Katman) */
-                    .top-nav-bar {{ position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(10, 18, 26, 0.95); backdrop-filter: blur(15px); border-bottom: 1px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: space-between; padding: 0 15px; z-index: 99999; box-sizing: border-box; }}
-                    .menu-toggle-btn {{ background: linear-gradient(135deg, #dc2626, #b91c1c); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.5); z-index: 100000; }}
-                    .menu-toggle-btn:active {{ transform: scale(0.95); }}
-
-                    /* Sol Açılır Pencere (Slide-out Drawer) */
-                    .sidebar-overlay {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 99990; opacity: 0; visibility: hidden; transition: 0.3s ease; }}
-                    .sidebar-overlay.open {{ opacity: 1; visibility: visible; }}
-
-                    .sidebar {{ position: fixed; top: 0; left: -320px; width: 280px; height: 100%; background: rgba(10, 18, 26, 0.99); border-right: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 20px 0 50px rgba(0,0,0,0.9); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 99995; backdrop-filter: blur(25px); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1); }}
-                    .sidebar.open {{ left: 0; }}
-
-                    .sidebar .brand {{ font-size: 18px; font-weight: 900; color: #f87171; text-align: center; margin-bottom: 20px; text-shadow: 0 0 15px rgba(239, 68, 68, 0.6); display: flex; align-items: center; justify-content: center; gap: 8px; }}
-                    .close-drawer {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; font-size: 13px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 8px; }}
-                    .close-drawer:hover {{ background: rgba(239, 68, 68, 0.2); color: white; }}
-
-                    .sidebar a {{ background: rgba(255, 255, 255, 0.02); color: #cbd5e1; padding: 12px 16px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid rgba(255, 255, 255, 0.04); transition: 0.3s; display: flex; align-items: center; gap: 10px; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: linear-gradient(135deg, rgba(220, 38, 38, 0.25), rgba(16, 185, 129, 0.2)); color: #f8fafc; border-color: rgba(239, 68, 68, 0.5); transform: translateX(6px); box-shadow: 0 0 15px rgba(220, 38, 38, 0.2); }}
-                    .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; color: #fca5a5 !important; margin-top: auto; border: 1px solid rgba(239, 68, 68, 0.3) !important; text-align: center; justify-content: center; }}
-                    
-                    .main-content {{ flex: 1; padding: 85px 20px 30px 20px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; margin: 0 auto; width: 100%; z-index: 2; }}
-                    .header-title {{ color: #f8fafc; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; text-shadow: 0 2px 10px rgba(0,0,0,0.5); flex-wrap: wrap; gap: 12px; }}
-                    
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
-                    .card {{ background: rgba(15, 23, 42, 0.75); padding: 20px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }}
-                    .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 25px rgba(16, 185, 129, 0.15); }}
-                    .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 25px rgba(239, 68, 68, 0.15); }}
-                    .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 25px rgba(245, 158, 11, 0.15); }}
-                    .card h3 {{ margin: 0 0 8px 0; color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 1px; }}
-                    .card p {{ margin: 0; font-size: 26px; font-weight: 900; color: #f8fafc; }}
-                    
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }}
-                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.8); padding: 18px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 25px; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.4); overflow-x: auto; }}
-                    
-                    input, textarea {{ width: 100%; padding: 10px 14px; margin: 6px 0 14px 0; background: rgba(5, 10, 14, 0.85); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 13px; transition: 0.3s; }}
-                    input:focus, textarea:focus {{ border-color: #ef4444; outline: none; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }}
-                    
-                    button {{ background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 10px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.3s; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }}
-                    button:hover {{ background: linear-gradient(135deg, #ef4444, #dc2626); transform: translateY(-1px); }}
-                    
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
-                    th, td {{ padding: 10px 8px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 11px; }}
-                    th {{ color: #94a3b8; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }}
-                    
-                    .action-btn {{ padding: 5px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; display: inline-block; }}
+                    .sidebar {{ width: 270px; background: rgba(10, 18, 26, 0.85); border-right: 1px solid rgba(16, 185, 129, 0.2); display: flex; flex-direction: column; padding: 25px 15px; box-sizing: border-box; z-index: 2; backdrop-filter: blur(16px); }}
+                    .sidebar .brand {{ font-size: 19px; font-weight: 900; color: #10b981; text-align: center; margin-bottom: 25px; text-shadow: 0 0 15px rgba(16, 185, 129, 0.7); }}
+                    .sidebar a {{ background: transparent; color: #94a3b8; padding: 11px 14px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 6px; border: 1px solid transparent; transition: 0.3s; display: block; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: rgba(16, 185, 129, 0.15); color: #10b981; border-color: rgba(16, 185, 129, 0.4); transform: translateX(4px); }}
+                    .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; color: #ef4444 !important; margin-top: auto; border: 1px solid rgba(239, 68, 68, 0.3) !important; text-align: center; }}
+                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1240px; z-index: 2; }}
+                    .header-title {{ color: #f8fafc; font-size: 24px; font-weight: 800; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
+                    .card {{ background: rgba(15, 23, 42, 0.7); padding: 22px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; backdrop-filter: blur(10px); }}
+                    .card.neon-green {{ border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 0 20px rgba(16, 185, 129, 0.15); }}
+                    .card.neon-red {{ border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }}
+                    .card.neon-gold {{ border-color: rgba(245, 158, 11, 0.4); box-shadow: 0 0 20px rgba(245, 158, 11, 0.15); }}
+                    .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 12px; font-weight: 700; }}
+                    .card p {{ margin: 0; font-size: 28px; font-weight: 900; color: #f8fafc; }}
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }}
+                    .form-box, .table-box {{ background: rgba(15, 23, 42, 0.75); padding: 25px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 30px; backdrop-filter: blur(10px); }}
+                    input, textarea {{ width: 100%; padding: 12px 15px; margin: 8px 0 16px 0; background: rgba(5, 10, 14, 0.75); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; color: white; box-sizing: border-box; font-size: 14px; }}
+                    input:focus, textarea:focus {{ border-color: #10b981; outline: none; }}
+                    button {{ background: #10b981; color: white; padding: 12px 20px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.3s; }}
+                    button:hover {{ background: #059669; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                    th, td {{ padding: 14px 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; }}
+                    th {{ color: #94a3b8; font-weight: 700; font-size: 11px; text-transform: uppercase; }}
+                    .action-btn {{ padding: 6px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
                     .edit-btn {{ background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid rgba(217, 119, 6, 0.4); }}
+                    @media (max-width: 768px) {{ body {{ flex-direction: column; }} .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; }} .main-content {{ padding: 20px; }} }}
                 </style>
             </head>
             <body>
                 <canvas id="snowflake-canvas"></canvas>
-                
-                <!-- Üst Navbar ve Kesin Çalışan Hamburger Menü Butonu -->
-                <div class="top-nav-bar">
-                    <button class="menu-toggle-btn" type="button" onclick="openSidebar()">
-                        ☰ Menü / Sekmeler
-                    </button>
-                    <span style="font-weight: 800; color: #f87171; font-size: 12px; text-shadow: 0 0 10px rgba(239,68,68,0.5);">🎄 Weed Istanbul</span>
-                </div>
-
-                <!-- Sol Açılır Pencere / Çekmece (Drawer) -->
-                <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-                <div class="sidebar" id="sidebarDrawer">
-                    <button class="close-drawer" type="button" onclick="closeSidebar()">✕ Menüyü Kapat</button>
-                    <div class="brand">🎄 Weed Istanbul 🎅</div>
-                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
-                    <a href="/admin-web?tab=wallet_txs" class="{"active" if tab == "wallet_txs" else ""}">💰 Cüzdan Hareketleri</a>
+                <div class="sidebar">
+                    <div class="brand">🎄 Weed Istanbul 🌿</div>
+                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
+                    <a href="/admin-web?tab=wallet_txs" class="{"active" if tab == "wallet_txs" else ""}">💰 Cüzdan Transferleri</a>
                     <a href="/admin-web?tab=promos" class="{"active" if tab == "promos" else ""}">🎟️ Kupon Yönetimi</a>
                     <a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>
-                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek CRM</a>
-                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Tamamlanan Siparişler</a>
-                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyen Siparişler</a>
-                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif / Stok Droplar</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Yeni Drop Ekle</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Kullanıcılar & Bakiyeler</a>
-                    <a href="/admin-logout" class="logout-link">🚪 Güvenli Çıkış</a>
+                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Live Support</a>
+                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
+                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
+                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
+                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">🎅 CRM & Balances</a>
+                    <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
-
                 <div class="main-content">
                     <div class="header-title">
-                        <span>🎁 Merry Christmas & Happy New Year Admin Hub 🎄</span>
-                        <span style="font-size: 11px; color: #f87171; background: rgba(239, 68, 68, 0.15); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.35);">⭐ Special Edition</span>
+                        <span>🎅 Weed Istanbul Gelişmiş Yönetim Paneli</span>
+                        <span style="font-size: 12px; color: #10b981; background: rgba(16, 185, 129, 0.12); padding: 6px 14px; border-radius: 10px; border: 1px solid rgba(16, 185, 129, 0.35);">🎄 Pro Edition</span>
                     </div>
                     {edit_form_html}
                     {content_html}
                 </div>
-
                 <script>
-                    function openSidebar() {{
-                        const sidebar = document.getElementById('sidebarDrawer');
-                        const overlay = document.getElementById('sidebarOverlay');
-                        if (sidebar && overlay) {{
-                            sidebar.classList.add('open');
-                            overlay.classList.add('open');
-                        }}
-                    }}
-
-                    function closeSidebar() {{
-                        const sidebar = document.getElementById('sidebarDrawer');
-                        const overlay = document.getElementById('sidebarOverlay');
-                        if (sidebar && overlay) {{
-                            sidebar.classList.remove('open');
-                            overlay.classList.remove('open');
-                        }}
-                    }}
-
                     const canvas = document.getElementById('snowflake-canvas');
                     const ctx = canvas.getContext('2d');
                     let width = canvas.width = window.innerWidth;
                     let height = canvas.height = window.innerHeight;
                     window.addEventListener('resize', () => {{ width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }});
                     const snowflakes = [];
-                    for (let i = 0; i < 50; i++) {{ snowflakes.push({{ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 2 + 0.5, speed: Math.random() * 0.5 + 0.2 }}); }}
+                    for (let i = 0; i < 70; i++) {{ snowflakes.push({{ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 2 + 0.5, speed: Math.random() * 0.6 + 0.3 }}); }}
                     function draw() {{
                         ctx.clearRect(0, 0, width, height);
-                        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
                         ctx.beginPath();
                         for (let i = 0; i < snowflakes.length; i++) {{
                             let s = snowflakes[i];
@@ -886,11 +833,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <!DOCTYPE html>
                 <html lang="tr">
                 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Secure Delivery - #{order_id}</title>
-                <style>body {{ background-color: #020609; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }} .card {{ background: rgba(15, 23, 42, 0.9); padding: 30px; border-radius: 20px; width: 100%; max-width: 420px; text-align: center; border: 1px solid rgba(239,68,68,0.3); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }} h2 {{ color: #f87171; margin-top: 0; }} .info {{ background: rgba(5, 10, 14, 0.85); padding: 16px; border-radius: 12px; margin: 20px 0; text-align: left; word-break: break-all; font-size: 14px; }} .btn {{ display: block; background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }}</style>
+                <style>body {{ background-color: #050a0e; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }} .card {{ background: rgba(15, 23, 42, 0.85); padding: 30px; border-radius: 20px; width: 100%; max-width: 420px; text-align: center; border: 1px solid rgba(16,185,129,0.3); backdrop-filter: blur(12px); }} h2 {{ color: #10b981; margin-top: 0; }} .info {{ background: rgba(5, 10, 14, 0.8); padding: 16px; border-radius: 12px; margin: 20px 0; text-align: left; word-break: break-all; font-size: 14px; }} .btn {{ display: block; background: #10b981; color: white; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-top: 20px; }}</style>
                 </head>
                 <body>
                     <div class="card">
-                        <h2>🎁 Secure Delivery 🎄</h2>
+                        <h2>🔒 Secure Delivery</h2>
                         <p style="color: #94a3b8;"><b>Product:</b> {title}</p>
                         {photo_tag}
                         <div class="info">
@@ -967,7 +914,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 async def send_all():
                     for u in users:
                         try:
-                            await bot.send_message(u[0], f"🎄 **Mutlu Yıllar Duyurusu:**\n\n{msg_text}", parse_mode="Markdown")
+                            await bot.send_message(u[0], f"📢 **Duyuru:**\n\n{msg_text}", parse_mode="Markdown")
                             await asyncio.sleep(0.05)
                         except:
                             pass
@@ -1094,9 +1041,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         login_html = f"""
         <!DOCTYPE html>
         <html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin Giriş</title>
-        <style>body {{ background: #020609 url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }} .login-card {{ background: rgba(15, 23, 42, 0.9); padding: 35px; border-radius: 20px; border: 1px solid rgba(239, 68, 68, 0.3); width: 100%; max-width: 360px; text-align: center; backdrop-filter: blur(15px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }} input {{ width: 100%; padding: 12px; margin: 10px 0; background: rgba(5, 10, 14, 0.85); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; color: white; box-sizing: border-box; }} button {{ background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }}</style>
+        <style>body {{ background: #050a0e url('https://images.unsplash.com/photo-1543589077-47d59746c2a4?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed; background-size: cover; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }} .login-card {{ background: rgba(15, 23, 42, 0.85); padding: 35px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); width: 100%; max-width: 360px; text-align: center; backdrop-filter: blur(12px); }} input {{ width: 100%; padding: 12px; margin: 10px 0; background: rgba(5, 10, 14, 0.75); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; color: white; box-sizing: border-box; }} button {{ background: #10b981; color: white; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; }}</style>
         </head>
-        <body><div class="login-card"><h2>🎅 Admin Girişi 🎄</h2>{err_html}<form action="/admin-login" method="POST"><input type="text" name="username" required placeholder="Kullanıcı Adı"><input type="password" name="password" required placeholder="Şifre"><button type="submit">Giriş Yap</button></form></div></body></html>
+        <body><div class="login-card"><h2>🎅 Admin Girişi</h2>{err_html}<form action="/admin-login" method="POST"><input type="text" name="username" required placeholder="Kullanıcı Adı"><input type="password" name="password" required placeholder="Şifre"><button type="submit">Giriş Yap</button></form></div></body></html>
         """
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
@@ -1438,6 +1385,7 @@ async def process_buy_crypto(callback: types.CallbackQuery):
     drop = cursor.fetchone()
     if not drop:
         await callback.answer(t["sold_out"], show_alert=True)
+        conn.close()
         return
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, drop[1]))
     order_id = cursor.lastrowid
