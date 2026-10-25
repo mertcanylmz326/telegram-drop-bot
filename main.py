@@ -23,9 +23,8 @@ ADMIN_GROUP_ID = -1004474292737
 ADMIN_WEB_USERNAME = "dionisus"
 ADMIN_WEB_PASSWORD = "weedstanbul34"
 
-# 🎟️ PROMO KOD AYARI
 PROMO_CODE = "welcomeweedstanbul"
-PROMO_DISCOUNT = 8.0  # 8 Dolar/USDT İndirim
+PROMO_DISCOUNT = 8.0
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
@@ -73,6 +72,16 @@ def init_db():
     except:
         pass
 
+    # 🔔 Anlık Bildirimler Tablosu
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS panel_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message TEXT,
+            log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -87,6 +96,16 @@ def init_db():
     conn.close()
 
 init_db()
+
+def log_panel_event(message, log_type="info"):
+    try:
+        conn = sqlite3.connect("drop_bot.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO panel_logs (message, log_type) VALUES (?, ?)", (message, log_type))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.error(e)
 
 def is_admin(user_id: int) -> bool:
     conn = sqlite3.connect("drop_bot.db")
@@ -116,7 +135,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.send_login_page()
                 return
 
-            tab = query_params.get("tab", ["active"])[0]
+            tab = query_params.get("tab", ["home"])[0]
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
@@ -125,25 +144,41 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("SELECT SUM(stock) FROM drops WHERE is_sold = 0")
             total_active_stock = cursor.fetchone()[0] or 0
             
-            # Ciro hesabı (final_price varsa onu baz alalım)
             cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
             rev_res = cursor.fetchone()[0]
-            if rev_res is not None:
-                total_revenue = rev_res
-            else:
-                cursor.execute("SELECT SUM(drops.price) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed'")
-                total_revenue = cursor.fetchone()[0] or 0.0
-
-            # 📊 Grafik için son 7 günün ciro verileri
-            cursor.execute("""
-                SELECT DATE(created_at) as cday, SUM(final_price) 
-                FROM orders WHERE status = 'completed' 
-                GROUP BY cday ORDER BY cday DESC LIMIT 7
-            """)
-            chart_data = cursor.fetchall()
+            total_revenue = rev_res if rev_res is not None else 0.0
 
             content_html = ""
-            if tab == "active":
+            if tab == "home":
+                # Ana Sayfa: İstatistikler ve Canlı Bildirim / Uyarı Akışı
+                cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 15")
+                logs = cursor.fetchall()
+                logs_html = ""
+                for l in logs:
+                    msg, l_type, l_date = l
+                    badge_color = "#ef4444" if l_type == "warning" else ("#16a34a" if l_type == "success" else "#38bdf8")
+                    logs_html += f"""
+                    <div style="background: #0f172a; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid {badge_color}; font-size: 14px;">
+                        <span style="color: #94a3b8; font-size: 12px; display: block; margin-bottom: 4px;">{l_date}</span>
+                        {msg}
+                    </div>
+                    """
+                
+                content_html = f"""
+                <div class="stats-grid">
+                    <div class="card"><h3>TOPLAM CİRO</h3><p>{total_revenue} USDT</p></div>
+                    <div class="card"><h3>AKTİF STOK</h3><p>{total_active_stock} Adet</p></div>
+                    <div class="card"><h3>TOPLAM ÇEŞİT</h3><p>{total_drops}</p></div>
+                </div>
+
+                <div class="table-box">
+                    <h2>🔔 Canlı Bildirimler ve Uyarılar</h2>
+                    <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+                        {logs_html if logs_html else "<p style='text-align:center; color:#94a3b8;'>Henüz bir bildirim bulunmuyor.</p>"}
+                    </div>
+                </div>
+                """
+            elif tab == "active":
                 cursor.execute("""
                     SELECT orders.id, users.username, drops.title, orders.final_price, orders.status, orders.created_at 
                     FROM orders 
@@ -317,21 +352,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Admin Dashboard</title>
+                <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
-                    body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; margin: 0; }}
-                    .container {{ max-width: 950px; margin: 0 auto; }}
-                    .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }}
-                    h1 {{ color: #38bdf8; margin: 0; }}
-                    .logout-btn {{ background: #ef4444; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: bold; }}
-                    .logout-btn:hover {{ background: #dc2626; }}
+                    body {{ background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
+                    /* Sol Menü (Sidebar) */
+                    .sidebar {{ width: 260px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }}
+                    .sidebar h2 {{ color: #38bdf8; font-size: 18px; margin-top: 0; margin-bottom: 25px; text-align: center; }}
+                    .sidebar a {{ background: #0f172a; color: #94a3b8; padding: 12px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 10px; border: 1px solid #334155; transition: 0.2s; display: block; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: #2563eb; color: white; border-color: #2563eb; }}
+                    .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
+                    .logout-link:hover {{ background: #dc2626 !important; }}
+                    
+                    /* Sağ İçerik Alanı */
+                    .main-content {{ flex: 1; padding: 30px; box-sizing: border-box; overflow-y: auto; max-width: 1100px; }}
+                    .header-title {{ color: #38bdf8; font-size: 24px; margin-top: 0; margin-bottom: 25px; }}
+                    
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
                     .card {{ background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; }}
                     .card h3 {{ margin: 0 0 10px 0; color: #94a3b8; font-size: 14px; }}
                     .card p {{ margin: 0; font-size: 24px; font-weight: bold; color: #38bdf8; }}
-                    .nav-tabs {{ display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }}
-                    .nav-tabs a {{ background: #1e293b; color: #94a3b8; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: bold; border: 1px solid #334155; }}
-                    .nav-tabs a.active {{ background: #2563eb; color: white; border-color: #2563eb; }}
+                    
                     .form-box, .table-box {{ background: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 30px; }}
                     input, textarea {{ width: 100%; padding: 10px; margin: 8px 0 15px 0; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: white; box-sizing: border-box; }}
                     button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }}
@@ -342,28 +382,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .action-btn {{ padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #ca8a04; color: white; }}
                     .edit-btn:hover {{ background: #a16207; }}
+
+                    /* Mobil Uyumluluk */
+                    @media (max-width: 768px) {{
+                        body {{ flex-direction: column; }}
+                        .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 10px; }}
+                        .sidebar h2 {{ width: 100%; margin-bottom: 10px; }}
+                        .sidebar a {{ flex: 1; min-width: 110px; font-size: 12px; text-align: center; padding: 8px; margin-bottom: 5px; }}
+                        .logout-link {{ margin-top: 5px !important; }}
+                        .main-content {{ padding: 15px; }}
+                    }}
                 </style>
             </head>
             <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>👑 Web Admin Paneli</h1>
-                        <a href="/admin-logout" class="logout-btn">🚪 Çıkış Yap</a>
-                    </div>
-                    
-                    <div class="stats-grid">
-                        <div class="card"><h3>TOPLAM CİRO</h3><p>{total_revenue} USDT</p></div>
-                        <div class="card"><h3>AKTİF STOK</h3><p>{total_active_stock} Adet</p></div>
-                        <div class="card"><h3>TOPLAM ÇEŞİT</h3><p>{total_drops}</p></div>
-                    </div>
+                <div class="sidebar">
+                    <h2>🌿 Weed Istanbul</h2>
+                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Ana Sayfa</a>
+                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Aktif Siparişler</a>
+                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyen Siparişler</a>
+                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif Ürünler</a>
+                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Yeni Drop Ekle</a>
+                    <a href="/admin-logout" class="logout-link">🚪 Çıkış Yap</a>
+                </div>
 
-                    <div class="nav-tabs">
-                        <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Aktif Siparişler</a>
-                        <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Bekleyen Siparişler</a>
-                        <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Pasif Ürünler</a>
-                        <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Yeni Drop Ekle</a>
-                    </div>
-
+                <div class="main-content">
+                    <h1 class="header-title">👑 Weed Istanbul Yönetim Paneli</h1>
                     {edit_form_html}
                     {content_html}
                 </div>
@@ -509,6 +552,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
+            log_panel_event(f"➕ Yeni Ürün Eklendi: {title} ({count} Adet, Bölge: {category})", "success")
+
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -535,6 +580,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
+            log_panel_event(f"✏️ Ürün Güncellendi: #{drop_id} - {title}", "info")
+
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -560,7 +607,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
                     
-                    # 🤖 Stok uyarısı kontrolü (Kategoride son 2 veya daha az kaldı mı?)
                     cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
                     rem_stock = cursor.fetchone()[0] or 0
 
@@ -568,6 +614,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     conn.close()
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
+
+                    log_msg = f"🎉 Manuel Onay & Satış: #{order_id} - {t_title} ({f_price} USDT)"
+                    log_panel_event(log_msg, "success")
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(
@@ -579,6 +628,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             main_loop
                         )
                         if rem_stock <= 2:
+                            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {t_cat} bölgesinde kalan aktif stok: {rem_stock} adet!"
+                            log_panel_event(warn_msg, "warning")
                             asyncio.run_coroutine_threadsafe(
                                 bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{t_cat}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir."),
                                 main_loop
@@ -729,6 +780,7 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
         cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
         conn.commit()
         conn.close()
+        log_panel_event(f"📩 Yeni Destek Talebi: @{username} (ID: {user_id})", "info")
         await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\nKullanıcı Adı: @{username}\n\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
@@ -1035,7 +1087,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
             cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
         
-        # Stok uyarısı kontrolü
         cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
         rem_stock = cursor.fetchone()[0] or 0
 
@@ -1046,9 +1097,14 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         await callback.message.edit_text(f"✅ Sipariş #{order_id} onaylandı.")
         await bot.send_message(user_id, f"🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({secure_link})", parse_mode="Markdown")
         
+        log_msg = f"🎉 Otomatik Satış: #{order_id} - {title} ({final_price} USDT)"
+        log_panel_event(log_msg, "success")
+
         try:
             await bot.send_message(ADMIN_GROUP_ID, f"🎉 **YENİ BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
             if rem_stock <= 2:
+                warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
+                log_panel_event(warn_msg, "warning")
                 await bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{category}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir.")
         except Exception as e:
             logging.error(e)
