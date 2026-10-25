@@ -15,7 +15,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
-# --- AYARLAR VE YENİ TOKEN ---
+# --- AYARLAR VE CÜZDAN İZOLASYONU ---
 BOT_TOKEN = "8994954068:AAFZ0M5vwPYPx1XQMb-2C7fHpYX8eLof8NQ"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
@@ -47,7 +47,7 @@ main_loop = None
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
     "tr": {
-        "welcome": "🌿 Merhaba! Weed Istanbul Güvenli Dispensary Botuna Hoş Geldiniz.\n\nİster Mini App mağazamızdan hızlıca alışveriş yapın, ister 'Bot ile Devam Et' diyerek sohbet üzerinden ilerleyin:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botumuza hoş geldiniz.\n\nİster Mini App mağazamızdan hızlıca alışveriş yapın, ister 'Bot ile Devam Et' diyerek sohbet üzerinden ilerleyin:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_webapp": "🛍️ Mağazayı Aç (Mini App)",
         "btn_botshop": "🤖 Bot ile Devam Et",
@@ -71,7 +71,7 @@ LANG = {
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
-        "welcome": "🌿 Hello! Welcome to Weed Istanbul Secure Dispensary Bot.\n\nYou can shop via our Mini App or continue directly through the bot:",
+        "welcome": "👋 Hello! Welcome to our secure automated delivery bot.\n\nYou can shop via our Mini App or continue directly through the bot:",
         "lang_set": "✅ Language set to English.",
         "btn_webapp": "🛍️ Open Store (Mini App)",
         "btn_botshop": "🤖 Continue via Bot",
@@ -245,7 +245,6 @@ def get_wallet_balances():
     return balances
 
 async def check_user_subscription(user_id: int) -> bool:
-    if user_id == ADMIN_ID: return True
     try:
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
         return member.status not in ["left", "kicked"]
@@ -277,7 +276,7 @@ async def check_expired_orders_task():
             conn.close()
         except Exception as e: logging.error(e)
 
-# --- 🌿 WEED SHOP WEB SUNUCUSU & HAREKETLİ NOEL BABALI PANEL ---
+# --- 🎄 WEB SUNUCUSU & ADMIN PANELİ (MOBİL UYUMLU HAMBURGER MENÜ) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -288,168 +287,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"Weed Istanbul Dispensary Server Active!")
-            return
-
-        if parsed_path.path == "/webapp":
-            user_id = query_params.get("user_id", ["0"])[0]
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT balance, total_spent FROM users WHERE user_id = ?", (user_id,))
-            u_row = cursor.fetchone()
-            bal = u_row[0] if u_row and u_row[0] is not None else 0.0
-            spent = u_row[1] if u_row and u_row[1] is not None else 0.0
-            is_vip = spent >= 100
-
-            cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
-            categories = [r[0] for r in cursor.fetchall()]
-
-            cursor.execute("SELECT id, title, price, stock, category, photo_ids, description FROM drops WHERE is_sold = 0 AND stock > 0")
-            drops = cursor.fetchall()
-
-            cursor.execute("SELECT customer_name, rating, photo_url, comment, created_at FROM testimonials ORDER BY id DESC LIMIT 5")
-            testimonials = cursor.fetchall()
-
-            cursor.execute("""
-                SELECT orders.id, drops.title, orders.final_price, orders.status, orders.created_at 
-                FROM orders JOIN drops ON orders.drop_id = drops.id 
-                WHERE orders.user_id = ? ORDER BY orders.id DESC
-            """, (user_id,))
-            orders = cursor.fetchall()
-            conn.close()
-
-            vip_text = "👑 VIP Müşteri (%10 İndirim)" if is_vip else "⭐ Standart Üye"
-
-            drops_html = ""
-            for d in drops:
-                d_id, title, price, stock, cat, photo, desc = d
-                eff_price = round(price * 0.9, 2) if is_vip else price
-                price_display = f"<span style='text-decoration:line-through; color:#64748b; font-size:13px;'>{price} USDT</span> <b style='color:#00ff88; font-size:18px;'>{eff_price} USDT</b>" if is_vip else f"<b style='color:#00ff88; font-size:18px;'>{price} USDT</b>"
-                img_tag = f"<img src='{photo}' style='width:100%; height:140px; object-fit:cover; border-radius:10px; margin-bottom:10px;' />" if photo else ""
-                drops_html += f"""
-                <div class="product-card" data-category="{cat or 'Genel'}">
-                    {img_tag}
-                    <h3 style="margin:0 0 5px 0; color:#f8fafc; font-size:16px;">{title}</h3>
-                    <p style="margin:0 0 8px 0; font-size:12px; color:#00ff88;">🌿 {cat or 'Genel'} | Stok: {stock}</p>
-                    <p style="margin:0 0 12px 0; font-size:13px; color:#94a3b8;">{desc or 'Özel güvenli teslimat drop.'}</p>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>{price_display}</div>
-                        <button onclick="buyProduct({d_id})" class="buy-btn">Satın Al</button>
-                    </div>
-                </div>
-                """
-
-            tests_html = ""
-            for tr in testimonials:
-                c_name, rating, p_url, comment, c_date = tr
-                stars = "⭐" * rating
-                p_tag = f"<img src='{p_url}' style='width:100%; height:120px; object-fit:cover; border-radius:8px; margin-top:8px;' />" if p_url else ""
-                tests_html += f"""
-                <div class="testi-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <b>{c_name}</b><span style="font-size:12px;">{stars}</span>
-                    </div>
-                    <p style="margin:0; font-size:13px; color:#cbd5e1;">"{comment}"</p>
-                    {p_tag}
-                </div>
-                """
-
-            orders_html = ""
-            for o in orders:
-                o_id, title, f_price, status, date = o
-                st_badge = "<span style='color:#00ff88;'>Tamamlandı</span>" if status == 'completed' else ("<span style='color:#ef4444;'>Süresi Doldu</span>" if status == 'expired' else "<span style='color:#f59e0b;'>Ödeme Bekliyor</span>")
-                link_btn = f"<a href='/drop/{o_id}' target='_blank' class='loc-btn'>Konumu Aç</a>" if status == 'completed' else ""
-                orders_html += f"""
-                <div class="order-item">
-                    <div><b>#{o_id}</b> - {title} ({f_price} USDT)</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; font-size:12px;">
-                        <span>{st_badge} ({date})</span>{link_btn}
-                    </div>
-                </div>
-                """
-
-            cats_filter_html = "<button class='cat-btn active' onclick='filterCat(\"all\")'>Tümü</button>"
-            for c in categories:
-                cats_filter_html += f"<button class='cat-btn' onclick='filterCat(\"{c}\")'>{c}</button>"
-
-            webapp_html = f"""
-            <!DOCTYPE html>
-            <html lang="tr">
-            <head>
-                <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Weed Istanbul Dispensary</title>
-                <script src="https://telegram.org/js/telegram-web-app.js"></script>
-                <style>
-                    body {{ background: #050b07; color: #f8fafc; font-family: -apple-system, sans-serif; margin: 0; padding: 15px; box-sizing: border-box; animation: fadeIn 0.4s ease-in-out; }}
-                    @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(6px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-                    .header {{ background: rgba(10, 26, 15, 0.9); padding: 15px; border-radius: 14px; border: 1px solid rgba(0, 255, 136, 0.3); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,255,136,0.08); }}
-                    .nav-tabs {{ display: flex; gap: 8px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }}
-                    .tab-btn {{ background: #112217; color: #94a3b8; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; transition: 0.2s; }}
-                    .tab-btn.active {{ background: #00ff88; color: #050b07; box-shadow: 0 0 12px rgba(0,255,136,0.4); }}
-                    .section {{ display: none; animation: fadeIn 0.3s ease; }} .section.active {{ display: block; }}
-                    .product-card, .testi-card, .order-item {{ background: rgba(10, 26, 15, 0.8); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,255,136,0.15); margin-bottom: 15px; transition: 0.2s; }}
-                    .product-card:hover {{ border-color: rgba(0,255,136,0.4); transform: translateY(-2px); }}
-                    .buy-btn, .loc-btn {{ background: #00ff88; color: #050b07; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; text-decoration: none; }}
-                    .loc-btn {{ background: #38bdf8; color: #fff; }}
-                    .cat-container {{ display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; }}
-                    .cat-btn {{ background: #0a1a0f; color: #94a3b8; border: 1px solid #1e3a24; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; white-space: nowrap; }}
-                    .cat-btn.active {{ background: rgba(0, 255, 136, 0.2); color: #00ff88; border-color: #00ff88; }}
-                </style>
-            </head>
-            <body>
-                <script>let tg = window.Telegram.WebApp; tg.expand();</script>
-                <div class="header">
-                    <div>
-                        <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul</h3>
-                        <p style="margin:2px 0 0 0; font-size:12px; color:#94a3b8;">{vip_text}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="font-size:12px; color:#94a3b8; display:block;">Bakiye</span>
-                        <b style="color:#00ff88; font-size:16px;">{bal} USDT</b>
-                    </div>
-                </div>
-                <div class="nav-tabs">
-                    <button class="tab-btn active" onclick="switchTab('shop')">🛍️ Mağaza</button>
-                    <button class="tab-btn" onclick="switchTab('orders')">📦 Siparişlerim</button>
-                    <button class="tab-btn" onclick="switchTab('refs')">⭐ Referanslar</button>
-                </div>
-                <div id="shop" class="section active">
-                    <div class="cat-container">{cats_filter_html}</div>
-                    <div id="product-list">{drops_html if drops_html else "<p style='text-align:center; color:#64748b;'>Aktif stok yok.</p>"}</div>
-                </div>
-                <div id="orders" class="section">
-                    <h3 style="color:#00ff88; margin-top:0;">📦 Geçmiş Siparişler</h3>
-                    {orders_html if orders_html else "<p style='text-align:center; color:#64748b;'>Henüz siparişiniz yok.</p>"}
-                </div>
-                <div id="refs" class="section">
-                    <h3 style="color:#00ff88; margin-top:0;">⭐ Müşteri Yorumları</h3>
-                    {tests_html if tests_html else "<p style='text-align:center; color:#64748b;'>Yorum yok.</p>"}
-                </div>
-                <script>
-                    function switchTab(tabId) {{
-                        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-                        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                        document.getElementById(tabId).classList.add('active');
-                        event.currentTarget.classList.add('active');
-                    }}
-                    function filterCat(cat) {{
-                        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-                        event.currentTarget.classList.add('active');
-                        document.querySelectorAll('.product-card').forEach(card => {{
-                            if (cat === 'all' || card.dataset.category === cat) card.style.display = 'block';
-                            else card.style.display = 'none';
-                        }});
-                    }}
-                    function buyProduct(dropId) {{
-                        tg.close();
-                    }}
-                </script>
-            </body>
-            </html>
-            """
-            self.send_response(200)
-            self.send_header("Content-type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(webapp_html.encode("utf-8"))
+            self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
         if parsed_path.path == "/admin-web":
@@ -469,71 +307,40 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             content_html = ""
             if tab == "home":
                 cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
-                logs_html = "".join([f"<div style='background:rgba(10,26,15,0.7); padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px; border-left:3px solid #00ff88;'>{l[2]} - {l[0]}</div>" for l in cursor.fetchall()])
-                w_bals = get_wallet_balances()
+                logs_html = "".join([f"<div style='background:rgba(15,23,42,0.7); padding:10px; border-radius:8px; margin-bottom:8px; font-size:13px;'>{l[2]} - {l[0]}</div>" for l in cursor.fetchall()])
                 content_html = f"""
                 <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; margin-bottom:20px;">
-                    <div style="background:rgba(10,26,15,0.8); padding:18px; border-radius:14px; border:1px solid rgba(0,255,136,0.4); box-shadow:0 4px 15px rgba(0,255,136,0.05);"><h3 style="color:#94a3b8; font-size:12px; margin:0;">TOPLAM CİRO</h3><p style="font-size:24px; font-weight:bold; color:#00ff88; margin:5px 0 0 0;">{total_revenue} USDT</p></div>
-                    <div style="background:rgba(10,26,15,0.8); padding:18px; border-radius:14px; border:1px solid rgba(239,68,68,0.4); box-shadow:0 4px 15px rgba(239,68,68,0.05);"><h3 style="color:#94a3b8; font-size:12px; margin:0;">AKTİF STOK</h3><p style="font-size:24px; font-weight:bold; color:#ef4444; margin:5px 0 0 0;">{total_active_stock}</p></div>
+                    <div style="background:#0f172a; padding:15px; border-radius:12px; border:1px solid #10b981;"><h3>TOPLAM CİRO</h3><p style="font-size:24px; font-weight:bold;">{total_revenue} USDT</p></div>
+                    <div style="background:#0f172a; padding:15px; border-radius:12px; border:1px solid #ef4444;"><h3>AKTİF STOK</h3><p style="font-size:24px; font-weight:bold;">{total_active_stock}</p></div>
                 </div>
-                <div style="background:rgba(10,26,15,0.8); padding:20px; border-radius:14px; border:1px solid rgba(0,255,136,0.3); margin-bottom:20px;">
-                    <h3 style="margin-top:0; color:#00ff88; font-size:16px;">🔒 3'lü Cüzdan İzolasyon & Canlı Bakiye</h3>
-                    <ul style="list-style:none; padding:0; margin:0; font-size:13px;">
-                        <li style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px;">
-                            <div>🟢 <b>weedboot:</b> <code style="color:#38bdf8;">{WALLET_CONFIG['weedboot']}</code></div>
-                            <div style="color:#00ff88; font-weight:bold;">{w_bals.get('weedboot', {}).get('usdt', 0.0)} USDT | {w_bals.get('weedboot', {}).get('trx', 0.0)} TRX</div>
-                        </li>
-                        <li style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px;">
-                            <div>🔵 <b>Giriş Kasa:</b> <code style="color:#38bdf8;">{WALLET_CONFIG['giris']}</code></div>
-                            <div style="color:#38bdf8; font-weight:bold;">{w_bals.get('giris', {}).get('usdt', 0.0)} USDT | {w_bals.get('giris', {}).get('trx', 0.0)} TRX</div>
-                        </li>
-                        <li style="padding:10px 0; display:flex; justify-content:space-between; flex-wrap:wrap; gap:5px;">
-                            <div>🟡 <b>Çıkış Buffer:</b> <code style="color:#38bdf8;">{WALLET_CONFIG['cikis']}</code></div>
-                            <div style="color:#f59e0b; font-weight:bold;">{w_bals.get('cikis', {}).get('usdt', 0.0)} USDT | {w_bals.get('cikis', {}).get('trx', 0.0)} TRX</div>
-                        </li>
-                    </ul>
-                </div>
-                <div style="background:rgba(10,26,15,0.8); padding:20px; border-radius:14px; border:1px solid rgba(0,255,136,0.2);"><h3 style="color:#00ff88; margin-top:0; font-size:16px;">Canlı Loglar</h3>{logs_html}</div>
+                <div style="background:#0f172a; padding:15px; border-radius:12px;"><h3>Canlı Loglar</h3>{logs_html}</div>
                 """
             elif tab == "testimonials":
-                content_html = "<h2>⭐ Yorum Yönetimi</h2><p>Müşteri referansları ve yorumları.</p>"
+                content_html = "<h2>⭐ Yorum Yönetimi</h2><p>Yorumlar burada listelenir.</p>"
             elif tab == "support":
-                content_html = "<h2>💬 Canlı Destek Talepleri</h2><p>Müşteri destek mesajları.</p>"
+                content_html = "<h2>💬 Canlı Destek Talepleri</h2><p>Aktif destek talepleri burada görünür.</p>"
             elif tab == "pending":
-                content_html = "<h2>⏳ Bekleyen Siparişler</h2><p>Blockchain onay bekleyen işlemler.</p>"
+                content_html = "<h2>⏳ Bekleyen Siparişler</h2><p>Onay bekleyen siparişler.</p>"
             elif tab == "active":
-                content_html = "<h2>🟢 Tamamlanan Siparişler</h2><p>Başarıyla teslim edilenler.</p>"
+                content_html = "<h2>🟢 Tamamlanan Siparişler</h2><p>Tamamlanan satışlar.</p>"
             elif tab == "passive":
-                content_html = "<h2>📦 Stoktakiler / Pasifler</h2><p>Ürün ve lokasyon listesi.</p>"
+                content_html = "<h2>📦 Stoktakiler / Pasifler</h2><p>Tüm ürün stok yönetimi.</p>"
             elif tab == "add":
-                content_html = "<h2>➕ Ürün Ekle</h2><p>Yeni drop ekleme alanı.</p>"
+                content_html = "<h2>➕ Ürün Ekle</h2><p>Yeni drop ekleme formu.</p>"
             elif tab == "users":
-                content_html = "<h2>👥 Kullanıcı Listesi</h2><p>VIP ve bakiye yönetimi.</p>"
+                content_html = "<h2>👥 Kullanıcı Listesi</h2><p>Kayıtlı üyeler ve VIP durumları.</p>"
             conn.close()
 
-            home_active = "active" if tab == "home" else ""
-            test_active = "active" if tab == "testimonials" else ""
-            supp_active = "active" if tab == "support" else ""
-            pend_active = "active" if tab == "pending" else ""
-            act_active = "active" if tab == "active" else ""
-            pass_active = "active" if tab in ["passive", "edit"] else ""
-            add_active = "active" if tab == "add" else ""
-            users_active = "active" if tab == "users" else ""
-
             dashboard_html = f"""
-            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🌿 Weed Istanbul Panel</title>
+            <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Admin Panel</title>
             <style>
-                body {{ background: #050b07; color: #f8fafc; font-family: sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; position: relative; animation: fadeIn 0.4s ease-in-out; }}
-                @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-                #pollen-canvas {{ position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }}
-                .sidebar {{ width: 250px; background: rgba(8, 20, 12, 0.95); padding: 20px; border-right: 1px solid rgba(0,255,136,0.2); transition: transform 0.3s ease; z-index: 1000; backdrop-filter: blur(10px); box-sizing: border-box; }}
-                .sidebar a {{ color: #94a3b8; display: block; padding: 10px 12px; text-decoration: none; margin-bottom: 6px; border-radius: 8px; font-size: 14px; font-weight: 600; transition: 0.2s; }}
-                .sidebar a:hover, .sidebar a.active {{ background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }}
-                .main {{ flex: 1; padding: 25px; overflow-y: auto; box-sizing: border-box; z-index: 2; position: relative; }}
-                .mobile-header {{ display:none; background: rgba(8,20,12,0.95); padding: 15px; border-bottom: 1px solid rgba(0,255,136,0.2); align-items: center; justify-content: space-between; z-index: 1001; position: relative; backdrop-filter: blur(10px); }}
-                .menu-btn {{ background: #00ff88; color: #050b07; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }}
-                @keyframes bounceSanta {{ 0%, 100% {{ transform: translateY(0) rotate(0deg); }} 50% {{ transform: translateY(-6px) rotate(6deg); }} }}
-                .santa-anim {{ display: inline-block; animation: bounceSanta 1.5s infinite ease-in-out; margin-left: 6px; }}
+                body {{ background:#050a0e; color:white; font-family:sans-serif; margin:0; display:flex; height:100vh; overflow:hidden; }}
+                .sidebar {{ width:250px; background:#0f172a; padding:20px; border-right:1px solid #334155; transition: transform 0.3s ease; z-index: 100; }}
+                .sidebar a {{ color:#94a3b8; display:block; padding:10px; text-decoration:none; margin-bottom:5px; border-radius:6px; }}
+                .sidebar a:hover {{ background:#10b981; color:white; }}
+                .main {{ flex:1; padding:20px; overflow-y:auto; box-sizing: border-box; }}
+                .mobile-header {{ display:none; background:#0f172a; padding:15px; border-bottom:1px solid #334155; align-items:center; justify-content:space-between; }}
+                .menu-btn {{ background:#10b981; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:16px; }}
                 @media(max-width: 768px) {{
                     body {{ flex-direction: column; }}
                     .sidebar {{ position: fixed; height: 100%; top: 0; left: 0; transform: translateX(-100%); }}
@@ -544,22 +351,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             </style>
             </head>
             <body>
-                <canvas id="pollen-canvas"></canvas>
                 <div class="mobile-header">
-                    <h3 style="margin:0; color:#00ff88;">🌿 Weed Istanbul <span class="santa-anim">🎅</span></h3>
+                    <h3 style="margin:0; color:#10b981;">🎄 Admin Panel</h3>
                     <button class="menu-btn" onclick="toggleMenu()">☰ Menü</button>
                 </div>
                 <div class="sidebar" id="sidebar">
-                    <h2 style="color:#00ff88; font-size:18px; text-align:center; margin-top:0; letter-spacing:1px;">🌿 WEED PANEL <span class="santa-anim">🎅</span></h2>
-                    <a href="/admin-web?tab=home" class="{home_active}">🏠 Anasayfa</a>
-                    <a href="/admin-web?tab=testimonials" class="{test_active}">⭐ Yorumlar</a>
-                    <a href="/admin-web?tab=support" class="{supp_active}">💬 Destek</a>
-                    <a href="/admin-web?tab=pending" class="{pend_active}">⏳ Bekleyenler</a>
-                    <a href="/admin-web?tab=active" class="{act_active}">🟢 Tamamlananlar</a>
-                    <a href="/admin-web?tab=passive" class="{pass_active}">📦 Stoktakiler</a>
-                    <a href="/admin-web?tab=add" class="{add_active}">➕ Ürün Ekle</a>
-                    <a href="/admin-web?tab=users" class="{users_active}">👥 Kullanıcılar</a>
-                    <a href="/admin-logout" style="background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); margin-top:20px; text-align:center;">🚪 Çıkış Yap</a>
+                    <h2>🎄 Admin Panel</h2>
+                    <a href="/admin-web?tab=home">🏠 Anasayfa</a>
+                    <a href="/admin-web?tab=testimonials">⭐ Yorumlar</a>
+                    <a href="/admin-web?tab=support">💬 Destek</a>
+                    <a href="/admin-web?tab=pending">⏳ Bekleyenler</a>
+                    <a href="/admin-web?tab=active">🟢 Tamamlananlar</a>
+                    <a href="/admin-web?tab=passive">📦 Stoktakiler</a>
+                    <a href="/admin-web?tab=add">➕ Ürün Ekle</a>
+                    <a href="/admin-web?tab=users">👥 Kullanıcılar</a>
+                    <a href="/admin-logout" style="color:#ef4444; margin-top:20px;">🚪 Çıkış</a>
                 </div>
                 <div class="main">
                     {content_html}
@@ -568,46 +374,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     function toggleMenu() {{
                         document.getElementById('sidebar').classList.toggle('open');
                     }}
-                    const canvas = document.getElementById('pollen-canvas');
-                    const ctx = canvas.getContext('2d');
-                    function resizeCanvas() {{
-                        canvas.width = window.innerWidth;
-                        canvas.height = window.innerHeight;
-                    }}
-                    window.addEventListener('resize', resizeCanvas);
-                    resizeCanvas();
-                    const particles = [];
-                    for (let i = 0; i < 35; i++) {{
-                        particles.push({{
-                            x: Math.random() * canvas.width,
-                            y: Math.random() * canvas.height,
-                            radius: Math.random() * 2 + 0.8,
-                            speed: Math.random() * 0.6 + 0.2,
-                            wind: Math.random() * 0.3 - 0.15
-                        }});
-                    }}
-                    function drawParticles() {{
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.fillStyle = 'rgba(0, 255, 136, 0.45)';
-                        ctx.beginPath();
-                        for (let p of particles) {{
-                            ctx.moveTo(p.x, p.y);
-                            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2, true);
-                        }}
-                        ctx.fill();
-                        updateParticles();
-                    }}
-                    function updateParticles() {{
-                        for (let p of particles) {{
-                            p.y += p.speed;
-                            p.x += p.wind;
-                            if (p.y > canvas.height) {{
-                                p.y = 0;
-                                p.x = Math.random() * canvas.width;
-                            }}
-                        }}
-                    }}
-                    setInterval(drawParticles, 35);
                 </script>
             </body></html>
             """
@@ -624,34 +390,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        if parsed_path.path.startswith("/drop/"):
-            try:
-                order_id = int(parsed_path.path.split("/")[-1])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT orders.status, drops.title, drops.location_url, drops.photo_ids, drops.description FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.id = ?", (order_id,))
-                row = cursor.fetchone()
-                conn.close()
-                if not row or row[0] != 'completed':
-                    self.send_html_error("Geçersiz veya süresi dolmuş bağlantı.")
-                    return
-                status, title, loc, photo, desc = row
-                photo_tag = f'<img src="{photo}" style="width:100%; max-height:250px; object-fit:cover; border-radius:8px; margin-bottom:15px;" />' if photo else ''
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Konum</title></head>
-                <body style="background:#050b07;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
-                <div style="background:#0a1a0f;padding:25px;border-radius:12px;width:100%;max-width:380px;text-align:center;border:1px solid rgba(0,255,136,0.3);">
-                <h2 style="color:#00ff88;margin-top:0;">🌿 Güvenli Teslimat</h2>
-                <p><b>Ürün:</b> {title}</p>{photo_tag}
-                <div style="background:#050b07;padding:12px;border-radius:6px;margin:15px 0;text-align:left;font-size:14px;word-break:break-all;border:1px solid #112217;"><b>📍 Konum:</b> <a href="{loc}" target="_blank" style="color:#38bdf8;">Haritada Aç</a><br><br><b>📝 Not:</b> {desc}</div>
-                <a href="{loc}" target="_blank" style="display:block;background:#00ff88;color:#050b07;padding:12px;border-radius:8px;text-decoration:none;font-weight:bold;">Google Maps'i Aç</a>
-                </div></body></html>""".encode("utf-8"))
-            except Exception: self.send_html_error("Hata oluştu.")
-        else:
-            self.send_response(404)
-            self.end_headers()
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
@@ -673,21 +413,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Admin Giriş</title></head>
-        <body style="background:#050b07;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
-        <div style="background:#0a1a0f;padding:30px;border-radius:15px;border:1px solid #00ff88;width:100%;max-width:320px;text-align:center;box-shadow:0 0 25px rgba(0,255,136,0.15);">
-        <h2 style="color:#00ff88; margin-top:0;">🌿 Admin Giriş</h2><p style="color:#ef4444; font-size:13px;">{error}</p>
+        self.wfile.write(f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Giriş</title></head>
+        <body style="background:#050a0e;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;">
+        <div style="background:#0f172a;padding:30px;border-radius:15px;border:1px solid #10b981;width:100%;max-width:320px;text-align:center;">
+        <h2>Admin Giriş</h2><p style="color:#ef4444;">{error}</p>
         <form action="/admin-login" method="POST">
-        <input type="text" name="username" required placeholder="Kullanıcı Adı" style="width:100%;padding:10px;margin:8px 0;background:#050b07;border:1px solid #1e3a24;color:white;border-radius:6px;box-sizing:border-box;">
-        <input type="password" name="password" required placeholder="Şifre" style="width:100%;padding:10px;margin:8px 0;background:#050b07;border:1px solid #1e3a24;color:white;border-radius:6px;box-sizing:border-box;">
-        <button type="submit" style="background:#00ff88;color:#050b07;border:none;padding:10px;width:100%;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:10px;">Giriş Yap</button>
+        <input type="text" name="username" required placeholder="Kullanıcı Adı" style="width:100%;padding:10px;margin:8px 0;background:#050a0e;border:1px solid #334155;color:white;border-radius:6px;box-sizing:border-box;">
+        <input type="password" name="password" required placeholder="Şifre" style="width:100%;padding:10px;margin:8px 0;background:#050a0e;border:1px solid #334155;color:white;border-radius:6px;box-sizing:border-box;">
+        <button type="submit" style="background:#10b981;color:white;border:none;padding:10px;width:100%;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:10px;">Giriş Yap</button>
         </form></div></body></html>""".encode("utf-8"))
-
-    def send_html_error(self, message):
-        self.send_response(400)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(f"<body style='background:#050b07;color:white;text-align:center;padding-top:50px;'><h2>⚠️ {message}</h2></body>".encode("utf-8"))
 
 def run_health_server():
     port = int(os.environ.get("PORT", 10000))
@@ -713,17 +447,6 @@ def main_keyboard(lang="tr", user_id=0):
         ],
         resize_keyboard=True
     )
-
-@dp.message(Command("admin"))
-async def cmd_admin(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Bu komutu sadece admin kullanabilir.")
-        return
-    admin_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔐 Yönetim Paneline Git", url=admin_panel_url)]
-    ])
-    await message.answer("🌿 **Weed Istanbul Yönetim Paneli**\n\nAşağıdaki butona tıklayarak web paneline giriş yapabilirsiniz:", reply_markup=kb)
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -804,7 +527,7 @@ async def bot_shop_categories(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌿 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"botcat_{c_name}")])
     
     await message.answer(t["select_cat"], reply_markup=kb)
 
@@ -849,7 +572,7 @@ async def bot_back_to_cats(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🌿 {c_name}", callback_data=f"botcat_{c_name}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"botcat_{c_name}")])
     
     await callback.message.edit_text(t["select_cat"], reply_markup=kb)
 
@@ -991,7 +714,6 @@ async def main():
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(check_expired_orders_task())
-    await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
