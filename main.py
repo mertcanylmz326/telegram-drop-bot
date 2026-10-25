@@ -15,7 +15,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
 
-# --- AYARLAR ---
+# --- AYARLAR VE CÜZDAN İZOLASYONU ---
 BOT_TOKEN = "8994954068:AAFWrg9dLaMrXkK2uR2vpTTNke84vn449RM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
@@ -26,7 +26,14 @@ ADMIN_WEB_PASSWORD = "weedstanbul34"
 PROMO_CODE = "welcomeweedstanbul"
 PROMO_DISCOUNT = 8.0
 
-CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
+# Üçlü Cüzdan Yapısı (Güvenlik ve İzolasyon)
+WALLET_CONFIG = {
+    "weedboot": "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH",  # Operasyon / Bot Cüzdanı (Ödemelerin geleceği adres)
+    "giris": "TRC20_GIRIS_DEPO_CUZDANI_ADRESI_BURAYA",      # Ana Kasa / Depo Cüzdanı
+    "cikis": "TRC20_CIKIS_ARACI_CUZDANI_ADRESI_BURAYA"      # Aracı / Buffer Cüzdanı
+}
+
+CRYPTO_WALLET = WALLET_CONFIG["weedboot"] # Bot doğrudan operasyon cüzdanını kullanır
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
@@ -294,7 +301,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (YENİLENMİŞ TASARIM VE CRM) ---
+# --- 🎄 CHRISTMAS WEED WEB SUNUCUSU (KAR ANİMASYONLU & 3'LÜ CÜZDAN GÖRSELİ) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -356,6 +363,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card neon-green"><h3>🎅 TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
                     <div class="card neon-red"><h3>🎄 ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
                     <div class="card neon-gold"><h3>🌿 PRODUCT VARIETY</h3><p>{total_drops}</p></div>
+                </div>
+
+                <!-- 3'lü Cüzdan İzolasyon Durum Paneli -->
+                <div class="form-box" style="border: 1px solid rgba(16, 185, 129, 0.4); margin-bottom: 30px;">
+                    <h2>🔒 3'lü Cüzdan İzolasyon ve Güvenlik Durumu</h2>
+                    <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">Operasyonel gizlilik ve fon güvenliği için aktif cüzdan mimarisi:</p>
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
+                        <li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">🟢 <b>weedboot (Bot / Operasyon):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['weedboot']}</code></li>
+                        <li style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">🔵 <b>Giriş (Ana Depo / Kasa):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['giris']}</code></li>
+                        <li style="padding: 8px 0;">🟡 <b>Çıkış (Aracı / Buffer):</b> <code style="color: #38bdf8;">{WALLET_CONFIG['cikis']}</code></li>
+                    </ul>
                 </div>
 
                 <div class="grid-2">
@@ -620,6 +638,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         display: flex;
                         min-height: 100vh;
                         position: relative;
+                        overflow-x: hidden;
                     }}
                     body::before {{
                         content: "";
@@ -627,6 +646,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         top: 0; left: 0; right: 0; bottom: 0;
                         background: rgba(5, 10, 14, 0.88);
                         z-index: 0;
+                    }}
+                    /* Kar Efekti Canvas */
+                    #snowflake-canvas {{
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        pointer-events: none;
+                        z-index: 9999;
                     }}
                     .sidebar {{
                         width: 270px;
@@ -636,7 +665,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         flex-direction: column;
                         padding: 25px 18px;
                         box-sizing: border-box;
-                        z-index: 1;
+                        z-index: 2;
                         backdrop-filter: blur(12px);
                     }}
                     .sidebar .brand {{
@@ -685,7 +714,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         box-sizing: border-box;
                         overflow-y: auto;
                         max-width: 1200px;
-                        z-index: 1;
+                        z-index: 2;
                     }}
                     .header-title {{
                         color: #f8fafc;
@@ -776,6 +805,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
             </head>
             <body>
+                <!-- Kar Yağışı Canvas Efekti -->
+                <canvas id="snowflake-canvas"></canvas>
+
                 <div class="sidebar">
                     <div class="brand">🎄 Weed Istanbul 🌿</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
@@ -795,6 +827,59 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
+
+                <!-- Kar Efekti Scripti -->
+                <script>
+                    const canvas = document.getElementById('snowflake-canvas');
+                    const ctx = canvas.getContext('2d');
+                    let width = canvas.width = window.innerWidth;
+                    let height = canvas.height = window.innerHeight;
+
+                    window.addEventListener('resize', () => {{
+                        width = canvas.width = window.innerWidth;
+                        height = canvas.height = window.innerHeight;
+                    }});
+
+                    const snowflakes = [];
+                    for (let i = 0; i < 90; i++) {{
+                        snowflakes.push({{
+                            x: Math.random() * width,
+                            y: Math.random() * height,
+                            radius: Math.random() * 3 + 1,
+                            density: Math.random() * 20,
+                            speed: Math.random() * 1 + 0.5
+                        }});
+                    }}
+
+                    function drawSnowflakes() {{
+                        ctx.clearRect(0, 0, width, height);
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        ctx.beginPath();
+                        for (let i = 0; i < snowflakes.length; i++) {{
+                            let sf = snowflakes[i];
+                            ctx.moveTo(sf.x, sf.y);
+                            ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2, true);
+                        }}
+                        ctx.fill();
+                        moveSnowflakes();
+                    }}
+
+                    let angle = 0;
+                    function moveSnowflakes() {{
+                        angle += 0.01;
+                        for (let i = 0; i < snowflakes.length; i++) {{
+                            let sf = snowflakes[i];
+                            sf.y += sf.speed;
+                            sf.x += Math.sin(angle + sf.density) * 0.5;
+
+                            if (sf.y > height) {{
+                                snowflakes[i] = {{ x: Math.random() * width, y: 0, radius: sf.radius, density: sf.density, speed: sf.speed }};
+                            }}
+                        }}
+                    }}
+
+                    setInterval(drawSnowflakes, 33);
+                </script>
             </body>
             </html>
             """
