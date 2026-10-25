@@ -15,8 +15,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
 
-# --- AYARLAR VE CÜZDAN İZOLASYONU ---
-BOT_TOKEN = "8994954068:AAFZ0M5vwPYPx1XQMb-2C7fHpYX8eLof8NQ"
+# --- YENİ VE TERTEMİZ BOT TOKEN'I ---
+BOT_TOKEN = "8917981396:AAFliW6Hl6gT8CQZP9BgJrPYGQEAggga6WA"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
@@ -223,7 +223,6 @@ def init_db():
         )
     ''')
 
-    # Varsayılan kupon ekle
     cursor.execute("INSERT OR IGNORE INTO promos (code, discount, usage_limit) VALUES ('welcomeweedstanbul', 8.0, 500)")
 
     for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0")]:
@@ -354,7 +353,7 @@ async def auto_backup_task():
                 await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
-            logging.error(f"Yedek alma hatası: {e}")
+            logging.error(e)
 
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -412,7 +411,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Today"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
-                # Semt Dağılımı Verisi (Pasta Grafik İçin)
                 cursor.execute("SELECT category, COUNT(*) FROM orders JOIN drops ON orders.drop_id = drops.id WHERE orders.status = 'completed' GROUP BY category")
                 cat_rows = cursor.fetchall()
                 cat_labels = [r[0] for r in cat_rows] if cat_rows else ["Genel"]
@@ -1433,7 +1431,7 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
         await message.answer(t["invalid_drop"])
         return
 
-    if promo and promo[2] < promo[1]: # used_count < usage_limit
+    if promo and promo[2] < promo[1]:
         disc = promo[0]
         final_price = max(0.0, drop[1] - disc)
         cursor.execute("UPDATE promos SET used_count = used_count + 1 WHERE code = ?", (entered_code,))
