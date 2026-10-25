@@ -147,7 +147,7 @@ async def process_buy(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="✅ Ödemeyi Yaptım (Onay İste)", callback_data=f"payonay_{order_id}")]
     ])
 
-    await callback.message.edit_text(payment_text)
+    await callback.message.edit_text(payment_text, reply_markup=kb)
 
 # --- ÖDEME BİLDİRİMİ ---
 @dp.callback_query(F.data.startswith("payonay_"))
@@ -169,7 +169,7 @@ async def process_payment_notification(callback: types.CallbackQuery):
         reply_markup=admin_kb
     )
 
-# --- ADMIN: ÖDEME ONAYLAMA (GÜNCELLENMİŞ VE HATASIZ) ---
+# --- ADMIN: ÖDEME ONAYLAMA ---
 @dp.callback_query(F.data.startswith("adm_approve_"))
 async def admin_approve(callback: types.CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
@@ -203,7 +203,6 @@ async def admin_approve(callback: types.CallbackQuery):
     )
     
     try:
-        # Önce kullanıcıya mesajı ve fotoğrafı gönderelim
         await bot.send_message(user_id, msg_text)
         
         if photo_ids:
@@ -211,7 +210,6 @@ async def admin_approve(callback: types.CallbackQuery):
                 if p_id.strip():
                     await bot.send_photo(user_id, p_id.strip())
 
-        # Mesaj başarıyla gittikten sonra ürünü stoktan düşelim
         cursor.execute("UPDATE drops SET is_sold = 1 WHERE id = ?", (drop_id,))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
         conn.commit()
