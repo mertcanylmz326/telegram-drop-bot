@@ -26,11 +26,8 @@ ADMIN_WEB_PASSWORD = "weedstanbul34"
 PROMO_CODE = "welcomeweedstanbul"
 PROMO_DISCOUNT = 8.0
 
-# 1. Giriş Hesabı (Botun ödeme aldığı aktif cüzdan)
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
-# 2. Ana Birikim Cüzdanı (Kârın ve birikimin toplandığı ana kasa)
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
-# 3. Çıkış Hesabı (Borsaya/nakite çekim için köprü cüzdan)
 EXIT_WALLET = "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"
 
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
@@ -48,6 +45,7 @@ LANG = {
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
+        "btn_wallet": "💰 Cüzdanım / Bakiye",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
         "btn_support": "📞 Destek",
         "btn_lang": "🌐 Dil Değiştir",
@@ -60,19 +58,24 @@ LANG = {
         "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
-        "choose_promo": "İndirim kuponu kullanmak ister misiniz?",
-        "use_promo": "🎟️ İndirim Kuponu Kullan",
-        "no_promo": "💳 Kuponsuz Devam Et",
-        "ask_promo": "🎟️ Lütfen indirim kuponu kodunu yazın:",
+        "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
+        "deposit_btn": "📥 Bakiye Yükle (USDT)",
+        "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
+        "deposit_invoice": "📥 **Bakiye Yükleme Talebi (#{id})**\n\n💵 Yüklenecek Tutar: **{amount} USDT**\n🔒 Yatırım Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Tutarı gönderdikten sonra aşağıdaki butona basın.",
+        "deposit_check_btn": "🔄 Yatırımı Otomatik Kontrol Et",
+        "deposit_success": "🎉 Ödemeniz onaylandı! **{amount} USDT** bakiyenize eklendi.\n💵 Yeni Toplam Bakiye: **{balance} USDT**",
+        "buy_options": "📌 Ürün: {title}\n💰 Fiyat: {price} USDT\n💵 Bakiyeniz: {balance} USDT\n\nLütfen ödeme yöntemini seçin:",
+        "pay_balance": "⚡ Bakiyeden Öde ({price} USDT)",
+        "pay_crypto": "🔒 Blokzincir ile Doğrudan Öde",
+        "insufficient_balance": "❌ Bakiyeniz yetersiz! Lütfen cüzdanınıza bakiye yükleyin veya doğrudan ödeme yapın.",
+        "balance_success": "🎉 Siparişiniz başarıyla onaylandı! {price} USDT bakiyenizden düşüldü.\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "cancel": "❌ İptal",
         "invalid_drop": "⚠️ Ürün artık mevcut değil.",
         "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
-        "promo_applied": "💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{discount} USDT\n💵 **Ödenecek Tutar: {final} USDT**\n\n",
-        "promo_invalid": "❌ Geçersiz kupon! Tam Tutar: {final} USDT\n\n",
         "wallet_text": "🔒 Giriş Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.",
         "check_btn": "🔄 Ödemeyi Otomatik Kontrol Et",
         "scan": "Blokzincir taranıyor...",
-        "not_found": "Sipariş bulunamadı.",
+        "not_found": "İşlem veya sipariş bulunamadı.",
         "already_approved": "Zaten onaylanmış.",
         "expired": "Süresi dolmuş.",
         "time_out": "⏰ Süre aşımı nedeniyle iptal edildi.",
@@ -88,6 +91,7 @@ LANG = {
         "lang_set": "✅ Language set to English.",
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
+        "btn_wallet": "💰 My Wallet / Balance",
         "btn_faq": "❓ How It Works (FAQ)",
         "btn_support": "📞 Support",
         "btn_lang": "🌐 Change Language",
@@ -100,19 +104,24 @@ LANG = {
         "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
         "open_loc": "🔗 Open Order #{id} Location",
         "sold_out": "⚠️ This product is sold out.",
-        "choose_promo": "Would you like to use a discount promo code?",
-        "use_promo": "🎟️ Use Promo Code",
-        "no_promo": "💳 Continue Without Code",
-        "ask_promo": "🎟️ Please enter your promo code:",
+        "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
+        "deposit_btn": "📥 Deposit Balance (USDT)",
+        "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
+        "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after sending funds.",
+        "deposit_check_btn": "🔄 Auto-Check Deposit",
+        "deposit_success": "🎉 Payment approved! **{amount} USDT** added to your balance.\n💵 New Total Balance: **{balance} USDT**",
+        "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
+        "pay_balance": "⚡ Pay from Balance ({price} USDT)",
+        "pay_crypto": "🔒 Pay Directly via Blockchain",
+        "insufficient_balance": "❌ Insufficient balance! Please deposit funds or pay directly.",
+        "balance_success": "🎉 Order successfully approved! {price} USDT deducted from your balance.\n\n👉 [Open Secure Location Page]({link})",
         "cancel": "❌ Cancel",
         "invalid_drop": "⚠️ Product is no longer available.",
         "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
-        "promo_applied": "💰 Regular Price: {price} USDT\n🎟️ Promo Discount: -{discount} USDT\n💵 **Total to Pay: {final} USDT**\n\n",
-        "promo_invalid": "❌ Invalid code! Full Price: {final} USDT\n\n",
         "wallet_text": "🔒 Entry Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after payment.",
         "check_btn": "🔄 Auto-Check Payment",
         "scan": "Scanning blockchain...",
-        "not_found": "Order not found.",
+        "not_found": "Transaction or order not found.",
         "already_approved": "Already approved.",
         "expired": "Expired.",
         "time_out": "⏰ Canceled due to timeout.",
@@ -155,6 +164,16 @@ def init_db():
     ''')
 
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deposits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            amount REAL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS panel_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT,
@@ -169,10 +188,11 @@ def init_db():
             username TEXT,
             is_banned INTEGER DEFAULT 0,
             language TEXT DEFAULT 'tr',
+            balance REAL DEFAULT 0.0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'")]:
+    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0")]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -203,6 +223,14 @@ def set_user_lang(user_id: int, lang: str):
     cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user_id))
     conn.commit()
     conn.close()
+
+def get_user_balance(user_id: int) -> float:
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    res = cursor.fetchone()
+    conn.close()
+    return res[0] if res and res[0] is not None else 0.0
 
 def log_panel_event(message, log_type="info"):
     try:
@@ -239,9 +267,9 @@ async def auto_backup_task():
                 await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
-            logging.error(f"Yedek alma hatası: {e}")
+            logging.error(e)
 
-# --- GELİŞMİŞ WEB SUNUCUSU & CÜZDAN / ANALİZ PANELİ ---
+# --- GELİŞMİŞ WEB SUNUCUSU & CÜZDAN / CRM PANELİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -366,9 +394,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </script>
                 """
             elif tab == "users":
-                # Müşteri bazlı satış analizleri ve sipariş hacimleri
                 cursor.execute("""
-                    SELECT u.user_id, u.username, u.language, u.is_banned,
+                    SELECT u.user_id, u.username, u.language, u.is_banned, u.balance,
                            COUNT(o.id) as total_orders, 
                            COALESCE(SUM(o.final_price), 0.0) as total_spent
                     FROM users u
@@ -379,9 +406,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 users_list = cursor.fetchall()
                 rows = ""
                 for u in users_list:
-                    uid, uname, u_lang, is_b, t_orders, t_spent = u
+                    uid, uname, u_lang, is_b, u_bal, t_orders, t_spent = u
                     username_str = f"@{uname}" if uname else "N/A"
                     status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
+                    
+                    # Bakiye güncelleme formu
+                    balance_form = f"""
+                    <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:5px; align-items:center;">
+                        <input type="hidden" name="user_id" value="{uid}">
+                        <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:90px; margin:0; padding:6px; font-size:12px;">
+                        <button type="submit" style="background:#2563eb; padding:6px 10px; font-size:11px; width:auto;">Güncelle</button>
+                    </form>
+                    """
+
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
@@ -391,15 +428,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td>{balance_form}</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>👥 Müşteri CRM & Satış Analizi</h2>
-                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Hangi müşterinin kaç adet sipariş verdiğini ve toplam ne kadar ödeme yaptığını buradan takip edebilirsin.</p>
+                    <h2>👥 Müşteri CRM & Bakiye Yönetimi</h2>
+                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Müşterilerin güncel bakiyelerini görüntüleyebilir, doğrudan bakiye miktarını değiştirip güncelleyebilir ve sipariş analizlerini inceleyebilirsin.</p>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
-                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Bakiye (USDT)</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
+                        {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -633,7 +670,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="main-content">
                     <div class="header-title">
                         <span>👑 Weed Istanbul Management System</span>
-                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🌐 Multi-Language Active (TR / EN)</span>
+                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🌐 Multi-Language & Wallet Active</span>
                     </div>
                     {edit_form_html}
                     {content_html}
@@ -767,6 +804,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.close()
 
             log_panel_event(f"🛡️ User {target_uid} status updated: {'BANNED' if is_b == 1 else 'UNBANNED'}", "warning" if is_b == 1 else "info")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=users')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-update-balance":
+            target_uid = params.get("user_id", ["0"])[0]
+            try:
+                new_bal = float(params.get("new_balance", [0.0])[0])
+            except:
+                new_bal = 0.0
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
+            conn.commit()
+            conn.close()
+
+            log_panel_event(f"💵 Admin Bakiye Düzenledi: Kullanıcı {target_uid} -> Yeni Bakiye: {new_bal} USDT", "success")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
@@ -959,6 +1015,9 @@ class SupportState(StatesGroup):
 class PromoState(StatesGroup):
     code = State()
 
+class DepositState(StatesGroup):
+    amount = State()
+
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
 
@@ -967,8 +1026,8 @@ def main_keyboard(lang="tr"):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_faq"]), KeyboardButton(text=t["btn_support"])],
-            [KeyboardButton(text=t["btn_lang"])]
+            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
+            [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
     )
@@ -984,7 +1043,7 @@ async def cmd_start(message: types.Message):
     
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, message.from_user.username))
     conn.commit()
     conn.close()
 
@@ -1004,7 +1063,7 @@ async def set_language(callback: types.CallbackQuery):
     await callback.message.edit_text(t["lang_set"])
     await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang))
 
-@dp.message(F.text.in_(["🌐 Dil Değiştir", "🌐 Change Language"]))
+@dp.message(F.text.in_([LANG["tr"]["btn_lang"], LANG["en"]["btn_lang"]]))
 async def change_lang_menu(message: types.Message):
     if message.chat.type != "private" or is_user_banned(message.from_user.id):
         return
@@ -1013,12 +1072,136 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
 
+# --- 💰 CÜZDAN & BAKİYE YÜKLEME ---
+@dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
+async def wallet_menu(message: types.Message):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+    bal = get_user_balance(user_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]
+    ])
+    await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
+
+@dp.callback_query(F.data == "start_deposit")
+async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+    await state.set_state(DepositState.amount)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data="cancel_deposit")]])
+    await callback.message.edit_text(t["ask_deposit_amount"], reply_markup=kb)
+
+@dp.callback_query(F.data == "cancel_deposit")
+async def cancel_deposit(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ İşlem iptal edildi.")
+
+@dp.message(DepositState.amount)
+async def process_deposit_amount(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    try:
+        amount = float(message.text.strip().replace(",", "."))
+        if amount <= 0:
+            raise ValueError()
+    except:
+        await message.answer("⚠️ Lütfen geçerli bir rakam girin (Örn: 25)")
+        return
+
+    await state.clear()
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (user_id, amount))
+    deposit_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    msg = t["deposit_invoice"].format(id=deposit_id, amount=amount, wallet=CRYPTO_WALLET)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["deposit_check_btn"], callback_data=f"autodeposit_{deposit_id}_{amount}")]])
+    await message.answer(msg, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("autodeposit_"))
+async def check_blockchain_deposit(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    parts = callback.data.split("_")
+    deposit_id = int(parts[1])
+    target_amount = float(parts[2])
+
+    await callback.answer(t["scan"], show_alert=True)
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT status, created_at FROM deposits WHERE id = ? AND user_id = ?", (deposit_id, user_id))
+    dep = cursor.fetchone()
+    if not dep:
+        await callback.answer(t["not_found"], show_alert=True)
+        conn.close()
+        return
+    status, created_at_str = dep
+    if status == 'completed':
+        await callback.answer(t["already_approved"], show_alert=True)
+        conn.close()
+        return
+    if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
+        cursor.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
+        conn.commit()
+        conn.close()
+        await callback.message.edit_text(t["time_out"])
+        return
+
+    api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
+    verified = False
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as response:
+                if response.status == 200:
+                    res_json = await response.json()
+                    for tx in res_json.get("data", []):
+                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                            verified = True
+                            break
+    except Exception as e:
+        logging.error(e)
+
+    if verified:
+        cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (deposit_id,))
+        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, user_id))
+        conn.commit()
+
+        new_bal = get_user_balance(user_id)
+        conn.close()
+
+        await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
+        log_panel_event(f"📥 Bakiye Yükleme Onaylandı: Kullanıcı {user_id} - {target_amount} USDT", "success")
+        try:
+            await bot.send_message(ADMIN_GROUP_ID, f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{user_id}`\n💵 Miktar: **{target_amount} USDT**")
+        except:
+            pass
+    else:
+        conn.close()
+        await callback.answer(t["wait_tx"], show_alert=True)
+
+# --- FAQ & SUPPORT ---
 @dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
 async def faq_menu(message: types.Message):
     user_id = message.from_user.id
     if message.chat.type != "private" or is_user_banned(user_id):
         return
-    lang = get_user_lang(user_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💳 Ödeme / Payment", callback_data="faq_pay")],
         [InlineKeyboardButton(text="⏱️ Teslimat / Delivery", callback_data="faq_delivery")],
@@ -1034,9 +1217,9 @@ async def faq_callback(callback: types.CallbackQuery):
     lang = get_user_lang(user_id)
     action = callback.data.split("_")[1]
     if lang == "tr":
-        text = "💳 Ürün seçtikten sonra verilen USDT giriş cüzdanına tutarı gönderip onaylatırsın." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
+        text = "💳 Cüzdanınıza bakiye yükleyerek veya doğrudan ödeme yaparak ürün alabilirsiniz." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
     else:
-        text = "💳 After selecting a product, send the amount to the given USDT entry wallet." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
+        text = "💳 You can deposit to your wallet or pay directly." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
     await callback.answer()
     await callback.message.answer(text)
 
@@ -1117,7 +1300,7 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ KATEGORİ SEÇİM SİSTEMİ ---
+# --- 🏙️ KATEGORİ SEÇİMİ ---
 @dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1227,9 +1410,9 @@ async def my_orders(message: types.Message):
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
-# --- 🎟️ PROMO KODLU SATIN ALMA AKIŞI ---
+# --- ⚡ SATIN ALMA & BAKİYEDEN ÖDEME ---
 @dp.callback_query(F.data.startswith("buy_"))
-async def process_buy(callback: types.CallbackQuery, state: FSMContext):
+async def process_buy(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     if is_user_banned(user_id):
         return
@@ -1248,11 +1431,107 @@ async def process_buy(callback: types.CallbackQuery, state: FSMContext):
         return
 
     title, price, stock = drop
+    bal = get_user_balance(user_id)
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["use_promo"], callback_data=f"usepromo_{drop_id}")],
-        [InlineKeyboardButton(text=t["no_promo"], callback_data=f"nopromo_{drop_id}")]
+        [InlineKeyboardButton(text=t["pay_balance"].format(price=price), callback_data=f"buybal_{drop_id}")],
+        [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")],
+        [InlineKeyboardButton(text="🎟️ Kupon Kullan", callback_data=f"usepromo_{drop_id}")]
     ])
-    await callback.message.edit_text(f"📌 Product: {title}\n💰 Regular Price: {price} USDT\n\n{t['choose_promo']}", reply_markup=kb)
+    await callback.message.edit_text(t["buy_options"].format(title=title, price=price, balance=bal), reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("buybal_"))
+async def process_buy_with_balance(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    drop_id = int(callback.data.split("_")[1])
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT title, price, stock, category FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+    drop = cursor.fetchone()
+
+    if not drop:
+        await callback.answer(t["sold_out"], show_alert=True)
+        conn.close()
+        return
+
+    title, price, stock, category = drop
+    bal = get_user_balance(user_id)
+
+    if bal < price:
+        await callback.answer(t["insufficient_balance"], show_alert=True)
+        conn.close()
+        return
+
+    cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
+    
+    new_stock = stock - 1
+    if new_stock <= 0:
+        cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
+    else:
+        cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
+
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
+    order_id = cursor.lastrowid
+
+    cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
+    rem_stock = cursor.fetchone()[0] or 0
+
+    conn.commit()
+    conn.close()
+
+    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
+    success_text = t["balance_success"].format(price=price, link=secure_link)
+
+    await callback.message.edit_text(success_text, parse_mode="Markdown")
+    
+    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({price} USDT)"
+    log_panel_event(log_msg, "success")
+
+    try:
+        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
+        if rem_stock <= 2:
+            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
+            log_panel_event(warn_msg, "warning")
+            await bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{category}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**!")
+    except Exception as e:
+        logging.error(e)
+
+@dp.callback_query(F.data.startswith("buycrypto_"))
+async def process_buy_crypto(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    drop_id = int(callback.data.split("_")[1])
+    username = callback.from_user.username
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+    drop = cursor.fetchone()
+    if not drop:
+        await callback.answer(t["sold_out"], show_alert=True)
+        conn.close()
+        return
+    title, price, stock = drop
+    final_price = price
+
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
+    order_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    msg = t["order_created"].format(id=order_id, title=title) + f"💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
+    await callback.message.edit_text(msg, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("usepromo_"))
 async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
@@ -1266,7 +1545,7 @@ async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(drop_id=drop_id)
     await state.set_state(PromoState.code)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data=f"buy_{drop_id}")]])
-    await callback.message.edit_text(t["ask_promo"], reply_markup=kb)
+    await callback.message.edit_text("🎟️ Lütfen indirim kuponu kodunu yazın:", reply_markup=kb)
 
 @dp.message(PromoState.code)
 async def verify_promo_code(message: types.Message, state: FSMContext):
@@ -1311,45 +1590,13 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
 
     msg = t["order_created"].format(id=order_id, title=title)
     if promo_applied:
-        msg += t["promo_applied"].format(price=price, discount=PROMO_DISCOUNT, final=final_price)
+        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{PROMO_DISCOUNT} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
     else:
-        msg += t["promo_invalid"].format(final=final_price)
+        msg += f"❌ Geçersiz kupon! Tam Tutar: {final_price} USDT\n\n"
 
     msg += t["wallet_text"].format(wallet=CRYPTO_WALLET)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
     await message.answer(msg, reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("nopromo_"))
-async def process_buy_no_promo(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    drop_id = int(callback.data.split("_")[1])
-    username = callback.from_user.username
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
-    
-    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-    drop = cursor.fetchone()
-    if not drop:
-        await callback.answer(t["sold_out"], show_alert=True)
-        conn.close()
-        return
-    title, price, stock = drop
-    final_price = price
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
-    order_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-
-    msg = t["order_created"].format(id=order_id, title=title) + f"💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
-    await callback.message.edit_text(msg, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("autocheck_"))
 async def check_blockchain_payment(callback: types.CallbackQuery):
