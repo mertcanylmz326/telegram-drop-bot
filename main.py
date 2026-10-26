@@ -77,7 +77,7 @@ def get_district_coord(category_name):
 # --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
-        "welcome": "👋 Merhaba! Weedstanbul Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
@@ -493,8 +493,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     msg, l_type, l_date = l
                     badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#3b82f6")
                     logs_html += f"""
-                    <div style="background: #0f172a; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
-                        <span style="color: #64748b; font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
+                    <div style="background: var(--card-bg-inner); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
+                        <span style="color: var(--text-muted); font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
                         {msg}
                     </div>
                     """
@@ -518,29 +518,38 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
                         🗺️ İstanbul Aktif Konum Haritası 
-                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Ürün No ile Arama</span>
+                        <span style="font-size: 11px; background: var(--card-bg-inner); padding: 4px 10px; border-radius: 6px; color: var(--text-muted);">Ürün No ile Arama</span>
                     </h2>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; padding: 10px; font-size: 14px;">
+                        <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); padding: 10px; font-size: 14px;">
                         <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 8px; border: none; color: white; cursor: pointer;">🔍 Haritada Bul</button>
                     </div>
-                    <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid #334155; z-index: 1;"></div>
+                    <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
                 </div>
 
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Akış Yönetimi</h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <h4 style="margin: 0 0 5px 0; color: #38bdf8;">📥 1. Giriş Hesabı (Bot Ödemeleri)</h4>
-                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+                                📥 1. Giriş Hesabı (Bot Ödemeleri)
+                                <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                            </h4>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
                         </div>
-                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
-                            <h4 style="margin: 0 0 5px 0; color: #d97706;">🔄 2. Çıkış / Ara Hesap (Bitay / Köprü)</h4>
-                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
+                            <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
+                                🔄 2. Çıkış / Ara Hesap (Bitay / Köprü)
+                                <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                            </h4>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
                         </div>
-                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <h4 style="margin: 0 0 5px 0; color: #10b981;">💰 3. Ana Birikim / Kasa Cüzdanı</h4>
-                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
+                                💰 3. Ana Birikim / Kasa Cüzdanı
+                                <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                            </h4>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
                         </div>
                     </div>
                 </div>
@@ -554,7 +563,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="table-box">
                         <h2>🔔 Live Logs & Alerts</h2>
                         <div style="max-height: 250px; overflow-y: auto;">
-                            {logs_html if logs_html else "<p style='text-align:center; color:#64748b;'>No recent logs.</p>"}
+                            {logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>"}
                         </div>
                     </div>
                 </div>
@@ -608,8 +617,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             responsive: true,
                             plugins: {{ legend: {{ display: false }} }},
                             scales: {{
-                                x: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }},
-                                y: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }}
+                                x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
+                                y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
                             }}
                         }}
                     }});
@@ -630,11 +639,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("SELECT username FROM users WHERE user_id = ?", (uid,))
                     u_row = cursor.fetchone()
                     uname = f"@{u_row[0]}" if u_row and u_row[0] else f"User {uid}"
-                    active_style = "background: #1e293b; border-color: #38bdf8;" if uid == selected_user_id else "background: #0f172a;"
+                    active_style = "background: var(--sidebar-hover); border-color: #38bdf8;" if uid == selected_user_id else "background: var(--card-bg-inner);"
                     chat_list_html += f"""
-                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: white; margin-bottom: 6px; border: 1px solid #334155; {active_style}">
+                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: var(--text-color); margin-bottom: 6px; border: 1px solid var(--border-color); {active_style}">
                         <div style="font-weight: bold; color: #38bdf8; font-size: 13px;">{uname}</div>
-                        <div style="font-size: 11px; color: #94a3b8;">ID: {uid}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">ID: {uid}</div>
                     </a>
                     """
 
@@ -645,12 +654,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     for m in msgs:
                         sender, msg_text, m_date = m
                         is_admin_msg = sender == "admin"
-                        bg_color = "#2563eb" if is_admin_msg else "#1e293b"
+                        bg_color = "#2563eb" if is_admin_msg else "var(--card-bg-inner)"
                         align = "margin-left: auto;" if is_admin_msg else "margin-right: auto;"
                         sender_label = "👑 Yönetici (Sen)" if is_admin_msg else "👤 Müşteri"
                         messages_html += f"""
-                        <div style="max-width: 80%; background: {bg_color}; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; {align} border: 1px solid #334155;">
-                            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; display:flex; justify-content: space-between; gap: 10px;">
+                        <div style="max-width: 80%; background: {bg_color}; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; {align} border: 1px solid var(--border-color);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; display:flex; justify-content: space-between; gap: 10px;">
                                 <span>{sender_label}</span>
                                 <span>{m_date}</span>
                             </div>
@@ -662,7 +671,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if selected_user_id:
                     chat_box_html = f"""
                     <div style="display: flex; flex-direction: column; height: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                             <h3 style="margin: 0; color: #38bdf8; font-size: 15px;">💬 Aktif Sohbet (ID: {selected_user_id})</h3>
                             <form action="/admin-close-support" method="POST" style="margin:0;">
                                 <input type="hidden" name="user_id" value="{selected_user_id}">
@@ -670,7 +679,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             </form>
                         </div>
                         <div style="flex: 1; overflow-y: auto; max-height: 350px; padding-right: 5px; margin-bottom: 12px;">
-                            {messages_html if messages_html else "<p style='text-align:center; color:#64748b;'>Henüz mesaj yok.</p>"}
+                            {messages_html if messages_html else "<p style='text-align:center; color:var(--text-muted);'>Henüz mesaj yok.</p>"}
                         </div>
                         <form action="/admin-send-support" method="POST" style="display: flex; gap: 8px; margin: 0;">
                             <input type="hidden" name="user_id" value="{selected_user_id}">
@@ -680,7 +689,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
                 else:
-                    chat_box_html = "<p style='text-align:center; color:#64748b; padding: 30px;'>Lütfen listeden bir sohbet seçin.</p>"
+                    chat_box_html = "<p style='text-align:center; color:var(--text-muted); padding: 30px;'>Lütfen listeden bir sohbet seçin.</p>"
 
                 content_html = f"""
                 <div class="support-container">
@@ -688,9 +697,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         {chat_box_html}
                     </div>
                     <div class="support-sidebar-area">
-                        <h3 style="margin-top: 0; color: #f8fafc; font-size: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; margin-bottom: 10px;">👥 Destek Talepleri</h3>
+                        <h3 style="margin-top: 0; color: var(--text-color); font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px;">👥 Destek Talepleri</h3>
                         <div style="max-height: 350px; overflow-y: auto;">
-                            {chat_list_html if chat_list_html else "<p style='color:#64748b; font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
+                            {chat_list_html if chat_list_html else "<p style='color:var(--text-muted); font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
                         </div>
                     </div>
                 </div>
@@ -699,24 +708,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         display: flex;
                         flex-direction: column;
                         gap: 20px;
-                        background: #111827;
+                        background: var(--card-bg);
                         padding: 20px;
                         border-radius: 14px;
-                        border: 1px solid #1f2937;
+                        border: 1px solid var(--border-color);
                     }}
                     .chat-main-area {{
                         order: 1;
-                        background: #090d16;
+                        background: var(--card-bg-inner);
                         padding: 15px;
                         border-radius: 10px;
-                        border: 1px solid #1f2937;
+                        border: 1px solid var(--border-color);
                     }}
                     .support-sidebar-area {{
                         order: 2;
-                        background: #090d16;
+                        background: var(--card-bg-inner);
                         padding: 15px;
                         border-radius: 10px;
-                        border: 1px solid #1f2937;
+                        border: 1px solid var(--border-color);
                     }}
                     @media (min-width: 900px) {{
                         .support-container {{
@@ -891,7 +900,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         container.innerHTML = '';
                         for (let i = 1; i <= count; i++) {
                             container.innerHTML += `
-                                <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color);">
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
                                     <label style="color: #38bdf8; font-size: 13px;">Koordinat (Tek Satır - Örn: 40.8885, 29.1856):</label>
                                     <input type="text" name="coords_${i}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
@@ -943,51 +952,96 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             dashboard_html = f"""
             <!DOCTYPE html>
-            <html lang="tr">
+            <html lang="tr" data-theme="dark">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Weed Istanbul Yönetim Paneli</title>
+                <title>Weed Istanbul Yönetim Paneli - 🎄 Happy Christmas Edition</title>
                 <style>
-                    body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
-                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 30px; letter-spacing: 0.5px; }}
-                    .sidebar a {{ background: transparent; color: #9ca3af; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: #1e293b; color: #38bdf8; border-color: #334155; }}
+                    :root {{
+                        --bg-color: #090d16;
+                        --text-color: #f8fafc;
+                        --sidebar-bg: #111827;
+                        --sidebar-hover: #1e293b;
+                        --card-bg: #111827;
+                        --card-bg-inner: #090d16;
+                        --border-color: #1f2937;
+                        --input-bg: #090d16;
+                        --text-muted: #6b7280;
+                    }}
+                    [data-theme="light"] {{
+                        --bg-color: #f1f5f9;
+                        --text-color: #0f172a;
+                        --sidebar-bg: #ffffff;
+                        --sidebar-hover: #e2e8f0;
+                        --card-bg: #ffffff;
+                        --card-bg-inner: #f8fafc;
+                        --border-color: #cbd5e1;
+                        --input-bg: #ffffff;
+                        --text-muted: #64748b;
+                    }}
+                    body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; transition: background 0.3s, color 0.3s; }}
+                    .sidebar {{ width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
+                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; letter-spacing: 0.5px; }}
+                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); animation: pulse 2s infinite; }}
+                    @keyframes pulse {{ 0% {{ opacity: 0.9; }} 50% {{ opacity: 1; transform: scale(1.02); }} 100% {{ opacity: 0.9; }} }}
+                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: var(--border-color); }}
                     .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
                     .logout-link:hover {{ background: #dc2626 !important; }}
                     .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
-                    .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
+                    .header-title {{ color: var(--text-color); font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }}
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .card {{ background: #111827; padding: 22px; border-radius: 14px; border: 1px solid #1f2937; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
-                    .card h3 {{ margin: 0 0 10px 0; color: #6b7280; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
+                    .card {{ background: var(--card-bg); padding: 22px; border-radius: 14px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
+                    .card h3 {{ margin: 0 0 10px 0; color: var(--text-muted); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
                     .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
-                    input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; }}
+                    .form-box, .table-box {{ background: var(--card-bg); padding: 25px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
+                    input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); box-sizing: border-box; font-size: 14px; }}
                     button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
                     button:hover {{ background: #1d4ed8; }}
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid #1f2937; font-size: 14px; }}
-                    th {{ color: #6b7280; font-weight: 700; font-size: 12px; text-transform: uppercase; }}
+                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }}
+                    th {{ color: var(--text-muted); font-weight: 700; font-size: 12px; text-transform: uppercase; }}
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
 
+                    .theme-toggle-btn {{ background: #334155; border: none; padding: 6px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; font-weight: bold; }}
+
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column !important; }}
                         .sidebar {{ width: 100% !important; flex-direction: row !important; overflow-x: auto !important; padding: 12px !important; gap: 8px; align-items: center; white-space: nowrap; }}
-                        .sidebar .brand {{ display: none !important; }}
+                        .sidebar .brand, .christmas-banner {{ display: none !important; }}
                         .sidebar a {{ flex: 0 0 auto !important; padding: 8px 12px !important; font-size: 12px !important; margin-bottom: 0 !important; text-align: center; }}
                         .logout-link {{ margin-top: 0 !important; }}
                         .main-content {{ padding: 15px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }}
                         .grid-2 {{ grid-template-columns: 1fr !important; }}
                     }}
                 </style>
+                <script>
+                    function toggleTheme() {{
+                        const html = document.documentElement;
+                        const currentTheme = html.getAttribute('data-theme');
+                        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                        html.setAttribute('data-theme', newTheme);
+                        localStorage.setItem('theme', newTheme);
+                    }}
+                    window.addEventListener('DOMContentLoaded', () => {{
+                        const savedTheme = localStorage.getItem('theme') || 'dark';
+                        document.documentElement.setAttribute('data-theme', savedTheme);
+                    }});
+                    function copyText(txt) {{
+                        navigator.clipboard.writeText(txt).then(() => {{
+                            alert("Kopyalandı: " + txt);
+                        }});
+                    }}
+                </script>
             </head>
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
+                    <div class="christmas-banner">🎄 Happy Christmas & New Year 🎅</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
@@ -999,8 +1053,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 <div class="main-content">
                     <div class="header-title">
-                        <span>👑 Weed Istanbul DROP System</span>
-                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🗺️ Live Map & Wallet Active</span>
+                        <span>👑 Weed Istanbul Management System</span>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="theme-toggle-btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
+                            <span style="font-size: 13px; color: #38bdf8; background: var(--card-bg); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);">🎁 Noel Özel Sürüm</span>
+                        </div>
                     </div>
                     {edit_form_html}
                     {content_html}
