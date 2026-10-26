@@ -472,6 +472,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
+        # --- YENİ: Anlık Mesaj Kontrol API'si (Tarayıcı Bildirimleri İçin) ---
+        if parsed_path.path == "/api/check-new-messages":
+            if not is_logged_in:
+                self.send_response(401)
+                self.end_headers()
+                return
+            
+            last_id = int(query_params.get("last_id", [0])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT sm.id, sm.user_id, sm.message, u.username FROM support_messages sm LEFT JOIN users u ON sm.user_id = u.user_id WHERE sm.id > ? AND sm.sender = 'user' ORDER BY sm.id ASC LIMIT 1", (last_id,))
+            new_msg = cursor.fetchone()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            if new_msg:
+                m_id, u_id, m_text, uname = new_msg
+                display_name = f"@{uname}" if uname else f"Kullanıcı {u_id}"
+                import json
+                resp_data = {"has_new": True, "id": m_id, "user_id": u_id, "username": display_name, "message": m_text}
+                self.wfile.write(json.dumps(resp_data).encode("utf-8"))
+            else:
+                self.wfile.write(b'{"has_new": false}')
+            return
+
         if parsed_path.path == "/admin-web":
             if not is_logged_in:
                 self.send_login_page()
@@ -978,6 +1005,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
+            # En yüksek support_message ID'sini alıyoruz ki bildirim kontrolü doğru başlasın
+            cursor.execute("SELECT MAX(id) FROM support_messages")
+            max_s_id = cursor.fetchone()[0] or 0
             conn.close()
 
             dashboard_html = f"""
@@ -1037,7 +1067,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
 
-                    .theme-toggle-btn {{ background: #334155; border: none; padding: 6px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; font-weight: bold; }}
+                    .theme-toggle-btn, .notif-perm-btn {{ background: #334155; border: none; padding: 6px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; font-weight: bold; }}
+                    .notif-perm-btn {{ background: #10b981; }}
 
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column !important; }}
@@ -1060,7 +1091,71 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     window.addEventListener('DOMContentLoaded', () => {{
                         const savedTheme = localStorage.getItem('theme') || 'dark';
                         document.documentElement.setAttribute('data-theme', savedTheme);
+                        
+                        // Tarayıcı Bildirim İzni İste
+                        if (window.Notification && Notification.permission !== "granted") {{
+                            Notification.requestPermission();
+                        }}
+                        
+                        // Arka Planda Yeni Mesaj Polling
+                        startMessageListener();
                     }});
+
+                    let lastMessageId = {max_s_id};
+                    function startMessageListener() {{
+                        setInterval(async () => {{
+                            try {{
+                                const res = await fetch('/api/check-new-messages?last_id=' + lastMessageId);
+                                if (res.ok) {{
+                                    const data = await res.json();
+                                    if (data.has_new) {{
+                                        lastMessageId = data.id;
+                                        playNotificationSound();
+                                        showBrowserNotification(data.username, data.message, data.user_id);
+                                    }}
+                                }}
+                            }} catch(e) {{
+                                console.error(e);
+                            }}
+                        }}, 5000);
+                    }}
+
+                    function playNotificationSound() {{
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start();
+                        osc.stop(ctx.currentTime + 0.2);
+                    }}
+
+                    function showBrowserNotification(senderName, text, userId) {{
+                        if (window.Notification && Notification.permission === "granted") {{
+                            const notif = new Notification("💬 Yeni Müşteri Mesajı: " + senderName, {{
+                                body: text,
+                                icon: "https://cdn-icons-png.flaticon.com/512/893/893257.png"
+                            }});
+                            notif.onclick = function() {{
+                                window.focus();
+                                window.location.href = "/admin-web?tab=support&user_id=" + userId;
+                            }};
+                        }}
+                    }}
+
+                    function requestNotifPermission() {{
+                        if (window.Notification) {{
+                            Notification.requestPermission().then(perm => {{
+                                alert("Bildirim izni durumu: " + perm);
+                            }});
+                        }} else {{
+                            alert("Tarayıcınız masaüstü bildirimlerini desteklemiyor.");
+                        }}
+                    }}
+
                     function copyText(txt) {{
                         navigator.clipboard.writeText(txt).then(() => {{
                             alert("Kopyalandı: " + txt);
@@ -1085,6 +1180,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="header-title">
                         <span>👑 Weed Istanbul Management System</span>
                         <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="notif-perm-btn" onclick="requestNotifPermission()">🔔 Bildirimleri Aç</button>
                             <button class="theme-toggle-btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
                             <span style="font-size: 13px; color: #38bdf8; background: var(--card-bg); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);">🎁 Noel Özel Sürüm</span>
                         </div>
