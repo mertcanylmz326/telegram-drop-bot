@@ -41,7 +41,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
-# --- İSTANBUL İLÇE KOORDİNATLARI (HARİTA İÇİN) ---
+# --- İSTANBUL İLÇE KOORDİNATLARI (YEDEK / FALLBACK) ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
     "KADIKÖY": [40.9901, 29.0254],
@@ -112,7 +112,7 @@ LANG = {
         "cancel": "❌ İptal",
         "invalid_drop": "⚠️ Ürün artık mevcut değil.",
         "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
-        "wallet_text": "🔒 Giriş Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.",
+        "wallet_text": "🔒 Giriş Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca sistem otomatik onaylayacaktır.",
         "check_btn": "🔄 Ödemeyi Otomatik Kontrol Et",
         "scan": "Blokzincir taranıyor...",
         "not_found": "İşlem veya sipariş bulunamadı.",
@@ -121,7 +121,7 @@ LANG = {
         "time_out": "⏰ Süre aşımı nedeniyle iptal edildi.",
         "success_order": "✅ Sipariş #{id} onaylandı. Takip Kodunuz: `WEE-{id}`",
         "success_msg": "🎉 Ödemeniz onaylandı!\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
-        "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
+        "wait_tx": "⚠️ Henüz transfer yansımadı, blokzincir bekleniyor...",
         "support_ask": "📞 Destek mesajınızı yazın, admin grubuna iletilsin:",
         "support_sent": "✅ Destek mesajınız admin grubuna iletildi.",
         "banned": "❌ Erişiminiz engellenmiştir."
@@ -151,7 +151,7 @@ LANG = {
         "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
-        "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after sending funds.",
+        "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. System will auto-approve upon payment.",
         "deposit_check_btn": "🔄 Auto-Check Deposit",
         "deposit_success": "🎉 Payment approved! **{amount} USDT** added to your balance.\n💵 New Total Balance: **{balance} USDT**",
         "buy_options": "📌 Product: {title}\n💰 Price: {price} USDT\n💵 Your Balance: {balance} USDT\n\nPlease select payment method:",
@@ -162,7 +162,7 @@ LANG = {
         "cancel": "❌ Cancel",
         "invalid_drop": "⚠️ Product is no longer available.",
         "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
-        "wallet_text": "🔒 Entry Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after payment.",
+        "wallet_text": "🔒 Entry Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. System will auto-approve upon payment.",
         "check_btn": "🔄 Auto-Check Payment",
         "scan": "Scanning blockchain...",
         "not_found": "Transaction or order not found.",
@@ -171,17 +171,20 @@ LANG = {
         "time_out": "⏰ Canceled due to timeout.",
         "success_order": "✅ Order #{id} approved. Tracking Code: `WEE-{id}`",
         "success_msg": "🎉 Your payment is approved!\n🔑 Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
-        "wait_tx": "⚠️ Transfer not reflected yet, please wait.",
+        "wait_tx": "⚠️ Transfer not reflected yet, checking blockchain...",
         "support_ask": "📞 Type your support message to send to the admin team:",
         "support_sent": "✅ Your support message has been sent to the admin team.",
         "banned": "❌ Your access has been restricted."
     }
 }
 
-# --- VERİTABANI KURULUMU ---
+# --- VERİTABANI KURULUMU & WAL MODU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
+    # Eşzamanlı kilitlenmeleri önlemek için yüksek performanslı WAL modu
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS drops (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,7 +195,9 @@ def init_db():
             description TEXT,
             stock INTEGER DEFAULT 1,
             is_sold INTEGER DEFAULT 0,
-            category TEXT DEFAULT 'Genel'
+            category TEXT DEFAULT 'Genel',
+            lat REAL DEFAULT 41.0082,
+            lon REAL DEFAULT 28.9784
         )
     ''')
 
@@ -236,7 +241,19 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'"), ("balance", "REAL DEFAULT 0.0")]:
+    
+    # Eksik kolonlar için güvenli migration
+    for col, def_val in [
+        ("is_banned", "INTEGER DEFAULT 0"), 
+        ("language", "TEXT DEFAULT 'tr'"), 
+        ("balance", "REAL DEFAULT 0.0"),
+        ("lat", "REAL DEFAULT 41.0082"),
+        ("lon", "REAL DEFAULT 28.9784")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE drops ADD COLUMN {col} {def_val}")
+        except:
+            pass
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -313,6 +330,115 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
+# --- 🚀 OTOMATİK ARKA PLAN ÖDEME KONTROLÜ (BACKGROUND WORKER) ---
+async def background_payment_worker():
+    while True:
+        await asyncio.sleep(25) # Her 25 saniyede bir bekleyen siparişleri ve yatırımları tara
+        try:
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            
+            # Bekleyen siparişleri al
+            cursor.execute("""
+                SELECT orders.id, orders.user_id, orders.drop_id, orders.final_price, orders.created_at, drops.title, drops.stock, drops.category 
+                FROM orders 
+                JOIN drops ON orders.drop_id = drops.id 
+                WHERE orders.status = 'pending'
+            """)
+            pending_orders = cursor.fetchall()
+            
+            # Bekleyen bakiye yüklemelerini al
+            cursor.execute("SELECT id, user_id, amount, created_at FROM deposits WHERE status = 'pending'")
+            pending_deposits = cursor.fetchall()
+            conn.close()
+
+            if not pending_orders and not pending_deposits:
+                continue
+
+            # TronGrid API ile blokzincir taraması
+            api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=20"
+            tx_data = []
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url) as response:
+                    if response.status == 200:
+                        res_json = await response.json()
+                        tx_data = res_json.get("data", [])
+
+            # 1. Siparişleri kontrol et
+            for order in pending_orders:
+                o_id, u_id, d_id, f_price, created_at_str, title, stock, category = order
+                
+                # Süre aşımı kontrolü (15 dk)
+                if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
+                    conn = sqlite3.connect("drop_bot.db")
+                    c = conn.cursor()
+                    c.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (o_id,))
+                    conn.commit()
+                    conn.close()
+                    continue
+
+                verified = False
+                for tx in tx_data:
+                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(float(f_price) * 1000000):
+                        verified = True
+                        break
+
+                if verified and main_loop:
+                    conn = sqlite3.connect("drop_bot.db")
+                    c = conn.cursor()
+                    # Stok düşme ve sipariş tamamlama
+                    new_stock = stock - 1
+                    if new_stock <= 0:
+                        c.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (d_id,))
+                    else:
+                        c.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
+                    c.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
+                    conn.commit()
+                    conn.close()
+
+                    u_lang = get_user_lang(u_id)
+                    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
+                    success_text = LANG[u_lang]["success_msg"].format(id=o_id, link=secure_link)
+
+                    log_panel_event(f"🎉 Otomatik Arka Plan Satışı: #{o_id} - {title} ({f_price} USDT)", "success")
+                    asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
+
+            # 2. Bakiye yüklemelerini kontrol et
+            for dep in pending_deposits:
+                dep_id, u_id, amount, created_at_str = dep
+                
+                if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
+                    conn = sqlite3.connect("drop_bot.db")
+                    c = conn.cursor()
+                    c.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (dep_id,))
+                    conn.commit()
+                    conn.close()
+                    continue
+
+                verified = False
+                for tx in tx_data:
+                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(float(amount) * 1000000):
+                        verified = True
+                        break
+
+                if verified and main_loop:
+                    conn = sqlite3.connect("drop_bot.db")
+                    c = conn.cursor()
+                    c.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
+                    c.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, u_id))
+                    conn.commit()
+                    new_bal = get_user_balance(u_id)
+                    conn.close()
+
+                    u_lang = get_user_lang(u_id)
+                    log_panel_event(f"📥 Otomatik Bakiye Yüklendi: Kullanıcı {u_id} - {amount} USDT", "success")
+                    asyncio.run_coroutine_threadsafe(bot.send_message(u_id, LANG[u_lang]["deposit_success"].format(amount=amount, balance=new_bal)), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{u_id}`\n💵 Miktar: **{amount} USDT**"), main_loop)
+
+        except Exception as e:
+            logging.error(f"Background worker error: {e}")
+
 # --- WEB SUNUCUSU & DÜZELTİLMİŞ HARİTALı MOBİL UYUMLU PANEL ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -348,15 +474,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "home":
-                cursor.execute("SELECT id, title, price, stock, category FROM drops WHERE is_sold = 0 AND stock > 0")
+                cursor.execute("SELECT id, title, price, stock, category, lat, lon FROM drops WHERE is_sold = 0 AND stock > 0")
                 active_drops_for_map = cursor.fetchall()
                 
                 map_markers_js = ""
                 for ad in active_drops_for_map:
-                    d_id, d_title, d_price, d_stock, d_cat = ad
-                    coord = get_district_coord(d_cat)
+                    d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
+                    # Veritabanında kayıtlı koordinat yoksa ilçe merkezini al
+                    lat = d_lat if d_lat else get_district_coord(d_cat)[0]
+                    lon = d_lon if d_lon else get_district_coord(d_cat)[1]
                     map_markers_js += f"""
-                    L.marker([{coord[0]}, {coord[1]}], {{icon: weedIcon}}).addTo(map)
+                    L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
                         .bindPopup("<b>{d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
                     """
 
@@ -394,7 +522,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         🗺️ İstanbul Aktif Drop Haritası 
                         <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Canlı Semt Takibi</span>
                     </h2>
-                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların ilçelere göre dağılımını buradan anlık olarak takip edebilirsin:</p>
+                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların haritadaki tam konumu:</p>
                     <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid #334155; z-index: 1;"></div>
                 </div>
 
@@ -440,7 +568,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         maxZoom: 19
                     }}).addTo(map);
 
-                    // Kenevir Yaprağı Özel Harita İkonu
                     const weedIcon = L.divIcon({{
                         className: 'custom-weed-marker',
                         html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
@@ -617,7 +744,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <form action="/admin-add" method="POST" id="addForm">
                         <label>Ürün Başlığı:</label>
                         <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
-                        <label>Semt / İlçe (Örn: Beşiktaş, Kadıköy, Çekmeköy vb.):</label>
+                        <label>Semt / İlçe (Örn: Beşiktaş, Kadıköy vb.):</label>
                         <input type="text" name="category" required placeholder="Beşiktaş">
                         <label>Fiyat (USDT):</label>
                         <input type="number" step="0.1" name="price" required placeholder="65">
@@ -638,6 +765,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
                                     <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                        <div>
+                                            <label>Enlem (Latitude):</label>
+                                            <input type="text" name="lat_${i}" required placeholder="41.0429">
+                                        </div>
+                                        <div>
+                                            <label>Boylam (Longitude):</label>
+                                            <input type="text" name="lon_${i}" required placeholder="29.0077">
+                                        </div>
+                                    </div>
                                     <label>Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
                                     <label>Açıklama / İpucu Notu:</label>
@@ -653,10 +790,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             edit_form_html = ""
             if tab == "edit":
                 edit_id = query_params.get("id", ["0"])[0]
-                cursor.execute("SELECT title, price, stock, category, location_url, photo_ids, description FROM drops WHERE id = ?", (edit_id,))
+                cursor.execute("SELECT title, price, stock, category, location_url, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
                 drop_data = cursor.fetchone()
                 if drop_data:
-                    e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc = drop_data
+                    e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc, e_lat, e_lon = drop_data
                     edit_form_html = f"""
                     <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
                         <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
@@ -672,6 +809,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" name="stock" value="{e_stock}" required>
                             <label>Google Maps Konum Linki:</label>
                             <input type="text" name="location" value="{e_loc}" required>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div>
+                                    <label>Enlem (Latitude):</label>
+                                    <input type="text" name="lat" value="{e_lat or 41.0082}" required>
+                                </div>
+                                <div>
+                                    <label>Boylam (Longitude):</label>
+                                    <input type="text" name="lon" value="{e_lon or 28.9784}" required>
+                                </div>
+                            </div>
                             <label>Fotoğraf URL'si:</label>
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
@@ -716,7 +863,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
 
-                    /* 📱 MOBİL UYUMLULUK DÜZELTMESİ (Sekme / Menü Sıkışma Çözümü) */
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column !important; }}
                         .sidebar {{ width: 100% !important; flex-direction: row !important; overflow-x: auto !important; padding: 12px !important; gap: 8px; align-items: center; white-space: nowrap; }}
@@ -913,11 +1059,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 loc = params.get(f"location_{i}", [""])[0]
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
+                try:
+                    lat = float(params.get(f"lat_{i}", [41.0082])[0])
+                    lon = float(params.get(f"lon_{i}", [28.9784])[0])
+                except:
+                    lat, lon = 41.0082, 28.9784
+
                 if loc and desc:
                     cursor.execute("""
-                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (title, price, loc, photo, desc, 1, category))
+                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category, lat, lon)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (title, price, loc, photo, desc, 1, category, lat, lon))
             conn.commit()
             conn.close()
 
@@ -933,8 +1085,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             try:
                 price = float(params.get("price", [0])[0])
                 stock = int(params.get("stock", [1])[0])
+                lat = float(params.get("lat", [41.0082])[0])
+                lon = float(params.get("lon", [28.9784])[0])
             except:
-                price, stock = 0.0, 1
+                price, stock, lat, lon = 0.0, 1, 41.0082, 28.9784
+
             location = params.get("location", [""])[0]
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
@@ -942,9 +1097,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, location_url = ?, photo_ids = ?, description = ?
+                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, location_url = ?, photo_ids = ?, description = ?, lat = ?, lon = ?
                 WHERE id = ?
-            """, (title, price, stock, category, location, photo, description, drop_id))
+            """, (title, price, stock, category, location, photo, description, lat, lon, drop_id))
             conn.commit()
             conn.close()
 
@@ -1784,6 +1939,7 @@ async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
+    asyncio.create_task(background_payment_worker()) # Arka plan ödeme işçisi aktif!
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
