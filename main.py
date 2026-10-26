@@ -82,7 +82,6 @@ def extract_lat_lon_from_url(url, category_name="Genel"):
         return get_district_coord(category_name)
     
     target_url = url.strip()
-    # Kısa Google Maps linklerini (maps.app.goo.gl) çöz
     if "goo.gl" in target_url or "maps.app.goo.gl" in target_url:
         try:
             req = urllib.request.Request(
@@ -94,12 +93,10 @@ def extract_lat_lon_from_url(url, category_name="Genel"):
         except Exception as e:
             logging.error(f"URL resolve error: {e}")
     
-    # 1. @enlem,boylam formatını ara (Örn: /@41.0429,29.0077,15z)
     match = re.search(r'@([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)', target_url)
     if match:
         return float(match.group(1)), float(match.group(2))
     
-    # 2. Query parametrelerini kontrol et (q=, center=, ll= vb.)
     parsed_url = urllib.parse.urlparse(target_url)
     qs = urllib.parse.parse_qs(parsed_url.query)
     for key in ['q', 'center', 'll', 'sll']:
@@ -109,7 +106,6 @@ def extract_lat_lon_from_url(url, category_name="Genel"):
             if m_val:
                 return float(m_val.group(1)), float(m_val.group(2))
                 
-    # Bulunamazsa ilçe merkezine atar
     return get_district_coord(category_name)
 
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
@@ -124,7 +120,7 @@ LANG = {
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
         "btn_support": "📞 Destek",
         "btn_lang": "🌐 Dil Değiştir",
-        "no_stock": "❌ Şu anda stokta hazır drop bulunmamaktadır.",
+        "no_stock": "❌ Şu anda stokta hazır ürün bulunmamaktadır.",
         "select_cat": "🏙️ Lütfen ürünleri incelemek istediğiniz **bölgeyi / semti** seçin:",
         "back_cats": "🔙 Bölgelere Dön",
         "no_cat_stock": "Bu bölgede aktif ürün kalmadı.",
@@ -174,7 +170,7 @@ LANG = {
         "btn_faq": "❓ How It Works (FAQ)",
         "btn_support": "📞 Support",
         "btn_lang": "🌐 Change Language",
-        "no_stock": "❌ There are currently no ready drops in stock.",
+        "no_stock": "❌ There are currently no ready products in stock.",
         "select_cat": "🏙️ Please select the **region / district** you want to view:",
         "back_cats": "🔙 Back to Regions",
         "no_cat_stock": "No active products left in this region.",
@@ -397,7 +393,6 @@ async def background_payment_worker():
                         res_json = await response.json()
                         tx_data = res_json.get("data", [])
 
-            # 1. Siparişleri kontrol et
             for order in pending_orders:
                 o_id, u_id, d_id, f_price, created_at_str, title, stock, category = order
                 
@@ -435,7 +430,6 @@ async def background_payment_worker():
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
                     asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
 
-            # 2. Bakiye yüklemelerini kontrol et
             for dep in pending_deposits:
                 dep_id, u_id, amount, created_at_str = dep
                 
@@ -514,8 +508,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
                     lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
                     map_markers_js += f"""
-                    L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
-                        .bindPopup("<b>{d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
+                    markers[{d_id}] = L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
+                        .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
                     """
 
                 cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
@@ -549,10 +543,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
-                        🗺️ İstanbul Aktif Drop Haritası 
-                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Canlı Nokta Takibi</span>
+                        🗺️ İstanbul Aktif Konum Haritası 
+                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Ürün No ile Arama</span>
                     </h2>
-                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların haritadaki tam konumları:</p>
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; padding: 10px; font-size: 14px;">
+                        <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 8px; border: none; color: white; cursor: pointer;">🔍 Haritada Bul</button>
+                    </div>
                     <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid #334155; z-index: 1;"></div>
                 </div>
 
@@ -606,7 +603,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         popupAnchor: [0, -18]
                     }});
 
+                    const markers = {{}};
                     {map_markers_js}
+
+                    function searchMarkerOnMap() {{
+                        const id = document.getElementById('searchProductId').value.trim();
+                        if (markers[id]) {{
+                            map.setView(markers[id].getLatLng(), 16);
+                            markers[id].openPopup();
+                        }} else {{
+                            alert("Bu numaraya ait aktif harita konumu bulunamadı!");
+                        }}
+                    }}
 
                     const ctx = document.getElementById('revenueChart').getContext('2d');
                     new Chart(ctx, {{
@@ -718,7 +726,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
                     rows += f"""
                     <tr>
-                        <td>#{(o_id)}</td>
+                        <td>#{o_id}</td>
                         <td>{username_str}</td>
                         <td>{title}</td>
                         <td>{f_price} USDT</td>
@@ -762,7 +770,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="table-box">
                     <h2>📦 Pasif / Stoktaki Ürünler</h2>
                     <table>
-                        <tr><th>ID</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
+                        <tr><th>Ürün No (ID)</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
                         {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
                     </table>
                 </div>
@@ -770,7 +778,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             elif tab == "add":
                 content_html = """
                 <div class="form-box">
-                    <h2>➕ Yeni Drop Ekle</h2>
+                    <h2>➕ Yeni Ürün Ekle</h2>
                     <form action="/admin-add" method="POST" id="addForm">
                         <label>Ürün Başlığı:</label>
                         <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
@@ -792,8 +800,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         for (let i = 1; i <= count; i++) {
                             container.innerHTML += `
                                 <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
-                                    <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
-                                    <label>Google Maps Konum Linki:</label>
+                                    <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
+                                    <label>Google Maps Konum Linki (Koordinat otomatik çözülür):</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
                                     <label>Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
@@ -816,7 +824,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc, e_lat, e_lon = drop_data
                     edit_form_html = f"""
                     <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
-                        <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
+                        <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
                         <form action="/admin-update" method="POST">
                             <input type="hidden" name="id" value="{edit_id}">
                             <label>Ürün Başlığı:</label>
@@ -1070,7 +1078,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
                 
-                # Google Maps linkinden enlem ve boylamı otomatik çıkar!
                 lat, lon = extract_lat_lon_from_url(loc, category)
 
                 if loc and desc:
@@ -1100,7 +1107,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
-            # Güncellenen linkten koordinatları otomatik tekrar çıkar
             lat, lon = extract_lat_lon_from_url(location, category)
 
             conn = sqlite3.connect("drop_bot.db")
@@ -1278,7 +1284,6 @@ async def change_lang_menu(message: types.Message):
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
 
-# --- 🔍 SİPARİŞ TAKİP / SORGULAMA SİSTEMİ ---
 @dp.message(F.text.in_([LANG["tr"]["btn_track"], LANG["en"]["btn_track"]]))
 async def track_order_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -1332,7 +1337,6 @@ async def process_track_code(message: types.Message, state: FSMContext):
     res_msg = t["track_result"].format(id=order_id, title=title, price=price, link=secure_link)
     await message.answer(res_msg, parse_mode="Markdown")
 
-# --- 💰 CÜZDAN & BAKİYE YÜKLEME ---
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
 async def wallet_menu(message: types.Message):
     user_id = message.from_user.id
@@ -1456,7 +1460,6 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
 
-# --- FAQ & SUPPORT ---
 @dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
 async def faq_menu(message: types.Message):
     user_id = message.from_user.id
@@ -1560,7 +1563,6 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ ÜRÜNLER / KATEGORİ ---
 @dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1607,7 +1609,7 @@ async def list_drops_by_category(callback: types.CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for d in drops:
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"{d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"#{d[0]} - {d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
     kb.inline_keyboard.append([InlineKeyboardButton(text=t["back_cats"], callback_data="back_cats")])
 
     await callback.message.edit_text(f"📦 **{cat_name}**:", reply_markup=kb)
@@ -1633,7 +1635,6 @@ async def back_to_cats(callback: types.CallbackQuery):
     
     await callback.message.edit_text(t["select_cat"], reply_markup=kb)
 
-# --- 📦 GEÇMİŞ SİPARİŞLERİM ---
 @dp.message(F.text.in_([LANG["tr"]["btn_orders"], LANG["en"]["btn_orders"]]))
 async def my_orders(message: types.Message):
     user_id = message.from_user.id
@@ -1670,7 +1671,6 @@ async def my_orders(message: types.Message):
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
-# --- ⚡ SATIN ALMA AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -1926,7 +1926,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
 
-# --- ANONİM YANITLAMA KÖPRÜSÜ ---
 @dp.message()
 async def handle_admin_group_reply(message: types.Message):
     if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
