@@ -74,6 +74,25 @@ def get_district_coord(category_name):
             return coord
     return [41.0082, 28.9784]
 
+async def fetch_wallet_balance(wallet_address):
+    try:
+        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    acc_data = data.get("data", [])
+                    if acc_data:
+                        trc20 = acc_data[0].get("trc20", [])
+                        for token in trc20:
+                            if USDT_CONTRACT in token:
+                                val_str = token[USDT_CONTRACT]
+                                return float(val_str) / 1000000.0
+        return 0.0
+    except Exception as e:
+        logging.error(f"Wallet balance fetch error: {e}")
+        return 0.0
+
 # --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
@@ -508,6 +527,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
+                # Cüzdan bakiyelerini eşzamanlı çekelim
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                loop.close()
+
                 content_html = f"""
                 <div class="stats-grid">
                     <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
@@ -528,27 +555,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Akış Yönetimi</h2>
+                    <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
                             <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
-                                📥 1. Giriş Hesabı (Bot Ödemeleri)
+                                📥 1. Giriş Hesabı (Bot)
                                 <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
+                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
                             <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
-                                🔄 2. Çıkış / Ara Hesap (Bitay / Köprü)
+                                🔄 2. Çıkış / Ara Hesap (Bitay)
                                 <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
+                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
                             <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
-                                💰 3. Ana Birikim / Kasa Cüzdanı
+                                💰 3. Ana Birikim / Kasa
                                 <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
+                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
                         </div>
                     </div>
