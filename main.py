@@ -122,8 +122,9 @@ LANG = {
         "success_order": "✅ Sipariş #{id} onaylandı. Takip Kodunuz: `WEE-{id}`",
         "success_msg": "🎉 Ödemeniz onaylandı!\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wait_tx": "⚠️ Henüz transfer yansımadı, blokzincir bekleniyor...",
-        "support_ask": "📞 Destek mesajınızı yazın, admin grubuna iletilsin:",
-        "support_sent": "✅ Destek mesajınız admin grubuna iletildi.",
+        "support_ask": "📞 Canlı destek hattına bağlandınız. Lütfen mesajınızı yazın:\n\n*(Sohbeti sonlandırmak için aşağıdaki butonu kullanabilirsiniz)*",
+        "support_sent": "✅ Mesajınız canlı destek ekibimize iletildi. Yanıt bekleniyor...",
+        "support_closed": "🔒 Canlı destek oturumu sonlandırıldı.",
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
@@ -172,8 +173,9 @@ LANG = {
         "success_order": "✅ Order #{id} approved. Tracking Code: `WEE-{id}`",
         "success_msg": "🎉 Your payment is approved!\n🔑 Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
         "wait_tx": "⚠️ Transfer not reflected yet, checking blockchain...",
-        "support_ask": "📞 Type your support message to send to the admin team:",
-        "support_sent": "✅ Your support message has been sent to the admin team.",
+        "support_ask": "📞 Connected to live support. Type your message below:\n\n*(You can use the button below to end the chat)*",
+        "support_sent": "✅ Your message has been sent to our live support team. Waiting for response...",
+        "support_closed": "🔒 Live support session has been ended.",
         "banned": "❌ Your access has been restricted."
     }
 }
@@ -236,6 +238,16 @@ def init_db():
             is_banned INTEGER DEFAULT 0,
             language TEXT DEFAULT 'tr',
             balance REAL DEFAULT 0.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sender TEXT,
+            message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -426,7 +438,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & HARİTA SİSTEMİ ---
+# --- WEB SUNUCUSU & CANLI DESTEK SİSTEMİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -602,6 +614,84 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }}
                     }});
                 </script>
+                """
+            elif tab == "support":
+                cursor.execute("SELECT DISTINCT user_id FROM support_messages")
+                active_chats_users = [row[0] for row in cursor.fetchall()]
+                
+                selected_user_id = query_params.get("user_id", [str(active_chats_users[0]) if active_chats_users else "0"])[0]
+                try:
+                    selected_user_id = int(selected_user_id)
+                except:
+                    selected_user_id = 0
+
+                chat_list_html = ""
+                for uid in active_chats_users:
+                    cursor.execute("SELECT username FROM users WHERE user_id = ?", (uid,))
+                    u_row = cursor.fetchone()
+                    uname = f"@{u_row[0]}" if u_row and u_row[0] else f"User {uid}"
+                    active_style = "background: #1e293b; border-color: #38bdf8;" if uid == selected_user_id else "background: #0f172a;"
+                    chat_list_html += f"""
+                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 12px; border-radius: 8px; text-decoration: none; color: white; margin-bottom: 8px; border: 1px solid #334155; {active_style}">
+                        <div style="font-weight: bold; color: #38bdf8;">{uname}</div>
+                        <div style="font-size: 11px; color: #94a3b8;">ID: {uid}</div>
+                    </a>
+                    """
+
+                messages_html = ""
+                if selected_user_id:
+                    cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (selected_user_id,))
+                    msgs = cursor.fetchall()
+                    for m in msgs:
+                        sender, msg_text, m_date = m
+                        is_admin_msg = sender == "admin"
+                        bg_color = "#2563eb" if is_admin_msg else "#1e293b"
+                        align = "margin-left: auto;" if is_admin_msg else "margin-right: auto;"
+                        sender_label = "👑 Yönetici (Sen)" if is_admin_msg else "👤 Müşteri"
+                        messages_html += f"""
+                        <div style="max-width: 75%; background: {bg_color}; padding: 12px 15px; border-radius: 12px; margin-bottom: 12px; {align} border: 1px solid #334155;">
+                            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; display:flex; justify-content: space-between;">
+                                <span>{sender_label}</span>
+                                <span>{m_date}</span>
+                            </div>
+                            <div style="font-size: 14px; word-break: break-word;">{msg_text}</div>
+                        </div>
+                        """
+
+                chat_box_html = ""
+                if selected_user_id:
+                    chat_box_html = f"""
+                    <div style="display: flex; flex-direction: column; height: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
+                            <h3 style="margin: 0; color: #38bdf8;">💬 Aktif Sohbet (Kullanıcı ID: {selected_user_id})</h3>
+                            <form action="/admin-close-support" method="POST" style="margin:0;">
+                                <input type="hidden" name="user_id" value="{selected_user_id}">
+                                <button type="submit" style="background: #ef4444; padding: 8px 16px; font-size: 12px; width: auto; border-radius: 6px;">🔒 Sohbeti Bitir & Temizle</button>
+                            </form>
+                        </div>
+                        <div style="flex: 1; overflow-y: auto; max-height: 400px; padding-right: 5px; margin-bottom: 15px;">
+                            {messages_html if messages_html else "<p style='text-align:center; color:#64748b;'>Henüz mesaj yok.</p>"}
+                        </div>
+                        <form action="/admin-send-support" method="POST" style="display: flex; gap: 10px; margin: 0;">
+                            <input type="hidden" name="user_id" value="{selected_user_id}">
+                            <input type="text" name="message" required placeholder="Müşteriye yanıt yazın..." style="margin:0; flex: 1;">
+                            <button type="submit" style="width: auto; background: #10b981; padding: 0 25px;">Gönder</button>
+                        </form>
+                    </div>
+                    """
+                else:
+                    chat_box_html = "<p style='text-align:center; color:#64748b; padding: 50px;'>Sol menüden bir müşteri sohbeti seçin.</p>"
+
+                content_html = f"""
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; min-height: 520px;">
+                    <div style="border-right: 1px solid #1f2937; padding-right: 15px; overflow-y: auto; max-height: 500px;">
+                        <h3 style="margin-top: 0; color: #f8fafc; font-size: 16px;">👥 Destek Talepleri</h3>
+                        {chat_list_html if chat_list_html else "<p style='color:#64748b; font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        {chat_box_html}
+                    </div>
+                </div>
                 """
             elif tab == "users":
                 cursor.execute("""
@@ -859,6 +949,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
+                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
@@ -992,7 +1083,55 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-ban":
+        if parsed_path.path == "/admin-send-support":
+            try:
+                target_uid = int(params.get("user_id", ["0"])[0])
+                msg_text = params.get("message", [""])[0].strip()
+                if target_uid and msg_text:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'admin', ?)", (target_uid, msg_text))
+                    conn.commit()
+                    conn.close()
+
+                    if main_loop:
+                        kb = InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
+                        ])
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(target_uid, f"💬 **Destek Ekibi:**\n\n{msg_text}", reply_markup=kb),
+                            main_loop
+                        )
+            except Exception as e:
+                logging.error(e)
+
+            self.send_response(303)
+            self.send_header('Location', f'/admin-web?tab=support&user_id={params.get("user_id", ["0"])[0]}')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-close-support":
+            try:
+                target_uid = int(params.get("user_id", ["0"])[0])
+                if target_uid:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (target_uid,))
+                    conn.commit()
+                    conn.close()
+
+                    if main_loop:
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı ve mesaj geçmişiniz temizlendi."),
+                            main_loop
+                        )
+            except Exception as e:
+                logging.error(e)
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=support')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-ban":
             target_uid = params.get("user_id", ["0"])[0]
             action = params.get("action", ["ban"])[0]
             is_b = 1 if action == "ban" else 0
@@ -1470,29 +1609,49 @@ async def support_start(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or is_user_banned(user_id):
         return
     lang = get_user_lang(user_id)
+    t = LANG[lang]
     await state.set_state(SupportState.message)
-    await message.answer(LANG[lang]["support_ask"])
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
+    ])
+    await message.answer(t["support_ask"], reply_markup=kb)
+
+@dp.callback_query(F.data == "close_support_chat")
+async def close_support_callback(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    await state.clear()
+    
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+    await callback.answer("Sohbet kapatıldı.", show_alert=True)
+    await callback.message.edit_text("🔒 Canlı destek oturumu sonlandırıldı.")
 
 @dp.message(SupportState.message)
-async def forward_support_to_group(message: types.Message, state: FSMContext):
+async def forward_support_to_panel(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     if message.chat.type != "private" or is_user_banned(user_id):
         return
     lang = get_user_lang(user_id)
+    t = LANG[lang]
     user_msg = message.text
-    username = message.from_user.username or "Bulunmuyor"
-    await state.clear()
-    await message.answer(LANG[lang]["support_sent"])
-    try:
-        conn = sqlite3.connect("drop_bot.db")
-        cursor = conn.cursor()
-        cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
-        conn.commit()
-        conn.close()
-        log_panel_event(f"📩 Yeni Destek: @{username} (ID: {user_id})", "info")
-        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\n💬 Mesaj:\n{user_msg}")
-    except Exception as e:
-        logging.error(e)
+    username = message.from_user.username or f"User {user_id}"
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (user_id, user_msg))
+    conn.commit()
+    conn.close()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
+    ])
+    await message.answer(t["support_sent"], reply_markup=kb)
+    log_panel_event(f"💬 Canlı Destek Mesajı: @{username} (ID: {user_id})", "info")
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
@@ -1903,23 +2062,6 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
     else:
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
-
-@dp.message()
-async def handle_admin_group_reply(message: types.Message):
-    if message.chat.id == ADMIN_GROUP_ID and message.reply_to_message:
-        original_text = message.reply_to_message.text or ""
-        match = re.search(r"Kullanıcı ID:\s*`(\d+)`", original_text)
-        if match:
-            target_user_id = int(match.group(1))
-            admin_reply_text = message.text
-            try:
-                await bot.send_message(
-                    target_user_id,
-                    f"💬 **Destek Ekibi Yanıtı:**\n\n{admin_reply_text}"
-                )
-                await message.reply("✅ Yanıt müşteriye başarıyla iletildi.")
-            except Exception as e:
-                await message.reply(f"⚠️ Müşteriye mesaj iletilemedi: {e}")
 
 async def main():
     global main_loop
