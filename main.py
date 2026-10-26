@@ -38,7 +38,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
-# --- İSTANBUL İLÇE KOORDİNATLARI (YEDEK) ---
+# --- İSTANBUL İLÇE KOORDİNATLARI (TEMSİLİ MERKEZLER) ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
     "KADIKÖY": [40.9901, 29.0254],
@@ -474,7 +474,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & CANLI DESTEK SİSTEMİ ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -496,121 +496,326 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Weed Istanbul - Mini App</title>
+                <title>Weed Istanbul - Ultimate Mini App</title>
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 15px; box-sizing: border-box; }}
-                    .container {{ max-width: 500px; margin: 0 auto; }}
-                    h2 {{ color: #38bdf8; text-align: center; margin-bottom: 15px; }}
-                    .search-box {{ background: #111827; padding: 15px; border-radius: 12px; border: 1px solid #1f2937; margin-bottom: 20px; }}
-                    input {{ width: 100%; padding: 12px; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; margin-bottom: 10px; }}
-                    button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
+                    :root {{
+                        --bg-main: #090d16;
+                        --card-bg: #111827;
+                        --border-color: #1f2937;
+                        --accent-blue: #38bdf8;
+                        --accent-green: #10b981;
+                        --accent-red: #ef4444;
+                        --text-muted: #9ca3af;
+                    }}
+                    body {{ background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }}
+                    .nav-tabs {{ display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }}
+                    .tab-btn {{ background: var(--card-bg); color: var(--text-muted); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; }}
+                    .tab-btn.active {{ background: #2563eb; color: white; border-color: #3b82f6; }}
+                    .tab-content {{ display: none; }}
+                    .tab-content.active {{ display: block; }}
+                    
+                    .promo-banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }}
+                    .coupon-tag {{ background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }}
+                    
+                    #mainMap {{ width: 100%; height: 300px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 15px; }}
+                    .card {{ background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
+                    
+                    input, select {{ width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }}
+                    button {{ background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }}
                     button:hover {{ background: #1d4ed8; }}
-                    #map {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid #1f2937; margin-bottom: 15px; display: none; }}
-                    .result-card {{ background: #111827; padding: 15px; border-radius: 12px; border: 1px solid #1f2937; display: none; margin-bottom: 15px; }}
-                    .btn-received {{ background: #10b981; margin-top: 10px; }}
+                    
+                    .btn-received {{ background: var(--accent-green); }}
                     .btn-received:hover {{ background: #059669; }}
-                    .btn-close {{ background: #ef4444; margin-top: 15px; }}
+                    .btn-close {{ background: var(--accent-red); margin-top: 15px; }}
+                    
+                    /* Chat box CSS */
+                    .chat-box {{ height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }}
+                    .msg {{ margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }}
+                    .msg-user {{ background: #2563eb; margin-left: auto; color: white; }}
+                    .msg-admin {{ background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }}
                 </style>
             </head>
             <body>
-                <div class="container">
-                    <h2>🗺️ Weed Istanbul Mini App</h2>
-                    <div class="search-box">
-                        <label style="font-size: 13px; color: #9ca3af;">Sipariş Kodunuzu Girin (Örn: WEE-5 veya 5):</label>
-                        <input type="text" id="orderInput" placeholder="Sipariş No...">
-                        <button onclick="searchOrder()">🔍 Haritada Konumu Bul</button>
-                    </div>
-
-                    <div id="map"></div>
-
-                    <div id="resultCard" class="result-card">
-                        <h3 id="resTitle" style="color: #38bdf8; margin-top: 0;"></h3>
-                        <div id="resPhotoContainer"></div>
-                        <p id="resDesc" style="background: #090d16; padding: 10px; border-radius: 8px; font-size: 13px; word-break: break-all; border: 1px solid #374151;"></p>
-                        <a id="resMapsBtn" href="#" target="_blank" class="btn" style="display:block; background:#2563eb; color:white; text-align:center; padding:10px; border-radius:8px; text-decoration:none; font-weight:bold; margin-top:10px;">Google Haritalar'da Aç</a>
-                        <button id="receivedBtn" class="btn btn-received" onclick="markReceived()">✅ Ürünü Teslim Aldım</button>
-                    </div>
-
-                    <button class="btn btn-close" onclick="Telegram.WebApp.close()">🤖 Bot ile Devam Et / Kapat</button>
+                <div class="nav-tabs">
+                    <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Aktif Harita</button>
+                    <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
+                    <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdanım</button>
+                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
+                    <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
+                <!-- 1. TAB: HARİTA (Aktif Teslim Alınmamış Siparişler & Temsili Droplar) -->
+                <div id="tabMap" class="tab-content active">
+                    <div id="promoContainer"></div>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>📌 <b>Mavi Pinler:</b> Temsili bölge stokları (Satın almadan tam adres açılmaz).</p>
+                    <div id="mainMap"></div>
+                    <div id="activeOrdersList"></div>
+                </div>
+
+                <!-- 2. TAB: ÜRÜN KATALOĞU (Temsili Bölge Gösterimli) -->
+                <div id="tabProducts" class="tab-content">
+                    <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
+                    <div id="productsList"></div>
+                </div>
+
+                <!-- 3. TAB: CÜZDANIM & BAKİYE YÜKLEME -->
+                <div id="tabWallet" class="tab-content">
+                    <div class="card">
+                        <h3 style="color: var(--accent-green); margin-top:0;">💰 Güncel Bakiye</h3>
+                        <p style="font-size: 24px; font-weight: bold; margin: 5px 0;" id="userBalText">... USDT</p>
+                        <hr style="border-color: var(--border-color); margin: 15px 0;">
+                        <h4>📥 Bakiye Yükle (USDT TRC-20)</h4>
+                        <label style="font-size: 12px; color: var(--text-muted);">Yüklemek İstediğiniz Tutar (USDT):</label>
+                        <input type="number" id="depAmount" placeholder="Örn: 50">
+                        <button onclick="createDeposit()">Cüzdan Adresi Oluştur</button>
+                    </div>
+                    <div id="depositResult"></div>
+                </div>
+
+                <!-- 4. TAB: GEÇMİŞ SİPARİŞLER (Teslim Alınanlar) -->
+                <div id="tabOrders" class="tab-content">
+                    <h3 style="color: var(--accent-blue); margin-top:0;">📦 Tamamlanan / Geçmiş Siparişlerim</h3>
+                    <div id="pastOrdersList"></div>
+                </div>
+
+                <!-- 5. TAB: MİNİ APP İÇİ CHAT DESTEK -->
+                <div id="tabSupport" class="tab-content">
+                    <h3 style="color: var(--accent-blue); margin-top:0;">💬 Canlı Destek Ekibi</h3>
+                    <div class="chat-box" id="chatBox"></div>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="chatInput" placeholder="Mesajınızı yazın..." style="margin:0;">
+                        <button onclick="sendChatMessage()" style="width: 80px;">Gönder</button>
+                    </div>
+                </div>
+
+                <button class="btn btn-close" onclick="Telegram.WebApp.close()">🤖 Devam Et / Botu Kapat</button>
+
                 <script>
-                    let map, marker;
-                    let currentOrderId = null;
+                    const tg = window.Telegram.WebApp;
+                    tg.expand();
+                    const initData = tg.initDataUnsafe;
+                    const userId = initData.user ? initData.user.id : 0;
 
-                    function initMap() {{
-                        map = L.map('map').setView([41.0082, 28.9784], 12);
-                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-                            attribution: '&copy; OpenStreetMap contributors'
-                        }}).addTo(map);
+                    let map, markersGroup;
+
+                    function switchTab(tabId) {{
+                        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                        document.getElementById(tabId).classList.add('active');
+                        event.target.classList.add('active');
+
+                        if(tabId === 'tabMap' && map) {{
+                            setTimeout(() => {{ map.invalidateSize(); }}, 200);
+                        }}
                     }}
 
-                    async function searchOrder() {{
-                        const raw = document.getElementById('orderInput').value.trim().toUpperCase().replace("WEE-", "").replace("#", "");
-                        if(!raw) {{
-                            alert("Lütfen geçerli bir sipariş numarası yazın!");
-                            return;
-                        }}
-
+                    async function loadAppData() {{
+                        if(!userId) return;
                         try {{
-                            const res = await fetch('/api/miniapp-lookup?code=' + raw);
+                            const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
-                            if(data.success) {{
-                                currentOrderId = data.id;
-                                document.getElementById('map').style.display = 'block';
-                                document.getElementById('resultCard').style.display = 'block';
-
-                                document.getElementById('resTitle').innerText = "#" + data.id + " - " + data.title;
-                                document.getElementById('resDesc').innerText = "📝 İpucu / Not: " + data.description;
-                                document.getElementById('resMapsBtn').href = `https://www.google.com/maps?q=${{data.lat}},${{data.lon}}`;
-
-                                const photoContainer = document.getElementById('resPhotoContainer');
-                                if(data.photo) {{
-                                    photoContainer.innerHTML = `<img src="${{data.photo}}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-bottom:10px; border:1px solid #374151;">`;
-                                }} else {{
-                                    photoContainer.innerHTML = '';
-                                }}
-
-                                const recvBtn = document.getElementById('receivedBtn');
-                                if(data.status === 'received') {{
-                                    recvBtn.innerText = "✅ Teslim Alındı Olarak İşaretlendi";
-                                    recvBtn.disabled = true;
-                                    recvBtn.style.background = '#374151';
-                                }} else {{
-                                    recvBtn.innerText = "✅ Ürünü Teslim Aldım";
-                                    recvBtn.disabled = false;
-                                    recvBtn.style.background = '#10b981';
-                                }}
-
-                                if(!map) initMap();
-                                map.setView([data.lat, data.lon], 16);
-                                if(marker) map.removeLayer(marker);
-                                marker = L.marker([data.lat, data.lon]).addTo(map)
-                                    .bindPopup(`<b>${{data.title}}</b><br>Bölge: ${{data.category}}`).openPopup();
-                            }} else {{
-                                alert("Bu kodla eşleşen aktif veya onaylanmış bir sipariş bulunamadı!");
+                            
+                            // Bakiye & Promosyonlar
+                            document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
+                            
+                            let promoHtml = "";
+                            if(data.promo_5g) {{
+                                promoHtml += `<div class="promo-banner">🎁 <b>Özel Kampanya:</b> Toplu alımlarda <b>5 Gram Alana 1 Gram Hediye!</b></div>`;
                             }}
+                            if(data.coupons && data.coupons.length > 0) {{
+                                data.coupons.forEach(c => {{
+                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${{c.code}}</span> (-${{c.discount}} USDT İndirim)</div>`;
+                                }});
+                            }}
+                            document.getElementById('promoContainer').innerHTML = promoHtml;
+
+                            // Haritayı İlklendir
+                            initMap(data.active_orders, data.temsili_drops);
+
+                            // Aktif Teslim Alınmamış Siparişler Listesi
+                            let activeHtml = "";
+                            if(data.active_orders.length > 0) {{
+                                data.active_orders.forEach(o => {{
+                                    activeHtml += `
+                                    <div class="card" style="border-left: 4px solid var(--accent-red);">
+                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${{o.id}} - ${{o.title}}</h4>
+                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${{o.description}}</p>
+                                        <a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none; font-weight:bold;">📍 Google Maps'te Aç</a>
+                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${{o.id}})">✅ Ürünü Teslim Aldım</button>
+                                    </div>`;
+                                }});
+                            }} else {{
+                                activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
+                            }}
+                            document.getElementById('activeOrdersList').innerHTML = activeHtml;
+
+                            // Ürün Kataloğu
+                            let prodHtml = "";
+                            data.temsili_drops.forEach(p => {{
+                                prodHtml += `
+                                <div class="card">
+                                    <h4 style="margin:0; color:var(--accent-blue);">${{p.title}} (Semt: ${{p.category}})</h4>
+                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${{p.price}} USDT | Stok: ${{p.stock}} Adet</p>
+                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres sadece satın alma tamamlandıktan sonra haritada görünür.</p>
+                                    <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
+                                </div>`;
+                            }});
+                            document.getElementById('productsList').innerHTML = prodHtml;
+
+                            // Geçmiş Siparişler
+                            let pastHtml = "";
+                            if(data.past_orders.length > 0) {{
+                                data.past_orders.forEach(po => {{
+                                    pastHtml += `
+                                    <div class="card" style="opacity:0.8;">
+                                        <h4 style="margin:0;">Sipariş #${{po.id}} - ${{po.title}}</h4>
+                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
+                                    </div>`;
+                                }});
+                            }} else {{
+                                pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz geçmiş siparişiniz bulunmuyor.</p>`;
+                            }}
+                            document.getElementById('pastOrdersList').innerHTML = pastHtml;
+
                         }} catch(e) {{
-                            alert("Sorgulama sırasında bir hata oluştu.");
+                            console.error(e);
                         }}
                     }}
 
-                    async function markReceived() {{
-                        if(!currentOrderId) return;
+                    function initMap(activeOrders, temsilidrops) {{
+                        if(map) return;
+                        map = L.map('mainMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
+                        markersGroup = L.layerGroup().addTo(map);
+
+                        // 1. Kırmızı Pinler (Aktif Gerçek Sipariş Konumları)
+                        activeOrders.forEach(o => {{
+                            const redIcon = L.divIcon({{
+                                html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📍</div>',
+                                iconSize: [24, 24]
+                            }});
+                            L.marker([o.lat, o.lon], {{icon: redIcon}}).addTo(markersGroup)
+                                .bindPopup(`<b>Sipariş #${{o.id}}</b><br>${{o.title}}<br><br><button style="padding:4px;" onclick="markReceived(${{o.id}})">Teslim Aldım</button>`);
+                        }});
+
+                        // 2. Mavi Pinler (Temsili Bölge Merkezleri)
+                        temsilidrops.forEach(td => {{
+                            const blueIcon = L.divIcon({{
+                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📦</div>',
+                                iconSize: [24, 24]
+                            }});
+                            L.marker([td.lat, td.lon], {{icon: blueIcon}}).addTo(markersGroup)
+                                .bindPopup(`<b>${{td.title}}</b><br>Temsili Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT`);
+                        }});
+                    }}
+
+                    async function markReceived(orderId) {{
+                        if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz? (Haritadan kaldırılacaktır)")) return;
                         try {{
-                            const res = await fetch('/api/miniapp-received?id=' + currentOrderId);
+                            const res = await fetch('/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
                             if(data.success) {{
                                 alert("Ürün teslim alındı olarak kaydedildi!");
-                                searchOrder();
+                                location.reload();
                             }}
                         }} catch(e) {{
                             alert("İşlem başarısız.");
                         }}
                     }}
+
+                    async function buyProduct(dropId, price) {{
+                        if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
+                        try {{
+                            const res = await fetch(`/api/miniapp-buy?user_id=${{userId}}&drop_id=${{dropId}}`);
+                            const data = await res.json();
+                            if(data.success) {{
+                                alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
+                                location.reload();
+                            }} else {{
+                                alert("❌ Hata: " + (data.message || "Bakiyeniz yetersiz olabilir."));
+                            }}
+                        }} catch(e) {{
+                            alert("İşlem yapılırken hata oluştu.");
+                        }}
+                    }}
+
+                    async function createDeposit() {{
+                        const amount = document.getElementById('depAmount').value;
+                        if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
+                        try {{
+                            const res = await fetch(`/api/miniapp-deposit?user_id=${{userId}}&amount=${{amount}}`);
+                            const data = await res.json();
+                            if(data.success) {{
+                                document.getElementById('depositResult').innerHTML = `
+                                <div class="card" style="border: 1px solid var(--accent-green);">
+                                    <h4 style="color:var(--accent-green); margin-top:0;">Yatırım Adresi Oluşturuldu</h4>
+                                    <p style="font-size:12px;">Tutar: <b>${{amount}} USDT</b></p>
+                                    <input type="text" value="${{data.wallet}}" readonly>
+                                    <button onclick="checkDeposit(${{data.deposit_id}}, ${{amount}})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
+                                </div>`;
+                            }}
+                        }} catch(e) {{
+                            alert("Bakiye yükleme talebi oluşturulamadı.");
+                        }}
+                    }}
+
+                    async function checkDeposit(depId, amount) {{
+                        alert("Blokzincir taranıyor, lütfen bekleyin...");
+                        try {{
+                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${{depId}}&user_id=${{userId}}&amount=${{amount}}`);
+                            const data = await res.json();
+                            if(data.success) {{
+                                alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
+                                location.reload();
+                            }} else {{
+                                alert("⚠️ Transfer henüz algılanmadı, birkaç saniye sonra tekrar deneyin.");
+                            }}
+                        }} catch(e) {{
+                            alert("Kontrol başarısız.");
+                        }}
+                    }}
+
+                    // Support Chat Listener & Functions
+                    async function loadChatMessages() {{
+                        if(!userId) return;
+                        try {{
+                            const res = await fetch('/api/miniapp-chat?user_id=' + userId);
+                            const data = await res.json();
+                            let chatHtml = "";
+                            data.messages.forEach(m => {{
+                                const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
+                                const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
+                                chatHtml += `<div class="msg ${{cls}}"><b>${{senderName}}:</b> ${{m.message}}</div>`;
+                            }});
+                            const box = document.getElementById('chatBox');
+                            box.innerHTML = chatHtml;
+                            box.scrollTop = box.scrollHeight;
+                        }} catch(e) {{}}
+                    }}
+
+                    async function sendChatMessage() {{
+                        const inp = document.getElementById('chatInput');
+                        const msg = inp.value.trim();
+                        if(!msg) return;
+                        inp.value = '';
+                        try {{
+                            await fetch('/api/miniapp-chat-send', {{
+                                method: 'POST',
+                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                                body: `user_id=${{userId}}&message=${{encodeURIComponent(msg)}}`
+                            }});
+                            loadChatMessages();
+                        }} catch(e) {{}}
+                    }}
+
+                    window.onload = () => {{
+                        loadAppData();
+                        loadChatMessages();
+                        setInterval(loadChatMessages, 4000);
+                    }};
                 </script>
             </body>
             </html>
@@ -621,44 +826,187 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(miniapp_html.encode("utf-8"))
             return
 
-        if parsed_path.path == "/api/miniapp-lookup":
-            code = query_params.get("code", ["0"])[0]
+        if parsed_path.path == "/api/miniapp-data":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            
+            # User Balance
+            cursor.execute("SELECT balance FROM users WHERE user_id = ?", (uid,))
+            u_row = cursor.fetchone()
+            bal = u_row[0] if u_row else 0.0
+
+            # Promos
+            cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
+            p_res = cursor.fetchone()
+            promo_5g = p_res and p_res[0] == "1"
+
+            cursor.execute("SELECT code, discount FROM coupons WHERE uses_left > 0")
+            coupons_rows = cursor.fetchall()
+            coupons = [{"code": r[0], "discount": r[1]} for r in coupons_rows]
+
+            # Aktif Siparişler (Teslim Alınmamış - Tam Konumlar)
+            cursor.execute("""
+                SELECT orders.id, drops.title, drops.lat, drops.lon, drops.description, drops.category
+                FROM orders 
+                JOIN drops ON orders.drop_id = drops.id 
+                WHERE orders.user_id = ? AND orders.status = 'completed'
+            """, (uid,))
+            active_orders_rows = cursor.fetchall()
+            active_orders = []
+            for r in active_orders_rows:
+                lat = r[2] if r[2] and r[2] != 0.0 else get_district_coord(r[5])[0]
+                lon = r[3] if r[3] and r[3] != 0.0 else get_district_coord(r[5])[1]
+                active_orders.append({"id": r[0], "title": r[1], "lat": lat, "lon": lon, "description": r[4]})
+
+            # Geçmiş Siparişler (Teslim Alınmışlar)
+            cursor.execute("""
+                SELECT orders.id, drops.title, orders.created_at
+                FROM orders 
+                JOIN drops ON orders.drop_id = drops.id 
+                WHERE orders.user_id = ? AND orders.status = 'received'
+                ORDER BY orders.id DESC
+            """, (uid,))
+            past_orders_rows = cursor.fetchall()
+            past_orders = [{"id": r[0], "title": r[1], "date": r[2]} for r in past_orders_rows]
+
+            # Temsili Droplar (Satın Alınmamış Stoklar - Bölge Koordinatları)
+            cursor.execute("SELECT id, title, price, category, stock FROM drops WHERE is_sold = 0 AND stock > 0")
+            temsili_rows = cursor.fetchall()
+            temsili_drops = []
+            for r in temsili_rows:
+                coord = get_district_coord(r[3])
+                temsili_drops.append({"id": r[0], "title": r[1], "price": r[2], "category": r[3], "stock": r[4], "lat": coord[0], "lon": coord[1]})
+
+            conn.close()
+
+            resp = {
+                "balance": bal,
+                "promo_5g": promo_5g,
+                "coupons": coupons,
+                "active_orders": active_orders,
+                "past_orders": past_orders,
+                "temsili_drops": temsili_drops
+            }
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-buy":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            did = int(query_params.get("drop_id", ["0"])[0])
+            
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (did,))
+            drop = cursor.fetchone()
+            
+            if not drop:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Stok tükenmiş."}).encode("utf-8"))
+                return
+
+            title, price, stock = drop
+            bal = get_user_balance(uid)
+
+            if bal < price:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Bakiyeniz yetersiz."}).encode("utf-8"))
+                return
+
+            cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
+            new_stock = stock - 1
+            if new_stock <= 0:
+                cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (did,))
+            else:
+                cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, did))
+
+            cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, did, price))
+            oid = cursor.lastrowid
+            conn.commit()
+            conn.close()
+
+            log_panel_event(f"⚡ Mini App İçinden Satış: Sipariş #{oid} - {title} ({price} USDT)", "success")
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "order_id": oid}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-deposit":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            amount = float(query_params.get("amount", ["0"])[0])
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
+            dep_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "deposit_id": dep_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-check-deposit":
+            dep_id = int(query_params.get("dep_id", ["0"])[0])
+            uid = int(query_params.get("user_id", ["0"])[0])
+            target_amount = float(query_params.get("amount", ["0"])[0])
+
+            api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
+            verified = False
             try:
-                oid = int(code)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(api_url) as response:
+                        if response.status == 200:
+                            res_json = loop.run_until_complete(response.json())
+                            for tx in res_json.get("data", []):
+                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                                    verified = True
+                                    break
+                loop.close()
+            except Exception as e:
+                logging.error(e)
+
+            if verified:
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT orders.id, drops.title, drops.lat, drops.lon, drops.photo_ids, drops.description, drops.category, orders.status 
-                    FROM orders 
-                    JOIN drops ON orders.drop_id = drops.id 
-                    WHERE orders.id = ? AND orders.status IN ('completed', 'received')
-                """, (oid,))
-                row = cursor.fetchone()
+                cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
+                cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
+                conn.commit()
                 conn.close()
+                log_panel_event(f"📥 Mini App Bakiye Yükleme Onaylandı: Kullanıcı {uid} - {target_amount} USDT", "success")
 
-                if row:
-                    d_id, title, lat, lon, photo, desc, cat, status = row
-                    lat = lat if lat and lat != 0.0 else get_district_coord(cat)[0]
-                    lon = lon if lon and lon != 0.0 else get_district_coord(cat)[1]
-                    resp = {
-                        "success": True,
-                        "id": d_id,
-                        "title": title,
-                        "lat": lat,
-                        "lon": lon,
-                        "photo": photo,
-                        "description": desc,
-                        "category": cat,
-                        "status": status
-                    }
-                    self.wfile.write(json.dumps(resp).encode("utf-8"))
-                else:
-                    self.wfile.write(b'{"success": false}')
-            except:
-                self.wfile.write(b'{"success": false}')
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": verified}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-chat":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
+            msgs = [{"sender": r[0], "message": r[1], "date": r[2]} for r in cursor.fetchall()]
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
             return
 
         if parsed_path.path == "/api/miniapp-received":
@@ -1575,6 +1923,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get('Content-Length', 0))
         post_data = self.rfile.read(content_length).decode('utf-8')
         params = parse_qs(post_data)
+
+        if parsed_path.path == "/api/miniapp-chat-send":
+            uid = int(params.get("user_id", ["0"])[0])
+            msg = params.get("message", [""])[0].strip()
+            if uid and msg:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (uid, msg))
+                conn.commit()
+                conn.close()
+                log_panel_event(f"💬 Mini App Canlı Destek Mesajı (ID: {uid})", "info")
+            
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b'{"success": true}')
+            return
 
         if parsed_path.path == "/admin-login":
             username = params.get("username", [""])[0]
