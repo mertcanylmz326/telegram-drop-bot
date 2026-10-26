@@ -277,6 +277,14 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('promo_5g_active', '1')")
     
     for col, def_val in [
         ("is_banned", "INTEGER DEFAULT 0"), 
@@ -479,7 +487,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
-        # --- MESAJ KONTROL API'Sİ ---
         if parsed_path.path == "/api/check-new-messages":
             if not is_logged_in:
                 self.send_response(401)
@@ -816,6 +823,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </form>
                 </div>
                 """
+            elif tab == "promo5g":
+                cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
+                s_res = cursor.fetchone()
+                is_5g_active = s_res and s_res[0] == "1"
+                status_text = "🟢 AKTİF (5 Alana 1 Hediye Bilgilendirmesi Açık)" if is_5g_active else "🔴 PASİF"
+                toggle_btn_text = "Kampanyayı Kapat" if is_5g_active else "Kampanyayı Aç"
+                toggle_val = "0" if is_5g_active else "1"
+
+                content_html = f"""
+                <div class="form-box" style="border: 1px solid #10b981;">
+                    <h2 style="color: #10b981; margin-top: 0;">🎁 5 Gram Alana 1 Gram Hediye Kampanyası</h2>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Mevcut Durum: <b>{status_text}</b></p>
+                    <p style="color: var(--text-color); font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
+                        Bu kampanya aktif olduğunda, ürün alım ekranlarında kullanıcılara otomatik olarak <b>"5 Alana 1 Hediye"</b> hatırlatması yapılır ve duyuru bot üzerinden tetiklenebilir.
+                    </p>
+                    <form action="/admin-toggle-5g" method="POST">
+                        <input type="hidden" name="status" value="{toggle_val}">
+                        <button type="submit" style="background: {'#ef4444' if is_5g_active else '#10b981'}; width: auto; padding: 12px 25px;">{toggle_btn_text}</button>
+                    </form>
+                </div>
+                """
             elif tab == "coupons":
                 cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
                 c_rows = cursor.fetchall()
@@ -867,28 +895,29 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
                     
                     balance_form = f"""
-                    <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:5px; align-items:center;">
+                    <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
                         <input type="hidden" name="user_id" value="{uid}">
-                        <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:90px; margin:0; padding:6px; font-size:12px;">
-                        <button type="submit" style="background:#2563eb; padding:6px 10px; font-size:11px; width:auto;">Güncelle</button>
+                        <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:110px; margin:0; padding:8px; font-size:13px; font-weight:bold; color:#38bdf8; background:#090d16; border:1px solid #38bdf8; border-radius:6px;">
+                        <button type="submit" style="background:#2563eb; padding:8px 12px; font-size:12px; width:auto; border-radius:6px;">Düzenle</button>
                     </form>
                     """
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
                         <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
-                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:5px 10px; font-size:11px; width:auto;">
+                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:12px; width:auto; border-radius:6px;">
                             {'Unban' if is_b == 1 else 'Ban'}
                         </button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td>{balance_form}</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
-                <div class="table-box">
-                    <h2>👥 Müşteri CRM & Bakiye Yönetimi</h2>
+                <div class="table-box" style="border: 1px solid #38bdf8;">
+                    <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Müşterilerin anlık bakiyelerini görebilir, dilediğiniz gibi küsuratlı şekilde güncelleyebilir veya banlayabilirsiniz.</p>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Bakiye (USDT)</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
                         {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
@@ -1211,6 +1240,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
                     <a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>
+                    <a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>
                     <a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
@@ -1366,6 +1396,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=broadcast')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-toggle-5g":
+            status = params.get("status", ["0"])[0]
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE settings SET value = ? WHERE key = 'promo_5g_active'", (status,))
+            conn.commit()
+            conn.close()
+            log_panel_event(f"🎁 5 Alana 1 Hediye kampanyası güncellendi: {'Aktif' if status == '1' else 'Pasif'}", "info")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=promo5g')
             self.end_headers()
 
         elif parsed_path.path == "/admin-add-coupon":
@@ -2063,11 +2106,17 @@ async def list_categories(message: types.Message):
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
     categories = cursor.fetchall()
+    cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
+    p_res = cursor.fetchone()
     conn.close()
 
     if not categories:
         await message.answer(t["no_stock"])
         return
+
+    # Kampanya aktifse kullanıcıya bilgi verelim
+    if p_res and p_res[0] == "1":
+        await message.answer("🎁 **Önemli Kampanya:** Toplu alımlarda **5 Gram Alana 1 Gram Hediye!** fırsatı geçerlidir.")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
