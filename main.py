@@ -356,7 +356,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     d_id, d_title, d_price, d_stock, d_cat = ad
                     coord = get_district_coord(d_cat)
                     map_markers_js += f"""
-                    L.marker([{coord[0]}, {coord[1]}]).addTo(map)
+                    L.marker([{coord[0]}, {coord[1]}], {{icon: weedIcon}}).addTo(map)
                         .bindPopup("<b>{d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
                     """
 
@@ -439,6 +439,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         attribution: '&copy; OpenStreetMap contributors',
                         maxZoom: 19
                     }}).addTo(map);
+
+                    // Kenevir Yaprağı Özel Harita İkonu
+                    const weedIcon = L.divIcon({{
+                        className: 'custom-weed-marker',
+                        html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18],
+                        popupAnchor: [0, -18]
+                    }});
 
                     {map_markers_js}
 
