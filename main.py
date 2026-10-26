@@ -32,10 +32,8 @@ EXIT_WALLET = "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"
 
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
-# Render Web Linki (Eğer ortam değişkeni yoksa otomatik Render URL'sini alacak şekilde ayarlandı)
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 if not RENDER_EXTERNAL_URL:
-    # Render'da RENDER_SERVICE_NAME veya varsayılan URL kullanımı için fallback
     RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
@@ -315,7 +313,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- WEB SUNUCUSU & HARİTALI WEB PANENİ ---
+# --- WEB SUNUCUSU & DÜZELTİLMİŞ HARİTALı MOBİL UYUMLU PANEL ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -437,37 +435,37 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
                     const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
-                        attribution: '&copy; OpenStreetMap & CARTO',
-                        subdomains: 'abcd',
+                    // Ücretsiz ve API Key istemeyen standart OpenStreetMap katmanı
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors',
                         maxZoom: 19
-                    }}).addTo(map);
+                    }).addTo(map);
 
                     {map_markers_js}
 
                     const ctx = document.getElementById('revenueChart').getContext('2d');
-                    new Chart(ctx, {{
+                    new Chart(ctx, {
                         type: 'line',
-                        data: {{
+                        data: {
                             labels: {labels},
-                            datasets: [{{
+                            datasets: [{
                                 label: 'Revenue (USDT)',
                                 data: {values},
                                 borderColor: '#38bdf8',
                                 backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                 fill: true,
                                 tension: 0.3
-                            }}]
-                        }},
-                        options: {{
+                            }]
+                        },
+                        options: {
                             responsive: true,
-                            plugins: {{ legend: {{ display: false }} }},
-                            scales: {{
-                                x: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }},
-                                y: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }}
-                            }}
-                        }}
-                    }});
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                                y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                            }
+                        }
+                    });
                 </script>
                 """
             elif tab == "users":
@@ -686,7 +684,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
                     body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; }}
+                    .sidebar {{ width: 260px; background: #111827; border-right: 1px solid #1f2937; display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
                     .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 30px; letter-spacing: 0.5px; }}
                     .sidebar a {{ background: transparent; color: #9ca3af; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
                     .sidebar a.active, .sidebar a:hover {{ background: #1e293b; color: #38bdf8; border-color: #334155; }}
@@ -709,6 +707,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
+
+                    /* 📱 MOBİL UYUMLULUK DÜZELTMESİ (Sekme / Menü Sıkışma Çözümü) */
+                    @media (max-width: 768px) {{
+                        body {{ flex-direction: column !important; }}
+                        .sidebar {{ width: 100% !important; flex-direction: row !important; overflow-x: auto !important; padding: 12px !important; gap: 8px; align-items: center; white-space: nowrap; }}
+                        .sidebar .brand {{ display: none !important; }}
+                        .sidebar a {{ flex: 0 0 auto !important; padding: 8px 12px !important; font-size: 12px !important; margin-bottom: 0 !important; text-align: center; }}
+                        .logout-link {{ margin-top: 0 !important; }}
+                        .main-content {{ padding: 15px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }}
+                        .grid-2 {{ grid-template-columns: 1fr !important; }}
+                    }}
                 </style>
             </head>
             <body>
