@@ -1015,7 +1015,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Weed Istanbul Yönetim Paneli - 🎄 Happy Christmas Edition</title>
+                <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
                     :root {{
                         --bg-color: #090d16;
@@ -1042,8 +1042,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; transition: background 0.3s, color 0.3s; }}
                     .sidebar {{ width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
                     .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; letter-spacing: 0.5px; }}
-                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); animation: pulse 2s infinite; }}
-                    @keyframes pulse {{ 0% {{ opacity: 0.9; }} 50% {{ opacity: 1; transform: scale(1.02); }} 100% {{ opacity: 0.9; }} }}
+                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }}
                     .sidebar a {{ background: transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
                     .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: var(--border-color); }}
                     .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
@@ -1066,10 +1065,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
 
-                    .theme-toggle-btn, .notif-perm-btn {{ background: #334155; border: none; padding: 6px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; font-weight: bold; }}
+                    .theme-toggle-btn, .notif-perm-btn {{ background: #334155; border: none; padding: 8px 14px; border-radius: 8px; color: white; cursor: pointer; font-size: 13px; font-weight: bold; z-index: 10; }}
                     .notif-perm-btn {{ background: #10b981; }}
 
-                    /* GÖRSEL ALARM PENCERESİ */
                     #alertModal {{
                         display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
                         background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center;
@@ -1090,34 +1088,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                 </style>
                 <script>
-                    // Tema Fonksiyonu Kesin Çözüm
+                    // Doğrudan global fonksiyonlar (Butonlar sorunsuz tetiklesin diye)
                     function toggleTheme() {{
                         const html = document.documentElement;
-                        const currentTheme = html.getAttribute('data-theme') || 'dark';
-                        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-                        html.setAttribute('data-theme', newTheme);
-                        localStorage.setItem('theme', newTheme);
+                        const current = html.getAttribute('data-theme') || 'dark';
+                        const next = current === 'light' ? 'dark' : 'light';
+                        html.setAttribute('data-theme', next);
+                        localStorage.setItem('theme', next);
                     }}
 
-                    // Bildirim İzin Fonksiyonu Kesin Çözüm
                     function requestNotifPermission() {{
-                        if (window.Notification) {{
-                            Notification.requestPermission().then(perm => {{
-                                alert("Bildirim izni durumu: " + perm);
-                            }});
-                        }} else {{
+                        if (!window.Notification) {{
                             alert("Tarayıcınız bildirimleri desteklemiyor.");
+                            return;
                         }}
+                        Notification.requestPermission().then(permission => {{
+                            if (permission === "granted") {{
+                                alert("✅ Bildirimler başarıyla açıldı! Artık yeni mesajlarda bildirim alacaksınız.");
+                                new Notification("Weed Istanbul", {{ body: "Bildirim sistemi aktif!" }});
+                            }} else {{
+                                alert("❌ Bildirim izni verilmedi. Tarayıcı ayarlarından izin vermelisiniz.");
+                            }}
+                        }});
                     }}
 
                     window.addEventListener('DOMContentLoaded', () => {{
                         const savedTheme = localStorage.getItem('theme') || 'dark';
                         document.documentElement.setAttribute('data-theme', savedTheme);
-                        
-                        if (window.Notification && Notification.permission !== "granted") {{
-                            Notification.requestPermission();
-                        }}
-                        
                         startMessageListener();
                     }});
 
@@ -1148,7 +1145,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const gain = ctx.createGain();
                             osc.type = 'sine';
                             osc.frequency.setValueAtTime(880, ctx.currentTime);
-                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
                             osc.connect(gain);
                             gain.connect(ctx.destination);
                             osc.start();
@@ -1203,7 +1200,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Happy Christmas & New Year 🎅</div>
+                    <div class="christmas-banner">🎄 Yönetim Paneli</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
@@ -1217,9 +1214,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="header-title">
                         <span>👑 Weed Istanbul Management System</span>
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="notif-perm-btn" onclick="requestNotifPermission()">🔔 Bildirimleri Aç</button>
-                            <button class="theme-toggle-btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
-                            <span style="font-size: 13px; color: #38bdf8; background: var(--card-bg); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);">🎁 Noel Özel Sürüm</span>
+                            <button type="button" class="notif-perm-btn" onclick="requestNotifPermission()">🔔 Bildirimleri Aç</button>
+                            <button type="button" class="theme-toggle-btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
                         </div>
                     </div>
                     {edit_form_html}
