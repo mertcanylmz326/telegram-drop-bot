@@ -77,7 +77,7 @@ def get_district_coord(category_name):
 # --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
-        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
+        "welcome": "👋 Merhaba! Weedstanbul Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
@@ -999,7 +999,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 <div class="main-content">
                     <div class="header-title">
-                        <span>👑 Weed Istanbul Management System</span>
+                        <span>👑 Weed Istanbul DROP System</span>
                         <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🗺️ Live Map & Wallet Active</span>
                     </div>
                     {edit_form_html}
