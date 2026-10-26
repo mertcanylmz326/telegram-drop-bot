@@ -490,7 +490,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             return
 
         if parsed_path.path == "/miniapp":
-            miniapp_html = f"""
+            miniapp_html = """
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -501,7 +501,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    :root {{
+                    :root {
                         --bg-main: #090d16;
                         --card-bg: #111827;
                         --border-color: #1f2937;
@@ -509,33 +509,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --accent-green: #10b981;
                         --accent-red: #ef4444;
                         --text-muted: #9ca3af;
-                    }}
-                    body {{ background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }}
-                    .nav-tabs {{ display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }}
-                    .tab-btn {{ background: var(--card-bg); color: var(--text-muted); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; }}
-                    .tab-btn.active {{ background: #2563eb; color: white; border-color: #3b82f6; }}
-                    .tab-content {{ display: none; }}
-                    .tab-content.active {{ display: block; }}
+                    }
+                    body { background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }
+                    .nav-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }
+                    .tab-btn { background: var(--card-bg); color: var(--text-muted); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; }
+                    .tab-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
+                    .tab-content { display: none; }
+                    .tab-content.active { display: block; }
                     
-                    .promo-banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }}
-                    .coupon-tag {{ background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }}
+                    .promo-banner { background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }
+                    .coupon-tag { background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }
                     
-                    #mainMap {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
-                    .card {{ background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
+                    #mainMap { width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
+                    .card { background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
                     
-                    input, select {{ width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }}
-                    button {{ background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }}
-                    button:hover {{ background: #1d4ed8; }}
+                    input, select { width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }
+                    button { background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }
+                    button:hover { background: #1d4ed8; }
                     
-                    .btn-received {{ background: var(--accent-green); }}
-                    .btn-received:hover {{ background: #059669; }}
-                    .btn-close {{ background: var(--accent-red); margin-top: 15px; }}
+                    .btn-received { background: var(--accent-green); }
+                    .btn-received:hover { background: #059669; }
+                    .btn-close { background: var(--accent-red); margin-top: 15px; }
                     
                     /* Chat box CSS */
-                    .chat-box {{ height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }}
-                    .msg {{ margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }}
-                    .msg-user {{ background: #2563eb; margin-left: auto; color: white; }}
-                    .msg-admin {{ background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }}
+                    .chat-box { height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }
+                    .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
+                    .msg-user { background: #2563eb; margin-left: auto; color: white; }
+                    .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
                 </style>
             </head>
             <body>
@@ -615,47 +615,47 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     tg.expand();
                     
                     let userId = 0;
-                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
                         userId = tg.initDataUnsafe.user.id;
-                    }} else {{
+                    } else {
                         const urlParams = new URLSearchParams(window.location.search);
                         userId = urlParams.get('user_id') || 1012940363;
-                    }}
+                    }
 
                     let map, markersGroup;
                     let globalAppData = null;
                     let isMusicPlaying = false;
 
-                    function toggleMusic() {{
+                    function toggleMusic() {
                         const iframe = document.getElementById('ytAudio');
                         const btn = document.getElementById('musicBtn');
-                        if(!isMusicPlaying) {{
+                        if(!isMusicPlaying) {
                             iframe.src = "https://www.youtube.com/embed/wo3OCsPNevc?autoplay=1&loop=1&playlist=wo3OCsPNevc";
                             btn.innerText = "Durdur";
                             btn.style.background = "var(--accent-red)";
                             isMusicPlaying = true;
-                        }} else {{
+                        } else {
                             iframe.src = "";
                             btn.innerText = "Oynat";
                             btn.style.background = "var(--accent-green)";
                             isMusicPlaying = false;
-                        }}
-                    }}
+                        }
+                    }
 
-                    function switchTab(tabId) {{
+                    function switchTab(tabId) {
                         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                         document.getElementById(tabId).classList.add('active');
                         event.target.classList.add('active');
 
-                        if(tabId === 'tabMap' && map) {{
-                            setTimeout(() => {{ map.invalidateSize(); }}, 200);
-                        }}
-                    }}
+                        if(tabId === 'tabMap' && map) {
+                            setTimeout(() => { map.invalidateSize(); }, 200);
+                        }
+                    }
 
-                    async function loadAppData() {{
+                    async function loadAppData() {
                         if(!userId) return;
-                        try {{
+                        try {
                             const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
                             globalAppData = data;
@@ -663,239 +663,236 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
                             
                             let promoHtml = "";
-                            if(data.promo_5g) {{
+                            if(data.promo_5g) {
                                 promoHtml += `<div class="promo-banner">🎁 <b>Özel Kampanya:</b> Toplu alımlarda <b>5 Gram Alana 1 Gram Hediye!</b></div>`;
-                            }}
-                            if(data.coupons && data.coupons.length > 0) {{
-                                data.coupons.forEach(c => {{
-                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${{c.code}}</span> (-${{c.discount}} USDT İndirim)</div>`;
-                                }});
-                            }}
+                            }
+                            if(data.coupons && data.coupons.length > 0) {
+                                data.coupons.forEach(c => {
+                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${c.code}</span> (-${c.discount} USDT İndirim)</div>`;
+                                });
+                            }
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
-                            // Filtre menüsünü doldur
                             populateDistrictFilter(data.temsili_drops);
-
                             initMap(data.active_orders, data.temsili_drops);
 
                             let activeHtml = "";
-                            if(data.active_orders.length > 0) {{
-                                data.active_orders.forEach(o => {{
+                            if(data.active_orders.length > 0) {
+                                data.active_orders.forEach(o => {
                                     activeHtml += `
                                     <div class="card" style="border-left: 4px solid var(--accent-red);">
-                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${{o.id}} - ${{o.title}}</h4>
-                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${{o.description}}</p>
-                                        <a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none; font-weight:bold;">📍 Google Maps'te Aç</a>
+                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${o.id} - ${o.title}</h4>
+                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${o.description}</p>
+                                        <a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none; font-weight:bold;">📍 Google Maps'te Aç</a>
                                         <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
                                     </div>`;
                                 });
-                            }} else {{
+                            } else {
                                 activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
-                            }}
+                            }
                             document.getElementById('activeOrdersList').innerHTML = activeHtml;
 
                             let prodHtml = "";
-                            data.temsili_drops.forEach(p => {{
+                            data.temsili_drops.forEach(p => {
                                 prodHtml += `
                                 <div class="card">
-                                    <h4 style="margin:0; color:var(--accent-blue);">${{p.title}} (Semt: ${{p.category}})</h4>
-                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${{p.price}} USDT | Stok: ${{p.stock}} Adet</p>
+                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category})</h4>
+                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
                                     <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
-                                    <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
+                                    <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
                                 </div>`;
                             });
                             document.getElementById('productsList').innerHTML = prodHtml;
 
                             let pastHtml = "";
-                            if(data.past_orders.length > 0) {{
-                                data.past_orders.forEach(po => {{
+                            if(data.past_orders.length > 0) {
+                                data.past_orders.forEach(po => {
                                     pastHtml += `
                                     <div class="card" style="opacity:0.8;">
-                                        <h4 style="margin:0;">Sipariş #${{po.id}} - ${{po.title}}</h4>
-                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
+                                        <h4 style="margin:0;">Sipariş #${po.id} - ${po.title}</h4>
+                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${po.date})</p>
                                     </div>`;
-                                }});
-                            }} else {{
+                                });
+                            } else {
                                 pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz geçmiş siparişiniz bulunmuyor.</p>`;
-                            }}
+                            }
                             document.getElementById('pastOrdersList').innerHTML = pastHtml;
 
-                        }} catch(e) {{
+                        } catch(e) {
                             console.error(e);
-                        }}
-                    }}
+                        }
+                    }
 
-                    function populateDistrictFilter(drops) {{
+                    function populateDistrictFilter(drops) {
                         const select = document.getElementById('districtFilter');
                         const categories = [...new Set(drops.map(d => d.category))];
-                        categories.forEach(cat => {{
+                        categories.forEach(cat => {
                             const opt = document.createElement('option');
                             opt.value = cat;
                             opt.innerText = "🏙️ " + cat + " Bölgesi";
                             select.appendChild(opt);
-                        }});
-                    }}
+                        });
+                    }
 
-                    function initMap(activeOrders, temsilidrops) {{
+                    function initMap(activeOrders, temsilidrops) {
                         if(map) return;
                         map = L.map('mainMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
                         renderMapMarkers(activeOrders, temsilidrops);
-                    }}
+                    }
 
-                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {{
+                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {
                         markersGroup.clearLayers();
 
-                        activeOrders.forEach(o => {{
-                            const redIcon = L.divIcon({{
+                        activeOrders.forEach(o => {
+                            const redIcon = L.divIcon({
                                 html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">📍</div>',
                                 iconSize: [24, 24]
-                            }});
-                            L.marker([o.lat, o.lon], {{icon: redIcon}}).addTo(markersGroup)
-                                .bindPopup(`<b>Sipariş #${{o.id}}</b><br>${{o.title}}<br><br><button style="padding:4px;" onclick="markReceived(${{o.id}})">Teslim Aldım</button>`);
-                        }});
+                            });
+                            L.marker([o.lat, o.lon], {icon: redIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}<br><br><button style="padding:4px;" onclick="markReceived(${o.id})">Teslim Aldım</button>`);
+                        });
 
-                        temsilidrops.forEach(td => {{
+                        temsilidrops.forEach(td => {
                             if(filterCat !== "ALL" && td.category !== filterCat) return;
 
-                            // BÖLGE ALAN ÇEMBERİ (BLURRING / AREA CIRCLE)
-                            L.circle([td.lat, td.lon], {{
+                            L.circle([td.lat, td.lon], {
                                 color: '#38bdf8',
                                 fillColor: '#38bdf8',
                                 fillOpacity: 0.12,
                                 radius: 1100
-                            }}).addTo(markersGroup);
+                            }).addTo(markersGroup);
 
-                            const weedIcon = L.divIcon({{
+                            const weedIcon = L.divIcon({
                                 html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
                                 iconSize: [28, 28],
                                 iconAnchor: [14, 14]
-                            }});
-                            L.marker([td.lat, td.lon], {{icon: weedIcon}}).addTo(markersGroup)
-                                .bindPopup(`<b>${{td.title}}</b><br>Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
-                        }});
-                    }}
+                            });
+                            L.marker([td.lat, td.lon], {icon: weedIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>${td.title}</b><br>Bölge: ${td.category}<br>Fiyat: ${td.price} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
+                        });
+                    }
 
-                    function filterMapDrops() {{
+                    function filterMapDrops() {
                         const selectedCat = document.getElementById('districtFilter').value;
-                        if(globalAppData) {{
+                        if(globalAppData) {
                             renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
-                            if(selectedCat !== "ALL") {{
+                            if(selectedCat !== "ALL") {
                                 const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
-                                if(sample) {{
+                                if(sample) {
                                     map.setView([sample.lat, sample.lon], 13);
-                                }}
-                            }} else {{
+                                }
+                            } else {
                                 map.setView([41.0082, 28.9784], 11);
-                            }}
-                        }}
-                    }}
+                            }
+                        }
+                    }
 
-                    async function markReceived(orderId) {{
+                    async function markReceived(orderId) {
                         if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
-                        try {{
+                        try {
                             const res = await fetch('/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("Ürün teslim alındı olarak kaydedildi!");
                                 location.reload();
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("İşlem başarısız.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function buyProduct(dropId, price) {{
+                    async function buyProduct(dropId, price) {
                         if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
-                        try {{
-                            const res = await fetch(`/api/miniapp-buy?user_id=${{userId}}&drop_id=${{dropId}}`);
+                        try {
+                            const res = await fetch(`/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
                                 location.reload();
-                            }} else {{
+                            } else {
                                 alert("❌ Hata: " + (data.message || "Bakiyeniz yetersiz olabilir."));
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("İşlem yapılırken hata oluştu.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function createDeposit() {{
+                    async function createDeposit() {
                         const amount = document.getElementById('depAmount').value;
                         if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
-                        try {{
-                            const res = await fetch(`/api/miniapp-deposit?user_id=${{userId}}&amount=${{amount}}`);
+                        try {
+                            const res = await fetch(`/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 document.getElementById('depositResult').innerHTML = `
                                 <div class="card" style="border: 1px solid var(--accent-green);">
                                     <h4 style="color:var(--accent-green); margin-top:0;">Yatırım Adresi Oluşturuldu</h4>
-                                    <p style="font-size:12px;">Tutar: <b>${{amount}} USDT</b></p>
-                                    <input type="text" value="${{data.wallet}}" readonly>
-                                    <button onclick="checkDeposit(${{data.deposit_id}}, ${{amount}})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
+                                    <p style="font-size:12px;">Tutar: <b>${amount} USDT</b></p>
+                                    <input type="text" value="${data.wallet}" readonly>
+                                    <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("Bakiye yükleme talebi oluşturulamadı.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function checkDeposit(depId, amount) {{
+                    async function checkDeposit(depId, amount) {
                         alert("Blokzincir taranıyor, lütfen bekleyin...");
-                        try {{
-                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${{depId}}&user_id=${{userId}}&amount=${{amount}}`);
+                        try {
+                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
                                 location.reload();
-                            }} else {{
+                            } else {
                                 alert("⚠️ Transfer henüz algılanmadı.");
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("Kontrol başarısız.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function loadChatMessages() {{
+                    async function loadChatMessages() {
                         if(!userId) return;
-                        try {{
+                        try {
                             const res = await fetch('/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
-                            data.messages.forEach(m => {{
+                            data.messages.forEach(m => {
                                 const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
                                 const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
-                                chatHtml += `<div class="msg ${{cls}}"><b>${{senderName}}:</b> ${{m.message}}</div>`;
-                            }});
+                                chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
+                            });
                             const box = document.getElementById('chatBox');
                             box.innerHTML = chatHtml;
                             box.scrollTop = box.scrollHeight;
-                        }} catch(e) {{}}
-                    }}
+                        } catch(e) {}
+                    }
 
-                    async function sendChatMessage() {{
+                    async function sendChatMessage() {
                         const inp = document.getElementById('chatInput');
                         const msg = inp.value.trim();
                         if(!msg) return;
                         inp.value = '';
-                        try {{
-                            await fetch('/api/miniapp-chat-send', {{
+                        try {
+                            await fetch('/api/miniapp-chat-send', {
                                 method: 'POST',
-                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
-                                body: `user_id=${{userId}}&message=${{encodeURIComponent(msg)}}`
-                            }});
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&message=${encodeURIComponent(msg)}`
+                            });
                             loadChatMessages();
-                        }} catch(e) {{}}
-                    }}
+                        } catch(e) {}
+                    }
 
-                    window.onload = () => {{
+                    window.onload = () => {
                         loadAppData();
                         loadChatMessages();
                         setInterval(loadChatMessages, 4000);
-                    }};
+                    };
                 </script>
             </body>
             </html>
@@ -1257,55 +1254,55 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
                     const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; OpenStreetMap contributors',
                         maxZoom: 19
-                    }}).addTo(map);
+                    }).addTo(map);
 
-                    const weedIcon = L.divIcon({{
+                    const weedIcon = L.divIcon({
                         className: 'custom-weed-marker',
                         html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                         iconSize: [36, 36],
                         iconAnchor: [18, 18],
                         popupAnchor: [0, -18]
-                    }});
+                    });
 
-                    const markers = {{}};
+                    const markers = {};
                     {map_markers_js}
 
-                    function searchMarkerOnMap() {{
+                    function searchMarkerOnMap() {
                         const id = document.getElementById('searchProductId').value.trim();
-                        if (markers[id]) {{
+                        if (markers[id]) {
                             map.setView(markers[id].getLatLng(), 16);
                             markers[id].openPopup();
-                        }} else {{
+                        } else {
                             alert("Bu numaraya ait aktif harita konumu bulunamadı!");
-                        }}
-                    }}
+                        }
+                    }
 
                     const ctx = document.getElementById('revenueChart').getContext('2d');
-                    new Chart(ctx, {{
+                    new Chart(ctx, {
                         type: 'line',
-                        data: {{
+                        data: {
                             labels: {labels},
-                            datasets: [{{
+                            datasets: [{
                                 label: 'Revenue (USDT)',
                                 data: {values},
                                 borderColor: '#38bdf8',
                                 backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                 fill: true,
                                 tension: 0.3
-                            }}]
-                        }},
-                        options: {{
+                            }]
+                        },
+                        options: {
                             responsive: true,
-                            plugins: {{ legend: {{ display: false }} }},
-                            scales: {{
-                                x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
-                                y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
-                            }}
-                        }}
-                    }});
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
+                                y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
+                            }
+                        }
+                    });
                 </script>
                 """
             elif tab == "support":
@@ -1388,14 +1385,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
                 <style>
-                    .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
-                    .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                    .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                    @media (min-width: 900px) {{
-                        .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
-                        .chat-main-area {{ order: 1; }}
-                        .support-sidebar-area {{ order: 2; }}
-                    }}
+                    .support-container { display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }
+                    .chat-main-area { order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
+                    .support-sidebar-area { order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
+                    @media (min-width: 900px) {
+                        .support-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+                        .chat-main-area { order: 1; }
+                        .support-sidebar-area { order: 2; }
+                    }
                 </style>
                 """
             elif tab == "broadcast":
