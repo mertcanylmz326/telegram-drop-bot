@@ -435,37 +435,36 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
                     const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    // Ücretsiz ve API Key istemeyen standart OpenStreetMap katmanı
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
                         attribution: '&copy; OpenStreetMap contributors',
                         maxZoom: 19
-                    }).addTo(map);
+                    }}).addTo(map);
 
                     {map_markers_js}
 
                     const ctx = document.getElementById('revenueChart').getContext('2d');
-                    new Chart(ctx, {
+                    new Chart(ctx, {{
                         type: 'line',
-                        data: {
+                        data: {{
                             labels: {labels},
-                            datasets: [{
+                            datasets: [{{
                                 label: 'Revenue (USDT)',
                                 data: {values},
                                 borderColor: '#38bdf8',
                                 backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                 fill: true,
                                 tension: 0.3
-                            }]
-                        },
-                        options: {
+                            }}]
+                        }},
+                        options: {{
                             responsive: true,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
-                                y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
-                            }
-                        }
-                    });
+                            plugins: {{ legend: {{ display: false }} }},
+                            scales: {{
+                                x: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }},
+                                y: {{ grid: {{ color: '#334155' }}, ticks: {{ color: '#94a3b8' }} }}
+                            }}
+                        }}
+                    }});
                 </script>
                 """
             elif tab == "users":
