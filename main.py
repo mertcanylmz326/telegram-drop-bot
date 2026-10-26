@@ -3,8 +3,8 @@ import sqlite3
 import logging
 import os
 import threading
-import re
 import aiohttp
+import json
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -22,9 +22,6 @@ ADMIN_GROUP_ID = -1004474292737
 
 ADMIN_WEB_USERNAME = "dionisus"
 ADMIN_WEB_PASSWORD = "weedstanbul34"
-
-PROMO_CODE = "welcomeweedstanbul"
-PROMO_DISCOUNT = 8.0
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
@@ -270,6 +267,16 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS coupons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE,
+            discount REAL,
+            uses_left INTEGER DEFAULT 100,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     for col, def_val in [
         ("is_banned", "INTEGER DEFAULT 0"), 
@@ -492,7 +499,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if new_msg:
                 m_id, u_id, m_text, uname = new_msg
                 display_name = f"@{uname}" if uname else f"Kullanıcı {u_id}"
-                import json
                 resp_data = {"has_new": True, "id": m_id, "user_id": u_id, "username": display_name, "message": m_text}
                 self.wfile.write(json.dumps(resp_data).encode("utf-8"))
             else:
@@ -554,7 +560,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
-                # Cüzdan bakiyelerini eşzamanlı çekelim
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
@@ -799,6 +804,51 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                 </style>
                 """
+            elif tab == "broadcast":
+                content_html = """
+                <div class="form-box" style="border: 1px solid #38bdf8;">
+                    <h2 style="color: #38bdf8; margin-top: 0;">📢 Toplu Duyuru & Kampanya Merkezi (Broadcast)</h2>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Botu kullanan tüm kullanıcılara anında duyuru, kampanya veya indirim mesajı fırlatın.</p>
+                    <form action="/admin-broadcast" method="POST">
+                        <label>Duyuru Mesajı (Markdown destekler):</label>
+                        <textarea name="message" rows="6" required placeholder="🔥 Büyük indirim başladı! Tüm ürünlerde geçerli kupon kodunuz: ..."></textarea>
+                        <button type="submit" style="background: #2563eb; margin-top: 15px;">🚀 Tüm Kullanıcılara Gönder</button>
+                    </form>
+                </div>
+                """
+            elif tab == "coupons":
+                cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
+                c_rows = cursor.fetchall()
+                c_table = ""
+                for c in c_rows:
+                    cid, ccode, cdisc, cuses, cdate = c
+                    c_table += f"<tr><td>#{cid}</td><td><code>{ccode}</code></td><td><b>{cdisc} USDT</b></td><td>{cuses} Adet</td><td>{cdate}</td></tr>"
+
+                content_html = f"""
+                <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-box" style="margin:0;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">🎟️ Yeni Kupon Oluştur</h2>
+                        <form action="/admin-add-coupon" method="POST">
+                            <label>Kupon Kodu:</label>
+                            <input type="text" name="code" required placeholder="Örn: YAZ2026">
+                            <label>İndirim Tutarı (USDT):</label>
+                            <input type="number" step="0.1" name="discount" required placeholder="10.0">
+                            <label>Kullanım Limiti (Kaç kez kullanılsın?):</label>
+                            <input type="number" name="uses" value="100" required>
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet</button>
+                        </form>
+                    </div>
+                    <div class="table-box" style="margin:0;">
+                        <h2 style="margin-top: 0;">📋 Aktif Kuponlar</h2>
+                        <div style="max-height: 320px; overflow-y: auto;">
+                            <table>
+                                <tr><th>ID</th><th>Kod</th><th>İndirim</th><th>Limit</th><th>Tarih</th></tr>
+                                {c_table if c_table else "<tr><td colspan='5' style='text-align:center;'>Kupon bulunmuyor.</td></tr>"}
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                """
             elif tab == "users":
                 cursor.execute("""
                     SELECT u.user_id, u.username, u.language, u.is_banned, u.balance,
@@ -935,20 +985,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 """
             elif tab == "add":
                 content_html = """
-                <div class="form-box">
-                    <h2>➕ Yeni Ürün Ekle</h2>
-                    <form action="/admin-add" method="POST" id="addForm">
-                        <label>Ürün Başlığı:</label>
-                        <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
-                        <label>Semt / İlçe (Örn: Kartal, Çekmeköy vb.):</label>
-                        <input type="text" name="category" required placeholder="Kartal">
-                        <label>Fiyat (USDT):</label>
-                        <input type="number" step="0.1" name="price" required placeholder="65">
-                        <label>Kaç Adet Ekleyeceksin? (Stok):</label>
-                        <input type="number" name="count" id="countInput" value="1" min="1" max="30" required onchange="generateFields()">
-                        <div id="dynamicFields"></div>
-                        <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
-                    </form>
+                <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="form-box" style="margin:0;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Ürün Ekle</h2>
+                        <form action="/admin-add" method="POST" id="addForm">
+                            <label>Ürün Başlığı:</label>
+                            <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
+                            <label>Semt / İlçe:</label>
+                            <input type="text" name="category" required placeholder="Kartal">
+                            <label>Fiyat (USDT):</label>
+                            <input type="number" step="0.1" name="price" required placeholder="65">
+                            <label>Stok Adedi:</label>
+                            <input type="number" name="count" id="countInput" value="1" min="1" max="30" required onchange="generateFields()">
+                            <div id="dynamicFields"></div>
+                            <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
+                        </form>
+                    </div>
+                    <div class="form-box" style="margin:0; border: 1px solid #10b981;">
+                        <h2 style="color: #10b981; margin-top: 0;">📂 Excel / CSV ile Toplu Ürün Yükleme</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5;">Format sırası: <code>baslik, semt, fiyat, stok, koordinat, fotourl, aciklama</code> şeklinde virgüllü verileri aşağıya yapıştırın, saniyeler içinde toplu ekleyin.</p>
+                        <form action="/admin-bulk-add" method="POST">
+                            <label>Toplu Veri (Her satır bir ürün):</label>
+                            <textarea name="bulk_data" rows="8" required placeholder="Amnesia, Kartal, 65, 1, 40.8885, 29.1856, https://..., Saksının arkasında..."></textarea>
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">📥 Toplu Yüklemeyi Başlat</button>
+                        </form>
+                    </div>
                 </div>
                 <script>
                     function generateFields() {
@@ -959,7 +1020,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             container.innerHTML += `
                                 <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color);">
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
-                                    <label style="color: #38bdf8; font-size: 13px;">Koordinat (Tek Satır - Örn: 40.8885, 29.1856):</label>
+                                    <label style="color: #38bdf8; font-size: 13px;">Koordinat (Örn: 40.8885, 29.1856):</label>
                                     <input type="text" name="coords_${i}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
                                     <label>Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
@@ -994,7 +1055,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" step="0.1" name="price" value="{e_price}" required>
                             <label>Stok Adedi:</label>
                             <input type="number" name="stock" value="{e_stock}" required>
-                            <label style="color: #38bdf8; font-size: 13px;">Koordinat (Tek Satır - Örn: 40.8885, 29.1856):</label>
+                            <label style="color: #38bdf8; font-size: 13px;">Koordinat (Örn: 40.8885, 29.1856):</label>
                             <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
                             <label>Fotoğraf URL'si:</label>
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
@@ -1011,7 +1072,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             dashboard_html = f"""
             <!DOCTYPE html>
-            <html lang="tr" data-theme="dark">
+            <html lang="tr">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1028,18 +1089,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --input-bg: #090d16;
                         --text-muted: #6b7280;
                     }}
-                    [data-theme="light"] {{
-                        --bg-color: #f1f5f9;
-                        --text-color: #0f172a;
-                        --sidebar-bg: #ffffff;
-                        --sidebar-hover: #e2e8f0;
-                        --card-bg: #ffffff;
-                        --card-bg-inner: #f8fafc;
-                        --border-color: #cbd5e1;
-                        --input-bg: #ffffff;
-                        --text-muted: #64748b;
-                    }}
-                    body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; transition: background 0.3s, color 0.3s; }}
+                    body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
                     .sidebar {{ width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
                     .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; letter-spacing: 0.5px; }}
                     .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }}
@@ -1065,9 +1115,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
 
-                    .theme-toggle-btn, .notif-perm-btn {{ background: #334155; border: none; padding: 8px 14px; border-radius: 8px; color: white; cursor: pointer; font-size: 13px; font-weight: bold; z-index: 10; }}
-                    .notif-perm-btn {{ background: #10b981; }}
-
                     #alertModal {{
                         display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
                         background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center;
@@ -1088,33 +1135,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                 </style>
                 <script>
-                    // Doğrudan global fonksiyonlar (Butonlar sorunsuz tetiklesin diye)
-                    function toggleTheme() {{
-                        const html = document.documentElement;
-                        const current = html.getAttribute('data-theme') || 'dark';
-                        const next = current === 'light' ? 'dark' : 'light';
-                        html.setAttribute('data-theme', next);
-                        localStorage.setItem('theme', next);
-                    }}
-
-                    function requestNotifPermission() {{
-                        if (!window.Notification) {{
-                            alert("Tarayıcınız bildirimleri desteklemiyor.");
-                            return;
-                        }}
-                        Notification.requestPermission().then(permission => {{
-                            if (permission === "granted") {{
-                                alert("✅ Bildirimler başarıyla açıldı! Artık yeni mesajlarda bildirim alacaksınız.");
-                                new Notification("Weed Istanbul", {{ body: "Bildirim sistemi aktif!" }});
-                            }} else {{
-                                alert("❌ Bildirim izni verilmedi. Tarayıcı ayarlarından izin vermelisiniz.");
-                            }}
-                        }});
-                    }}
-
                     window.addEventListener('DOMContentLoaded', () => {{
-                        const savedTheme = localStorage.getItem('theme') || 'dark';
-                        document.documentElement.setAttribute('data-theme', savedTheme);
                         startMessageListener();
                     }});
 
@@ -1129,7 +1150,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         lastMessageId = data.id;
                                         playNotificationSound();
                                         showVisualAlert(data.username, data.message, data.user_id);
-                                        showBrowserNotification(data.username, data.message, data.user_id);
                                     }}
                                 }}
                             }} catch(e) {{
@@ -1177,19 +1197,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         window.location.href = "/admin-web?tab=support&user_id=" + userId;
                     }}
 
-                    function showBrowserNotification(senderName, text, userId) {{
-                        if (window.Notification && Notification.permission === "granted") {{
-                            const notif = new Notification("💬 Yeni Mesaj: " + senderName, {{
-                                body: text,
-                                icon: "https://cdn-icons-png.flaticon.com/512/893/893257.png"
-                            }});
-                            notif.onclick = function() {{
-                                window.focus();
-                                window.location.href = "/admin-web?tab=support&user_id=" + userId;
-                            }};
-                        }}
-                    }}
-
                     function copyText(txt) {{
                         navigator.clipboard.writeText(txt).then(() => {{
                             alert("Kopyalandı: " + txt);
@@ -1203,20 +1210,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="christmas-banner">🎄 Yönetim Paneli</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
+                    <a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>
+                    <a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
+                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop / Excel</a>
                     <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
                 <div class="main-content">
                     <div class="header-title">
                         <span>👑 Weed Istanbul Management System</span>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button type="button" class="notif-perm-btn" onclick="requestNotifPermission()">🔔 Bildirimleri Aç</button>
-                            <button type="button" class="theme-toggle-btn" onclick="toggleTheme()">🌓 Tema Değiştir</button>
-                        </div>
                     </div>
                     {edit_form_html}
                     {content_html}
@@ -1339,7 +1344,97 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-send-support":
+        if parsed_path.path == "/admin-broadcast":
+            msg_text = params.get("message", [""])[0].strip()
+            if msg_text and main_loop:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
+                all_users = cursor.fetchall()
+                conn.close()
+
+                async def send_all():
+                    for u in all_users:
+                        try:
+                            await bot.send_message(u[0], f"📢 **Yönetim Duyurusu:**\n\n{msg_text}", parse_mode="Markdown")
+                            await asyncio.sleep(0.05)
+                        except:
+                            pass
+
+                asyncio.run_coroutine_threadsafe(send_all(), main_loop)
+                log_panel_event(f"📢 Toplu duyuru gönderildi: {msg_text[:30]}...", "success")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=broadcast')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-add-coupon":
+            code = params.get("code", [""])[0].strip().upper()
+            try:
+                discount = float(params.get("discount", [0])[0])
+                uses = int(params.get("uses", [100])[0])
+            except:
+                discount, uses = 5.0, 100
+
+            if code:
+                try:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
+                    conn.commit()
+                    conn.close()
+                    log_panel_event(f"🎟️ Kupon eklendi: {code} ({discount} USDT)", "success")
+                except Exception as e:
+                    logging.error(e)
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=coupons')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-bulk-add":
+            bulk_text = params.get("bulk_data", [""])[0].strip()
+            if bulk_text:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                lines = bulk_text.split("\n")
+                added_count = 0
+                for line in lines:
+                    parts = [p.strip() for p in line.split(",")]
+                    if len(parts) >= 4:
+                        title = parts[0]
+                        category = parts[1]
+                        try:
+                            price = float(parts[2])
+                            stock = int(parts[3])
+                        except:
+                            continue
+                        
+                        lat, lon = get_district_coord(category)
+                        photo = parts[5] if len(parts) > 5 and parts[5].startswith("http") else ""
+                        desc = parts[6] if len(parts) > 6 else (parts[4] if len(parts) > 4 else "Güvenli teslimat.")
+
+                        if len(parts) > 4 and "," in parts[4]:
+                            try:
+                                c_parts = parts[4].split(",")
+                                lat = float(c_parts[0].strip())
+                                lon = float(c_parts[1].strip())
+                            except:
+                                pass
+
+                        cursor.execute("""
+                            INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (title, price, photo, desc, stock, category, lat, lon))
+                        added_count += 1
+                conn.commit()
+                conn.close()
+                log_panel_event(f"📥 Excel/Toplu Yükleme ile {added_count} ürün eklendi.", "success")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=passive')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-send-support":
             try:
                 target_uid = int(params.get("user_id", ["0"])[0])
                 msg_text = params.get("message", [""])[0].strip()
@@ -2200,31 +2295,33 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
 
     data = await state.get_data()
     drop_id = data.get("drop_id")
-    entered_code = message.text.strip()
+    entered_code = message.text.strip().upper()
     await state.clear()
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
     drop = cursor.fetchone()
-    conn.close()
 
     if not drop:
+        conn.close()
         await message.answer(t["invalid_drop"])
         return
 
     title, price, stock = drop
-    if entered_code == PROMO_CODE:
-        final_price = max(0.0, price - PROMO_DISCOUNT)
+    cursor.execute("SELECT discount, uses_left FROM coupons WHERE code = ? AND uses_left > 0", (entered_code,))
+    coupon = cursor.fetchone()
+
+    if coupon:
+        discount_val = coupon[0]
+        final_price = max(0.0, price - discount_val)
         promo_applied = True
+        cursor.execute("UPDATE coupons SET uses_left = uses_left - 1 WHERE code = ?", (entered_code,))
     else:
         final_price = price
         promo_applied = False
 
     username = message.from_user.username
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
     cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
     order_id = cursor.lastrowid
@@ -2233,9 +2330,9 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
 
     msg = t["order_created"].format(id=order_id, title=title) + f"🔑 Sipariş Takip Kodunuz: `WEE-{order_id}`\n"
     if promo_applied:
-        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{PROMO_DISCOUNT} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
+        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{coupon[0]} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
     else:
-        msg += f"❌ Geçersiz kupon! Tam Tutar: {final_price} USDT\n\n"
+        msg += f"❌ Geçersiz veya tükenmiş kupon! Tam Tutar: {final_price} USDT\n\n"
 
     msg += t["wallet_text"].format(wallet=CRYPTO_WALLET)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
