@@ -15,7 +15,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
 
-# --- AYARLAR ---
+# --- AYARLAR & CÜZDAN MİMARİSİ ---
 BOT_TOKEN = "8917981396:AAFliW6Hl6gT8CQZP9BgJrPYGQEAggga6WA"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
@@ -26,7 +26,13 @@ ADMIN_WEB_PASSWORD = "weedstanbul34"
 PROMO_CODE = "welcomeweedstanbul"
 PROMO_DISCOUNT = 8.0
 
+# 1. Giriş Hesabı (Botun ödeme aldığı aktif cüzdan)
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
+# 2. Ana Birikim Cüzdanı (Kârın ve birikimin toplandığı ana kasa)
+MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
+# 3. Çıkış Hesabı (Borsaya/nakite çekim için köprü cüzdan)
+EXIT_WALLET = "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"
+
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
 
@@ -63,7 +69,7 @@ LANG = {
         "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
         "promo_applied": "💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{discount} USDT\n💵 **Ödenecek Tutar: {final} USDT**\n\n",
         "promo_invalid": "❌ Geçersiz kupon! Tam Tutar: {final} USDT\n\n",
-        "wallet_text": "🔒 Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.",
+        "wallet_text": "🔒 Giriş Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca aşağıdaki butona basın.",
         "check_btn": "🔄 Ödemeyi Otomatik Kontrol Et",
         "scan": "Blokzincir taranıyor...",
         "not_found": "Sipariş bulunamadı.",
@@ -103,7 +109,7 @@ LANG = {
         "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
         "promo_applied": "💰 Regular Price: {price} USDT\n🎟️ Promo Discount: -{discount} USDT\n💵 **Total to Pay: {final} USDT**\n\n",
         "promo_invalid": "❌ Invalid code! Full Price: {final} USDT\n\n",
-        "wallet_text": "🔒 Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after payment.",
+        "wallet_text": "🔒 Entry Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. Click the button below after payment.",
         "check_btn": "🔄 Auto-Check Payment",
         "scan": "Scanning blockchain...",
         "not_found": "Order not found.",
@@ -166,14 +172,11 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0")
-    except:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'tr'")
-    except:
-        pass
+    for col, def_val in [("is_banned", "INTEGER DEFAULT 0"), ("language", "TEXT DEFAULT 'tr'")]:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
+        except:
+            pass
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
@@ -238,7 +241,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(f"Yedek alma hatası: {e}")
 
-# --- GELİŞMİŞ WEB SUNUCUSU ---
+# --- GELİŞMİŞ WEB SUNUCUSU & CÜZDAN / ANALİZ PANELİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -302,6 +305,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
+                <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
+                    <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Akış Yönetimi</h2>
+                    <p style="font-size: 13px; color: #94a3b8;">Sistemin para akışı ve cüzdan yapılandırması aşağıda güvenle çalışmaktadır:</p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <h4 style="margin: 0 0 5px 0; color: #38bdf8;">📥 1. Giriş Hesabı (Bot Ödemeleri)</h4>
+                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
+                        </div>
+                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
+                            <h4 style="margin: 0 0 5px 0; color: #d97706;">🔄 2. Çıkış / Ara Hesap (Bitay / Köprü)</h4>
+                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
+                        </div>
+                        <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                            <h4 style="margin: 0 0 5px 0; color: #10b981;">💰 3. Ana Birikim / Kasa Cüzdanı</h4>
+                            <p style="font-size: 11px; color: #94a3b8; word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid-2">
                     <div class="table-box">
                         <h2>📊 Weekly Revenue Trend</h2>
@@ -344,11 +366,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </script>
                 """
             elif tab == "users":
-                cursor.execute("SELECT user_id, username, is_banned, language FROM users ORDER BY user_id DESC")
+                # Müşteri bazlı satış analizleri ve sipariş hacimleri
+                cursor.execute("""
+                    SELECT u.user_id, u.username, u.language, u.is_banned,
+                           COUNT(o.id) as total_orders, 
+                           COALESCE(SUM(o.final_price), 0.0) as total_spent
+                    FROM users u
+                    LEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'completed'
+                    GROUP BY u.user_id
+                    ORDER BY total_spent DESC
+                """)
                 users_list = cursor.fetchall()
                 rows = ""
                 for u in users_list:
-                    uid, uname, is_b, u_lang = u
+                    uid, uname, u_lang, is_b, t_orders, t_spent = u
                     username_str = f"@{uname}" if uname else "N/A"
                     status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
                     ban_btn = f"""
@@ -360,14 +391,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </button>
                     </form>
                     """
-                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    rows += f"<tr><td>{uid}</td><td>{username_str}</td><td>{u_lang.upper()}</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>👥 User Management (CRM)</h2>
+                    <h2>👥 Müşteri CRM & Satış Analizi</h2>
+                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Hangi müşterinin kaç adet sipariş verdiğini ve toplam ne kadar ödeme yaptığını buradan takip edebilirsin.</p>
                     <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Status</th><th>Action</th></tr>
-                        {rows if rows else "<tr><td colspan='5' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
+                        {rows if rows else "<tr><td colspan='7' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
                 """
@@ -389,7 +421,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>🟢 Aktif / Tamamlanan Siparişler</h2>
+                    <h2>🟢 Aktif / Tamamlanan Satışlar</h2>
                     <table>
                         <tr><th>Sipariş ID</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
                         {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
@@ -594,7 +626,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
                     <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 CRM (Users)</a>
+                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
 
@@ -1002,9 +1034,9 @@ async def faq_callback(callback: types.CallbackQuery):
     lang = get_user_lang(user_id)
     action = callback.data.split("_")[1]
     if lang == "tr":
-        text = "💳 Ürün seçtikten sonra verilen USDT cüzdanına tutarı gönderip onaylatırsın." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
+        text = "💳 Ürün seçtikten sonra verilen USDT giriş cüzdanına tutarı gönderip onaylatırsın." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
     else:
-        text = "💳 After selecting a product, send the amount to the given USDT wallet." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
+        text = "💳 After selecting a product, send the amount to the given USDT entry wallet." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
     await callback.answer()
     await callback.message.answer(text)
 
