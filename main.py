@@ -1186,7 +1186,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
                 loop.close()
 
-                content_html = f"""
+                # HTML şablonu güvenli hale getirildi (süslü parantez çakışması önlendi)
+                home_template = """
                 <div class="stats-grid">
                     <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
                     <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
@@ -1211,26 +1212,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
                             <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
                                 📥 1. Giriş Hesabı (Bot)
-                                <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                <button onclick="copyText('{crypto_wallet}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{crypto_wallet}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
                             <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
                                 🔄 2. Çıkış / Ara Hesap (Bitay)
-                                <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                <button onclick="copyText('{exit_wallet}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{exit_wallet}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
                             <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
                                 💰 3. Ana Birikim / Kasa
-                                <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                <button onclick="copyText('{main_savings_wallet}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                             </h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{main_savings_wallet}`</p>
                         </div>
                     </div>
                 </div>
@@ -1244,7 +1245,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="table-box">
                         <h2>🔔 Live Logs & Alerts</h2>
                         <div style="max-height: 250px; overflow-y: auto;">
-                            {logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>"}
+                            {logs_html}
                         </div>
                     </div>
                 </div>
@@ -1254,57 +1255,74 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
                     const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
                         attribution: '&copy; OpenStreetMap contributors',
                         maxZoom: 19
-                    }).addTo(map);
+                    }}).addTo(map);
 
-                    const weedIcon = L.divIcon({
+                    const weedIcon = L.divIcon({{
                         className: 'custom-weed-marker',
                         html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                         iconSize: [36, 36],
                         iconAnchor: [18, 18],
                         popupAnchor: [0, -18]
-                    });
+                    }});
 
-                    const markers = {};
+                    const markers = {{}};
                     {map_markers_js}
 
-                    function searchMarkerOnMap() {
+                    function searchMarkerOnMap() {{
                         const id = document.getElementById('searchProductId').value.trim();
-                        if (markers[id]) {
+                        if (markers[id]) {{
                             map.setView(markers[id].getLatLng(), 16);
                             markers[id].openPopup();
-                        } else {
+                        }} else {{
                             alert("Bu numaraya ait aktif harita konumu bulunamadı!");
-                        }
-                    }
+                        }}
+                    }}
 
                     const ctx = document.getElementById('revenueChart').getContext('2d');
-                    new Chart(ctx, {
+                    new Chart(ctx, {{
                         type: 'line',
-                        data: {
-                            labels: {labels},
-                            datasets: [{
+                        data: {{
+                            labels: {labels_json},
+                            datasets: [{{
                                 label: 'Revenue (USDT)',
-                                data: {values},
+                                data: {values_json},
                                 borderColor: '#38bdf8',
                                 backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                 fill: true,
                                 tension: 0.3
-                            }]
-                        },
-                        options: {
+                            }}]
+                        }},
+                        options: {{
                             responsive: true,
-                            plugins: { legend: { display: false } },
-                            scales: {
-                                x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
-                                y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
-                            }
-                        }
-                    });
+                            plugins: {{ legend: {{ display: false }} }},
+                            scales: {{
+                                x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
+                                y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
+                            }}
+                        }}
+                    }});
                 </script>
                 """
+
+                content_html = home_template.format(
+                    total_revenue=total_revenue,
+                    total_active_stock=total_active_stock,
+                    total_drops=total_drops,
+                    crypto_wallet=CRYPTO_WALLET,
+                    exit_wallet=EXIT_WALLET,
+                    main_savings_wallet=MAIN_SAVINGS_WALLET,
+                    w1_bal=w1_bal,
+                    w2_bal=w2_bal,
+                    w3_bal=w3_bal,
+                    logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
+                    map_markers_js=map_markers_js,
+                    labels_json=json.dumps(labels),
+                    values_json=json.dumps(values)
+                )
+
             elif tab == "support":
                 cursor.execute("SELECT DISTINCT user_id FROM support_messages")
                 active_chats_users = [row[0] for row in cursor.fetchall()]
@@ -1385,14 +1403,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
                 <style>
-                    .support-container { display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }
-                    .chat-main-area { order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
-                    .support-sidebar-area { order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
-                    @media (min-width: 900px) {
-                        .support-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-                        .chat-main-area { order: 1; }
-                        .support-sidebar-area { order: 2; }
-                    }
+                    .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
+                    .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                    .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                    @media (min-width: 900px) {{
+                        .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
+                        .chat-main-area {{ order: 1; }}
+                        .support-sidebar-area {{ order: 2; }}
+                    }}
                 </style>
                 """
             elif tab == "broadcast":
