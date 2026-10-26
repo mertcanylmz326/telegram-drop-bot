@@ -5,8 +5,6 @@ import os
 import threading
 import re
 import aiohttp
-import urllib.request
-import urllib.parse
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -43,7 +41,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
-# --- İSTANBUL İLÇE KOORDİNATLARI (YEDEK / FALLBACK) ---
+# --- İSTANBUL İLÇE KOORDİNATLARI (YEDEK) ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
     "KADIKÖY": [40.9901, 29.0254],
@@ -76,39 +74,7 @@ def get_district_coord(category_name):
             return coord
     return [41.0082, 28.9784]
 
-# --- 🗺️ GOOGLE MAPS LİNKİNDEN OTOMATİK KOORDİNAT ÇÖZÜCÜ ---
-def extract_lat_lon_from_url(url, category_name="Genel"):
-    if not url:
-        return get_district_coord(category_name)
-    
-    target_url = url.strip()
-    if "goo.gl" in target_url or "maps.app.goo.gl" in target_url:
-        try:
-            req = urllib.request.Request(
-                target_url,
-                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-            )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                target_url = resp.url
-        except Exception as e:
-            logging.error(f"URL resolve error: {e}")
-    
-    match = re.search(r'@([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)', target_url)
-    if match:
-        return float(match.group(1)), float(match.group(2))
-    
-    parsed_url = urllib.parse.urlparse(target_url)
-    qs = urllib.parse.parse_qs(parsed_url.query)
-    for key in ['q', 'center', 'll', 'sll']:
-        if key in qs:
-            val = qs[key][0]
-            m_val = re.search(r'([-+]?[0-9]*\.?[0-9]+)[,\s%2C]+([-+]?[0-9]*\.?[0-9]+)', val)
-            if m_val:
-                return float(m_val.group(1)), float(m_val.group(2))
-                
-    return get_district_coord(category_name)
-
-# --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
+# --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
         "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
@@ -212,7 +178,7 @@ LANG = {
     }
 }
 
-# --- VERİTABANI KURULUMU & WAL MODU ---
+# --- VERİTABANI KURULUMU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -362,7 +328,6 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- 🚀 OTOMATİK ARKA PLAN ÖDEME KONTROLÜ (BACKGROUND WORKER) ---
 async def background_payment_worker():
     while True:
         await asyncio.sleep(25)
@@ -395,7 +360,6 @@ async def background_payment_worker():
 
             for order in pending_orders:
                 o_id, u_id, d_id, f_price, created_at_str, title, stock, category = order
-                
                 if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
                     conn = sqlite3.connect("drop_bot.db")
                     c = conn.cursor()
@@ -432,7 +396,6 @@ async def background_payment_worker():
 
             for dep in pending_deposits:
                 dep_id, u_id, amount, created_at_str = dep
-                
                 if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
                     conn = sqlite3.connect("drop_bot.db")
                     c = conn.cursor()
@@ -801,9 +764,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             container.innerHTML += `
                                 <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
-                                    <label>Google Maps Konum Linki (Koordinat otomatik çözülür):</label>
+                                    <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
-                                    <label>Fotoğraf URL'si:</label>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                        <div>
+                                            <label style="font-size: 12px; color: #38bdf8;">Enlem (Latitude):</label>
+                                            <input type="text" name="lat_${i}" placeholder="Örn: 40.8885" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
+                                        </div>
+                                        <div>
+                                            <label style="font-size: 12px; color: #38bdf8;">Boylam (Longitude):</label>
+                                            <input type="text" name="lon_${i}" placeholder="Örn: 29.1856" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
+                                        </div>
+                                    </div>
+                                    <label style="margin-top: 10px; display:block;">Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
                                     <label>Açıklama / İpucu Notu:</label>
                                     <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
@@ -837,11 +810,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" name="stock" value="{e_stock}" required>
                             <label>Google Maps Konum Linki:</label>
                             <input type="text" name="location" value="{e_loc}" required>
-                            <label>Fotoğraf URL'si:</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                                <div>
+                                    <label style="font-size: 12px; color: #38bdf8;">Enlem (Latitude):</label>
+                                    <input type="text" name="lat" value="{e_lat}" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
+                                </div>
+                                <div>
+                                    <label style="font-size: 12px; color: #38bdf8;">Boylam (Longitude):</label>
+                                    <input type="text" name="lon" value="{e_lon}" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
+                                </div>
+                            </div>
+                            <label style="margin-top: 10px; display:block;">Fotoğraf URL'si:</label>
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
-                            <button type="submit" style="background: #10b981;">Güncellemeyi Kaydet</button>
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
                         </form>
                     </div>
                     """
@@ -1078,7 +1061,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
                 
-                lat, lon = extract_lat_lon_from_url(loc, category)
+                try:
+                    lat = float(params.get(f"lat_{i}", [0.0])[0])
+                except:
+                    lat = 0.0
+                try:
+                    lon = float(params.get(f"lon_{i}", [0.0])[0])
+                except:
+                    lon = 0.0
 
                 if loc and desc:
                     cursor.execute("""
@@ -1100,14 +1090,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             try:
                 price = float(params.get("price", [0])[0])
                 stock = int(params.get("stock", [1])[0])
+                lat = float(params.get("lat", [0.0])[0])
+                lon = float(params.get("lon", [0.0])[0])
             except:
-                price, stock = 0.0, 1
+                price, stock, lat, lon = 0.0, 1, 0.0, 0.0
 
             location = params.get("location", [""])[0]
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
-
-            lat, lon = extract_lat_lon_from_url(location, category)
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
