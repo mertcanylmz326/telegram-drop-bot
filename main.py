@@ -632,8 +632,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     uname = f"@{u_row[0]}" if u_row and u_row[0] else f"User {uid}"
                     active_style = "background: #1e293b; border-color: #38bdf8;" if uid == selected_user_id else "background: #0f172a;"
                     chat_list_html += f"""
-                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 12px; border-radius: 8px; text-decoration: none; color: white; margin-bottom: 8px; border: 1px solid #334155; {active_style}">
-                        <div style="font-weight: bold; color: #38bdf8;">{uname}</div>
+                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: white; margin-bottom: 6px; border: 1px solid #334155; {active_style}">
+                        <div style="font-weight: bold; color: #38bdf8; font-size: 13px;">{uname}</div>
                         <div style="font-size: 11px; color: #94a3b8;">ID: {uid}</div>
                     </a>
                     """
@@ -649,12 +649,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         align = "margin-left: auto;" if is_admin_msg else "margin-right: auto;"
                         sender_label = "👑 Yönetici (Sen)" if is_admin_msg else "👤 Müşteri"
                         messages_html += f"""
-                        <div style="max-width: 75%; background: {bg_color}; padding: 12px 15px; border-radius: 12px; margin-bottom: 12px; {align} border: 1px solid #334155;">
-                            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; display:flex; justify-content: space-between;">
+                        <div style="max-width: 80%; background: {bg_color}; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; {align} border: 1px solid #334155;">
+                            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 4px; display:flex; justify-content: space-between; gap: 10px;">
                                 <span>{sender_label}</span>
                                 <span>{m_date}</span>
                             </div>
-                            <div style="font-size: 14px; word-break: break-word;">{msg_text}</div>
+                            <div style="font-size: 13px; word-break: break-word;">{msg_text}</div>
                         </div>
                         """
 
@@ -662,36 +662,76 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if selected_user_id:
                     chat_box_html = f"""
                     <div style="display: flex; flex-direction: column; height: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 15px;">
-                            <h3 style="margin: 0; color: #38bdf8;">💬 Aktif Sohbet (Kullanıcı ID: {selected_user_id})</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0; color: #38bdf8; font-size: 15px;">💬 Aktif Sohbet (ID: {selected_user_id})</h3>
                             <form action="/admin-close-support" method="POST" style="margin:0;">
                                 <input type="hidden" name="user_id" value="{selected_user_id}">
-                                <button type="submit" style="background: #ef4444; padding: 8px 16px; font-size: 12px; width: auto; border-radius: 6px;">🔒 Sohbeti Bitir & Temizle</button>
+                                <button type="submit" style="background: #ef4444; padding: 6px 12px; font-size: 11px; width: auto; border-radius: 6px;">🔒 Sohbeti Bitir & Temizle</button>
                             </form>
                         </div>
-                        <div style="flex: 1; overflow-y: auto; max-height: 400px; padding-right: 5px; margin-bottom: 15px;">
+                        <div style="flex: 1; overflow-y: auto; max-height: 350px; padding-right: 5px; margin-bottom: 12px;">
                             {messages_html if messages_html else "<p style='text-align:center; color:#64748b;'>Henüz mesaj yok.</p>"}
                         </div>
-                        <form action="/admin-send-support" method="POST" style="display: flex; gap: 10px; margin: 0;">
+                        <form action="/admin-send-support" method="POST" style="display: flex; gap: 8px; margin: 0;">
                             <input type="hidden" name="user_id" value="{selected_user_id}">
-                            <input type="text" name="message" required placeholder="Müşteriye yanıt yazın..." style="margin:0; flex: 1;">
-                            <button type="submit" style="width: auto; background: #10b981; padding: 0 25px;">Gönder</button>
+                            <input type="text" name="message" required placeholder="Müşteriye yanıt yazın..." style="margin:0; flex: 1; padding: 10px; font-size: 13px;">
+                            <button type="submit" style="width: auto; background: #10b981; padding: 0 18px; font-size: 13px;">Gönder</button>
                         </form>
                     </div>
                     """
                 else:
-                    chat_box_html = "<p style='text-align:center; color:#64748b; padding: 50px;'>Sol menüden bir müşteri sohbeti seçin.</p>"
+                    chat_box_html = "<p style='text-align:center; color:#64748b; padding: 30px;'>Lütfen listeden bir sohbet seçin.</p>"
 
                 content_html = f"""
-                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; min-height: 520px;">
-                    <div style="border-right: 1px solid #1f2937; padding-right: 15px; overflow-y: auto; max-height: 500px;">
-                        <h3 style="margin-top: 0; color: #f8fafc; font-size: 16px;">👥 Destek Talepleri</h3>
-                        {chat_list_html if chat_list_html else "<p style='color:#64748b; font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
-                    </div>
-                    <div style="display: flex; flex-direction: column;">
+                <div class="support-container">
+                    <div class="chat-main-area">
                         {chat_box_html}
                     </div>
+                    <div class="support-sidebar-area">
+                        <h3 style="margin-top: 0; color: #f8fafc; font-size: 15px; border-bottom: 1px solid #1f2937; padding-bottom: 8px; margin-bottom: 10px;">👥 Destek Talepleri</h3>
+                        <div style="max-height: 350px; overflow-y: auto;">
+                            {chat_list_html if chat_list_html else "<p style='color:#64748b; font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
+                        </div>
+                    </div>
                 </div>
+                <style>
+                    .support-container {{
+                        display: flex;
+                        flex-direction: column;
+                        gap: 20px;
+                        background: #111827;
+                        padding: 20px;
+                        border-radius: 14px;
+                        border: 1px solid #1f2937;
+                    }}
+                    .chat-main-area {{
+                        order: 1;
+                        background: #090d16;
+                        padding: 15px;
+                        border-radius: 10px;
+                        border: 1px solid #1f2937;
+                    }}
+                    .support-sidebar-area {{
+                        order: 2;
+                        background: #090d16;
+                        padding: 15px;
+                        border-radius: 10px;
+                        border: 1px solid #1f2937;
+                    }}
+                    @media (min-width: 900px) {{
+                        .support-container {{
+                            display: grid;
+                            grid-template-columns: 1fr 300px;
+                            gap: 20px;
+                        }}
+                        .chat-main-area {{
+                            order: 1;
+                        }}
+                        .support-sidebar-area {{
+                            order: 2;
+                        }}
+                    }}
+                </style>
                 """
             elif tab == "users":
                 cursor.execute("""
