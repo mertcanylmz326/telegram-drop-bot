@@ -705,8 +705,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                         temsilidrops.forEach(td => {{
                             const blueIcon = L.divIcon({{
-                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📦</div>',
-                                iconSize: [24, 24]
+                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">🌿</div>',
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]]
                             }});
                             L.marker([td.lat, td.lon], {{icon: blueIcon}}).addTo(markersGroup)
                                 .bindPopup(`<b>${{td.title}}</b><br>Temsili Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT`);
