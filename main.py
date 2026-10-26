@@ -472,7 +472,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
-        # --- YENİ: Anlık Mesaj Kontrol API'si (Tarayıcı Bildirimleri İçin) ---
+        # --- GÜÇLENDİRİLMİŞ MESAJ KONTROL API'Sİ ---
         if parsed_path.path == "/api/check-new-messages":
             if not is_logged_in:
                 self.send_response(401)
@@ -482,6 +482,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             last_id = int(query_params.get("last_id", [0])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
+            # Müşteriden gelen yeni mesajları anında yakala
             cursor.execute("SELECT sm.id, sm.user_id, sm.message, u.username FROM support_messages sm LEFT JOIN users u ON sm.user_id = u.user_id WHERE sm.id > ? AND sm.sender = 'user' ORDER BY sm.id ASC LIMIT 1", (last_id,))
             new_msg = cursor.fetchone()
             conn.close()
@@ -1005,7 +1006,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-            # En yüksek support_message ID'sini alıyoruz ki bildirim kontrolü doğru başlasın
             cursor.execute("SELECT MAX(id) FROM support_messages")
             max_s_id = cursor.fetchone()[0] or 0
             conn.close()
@@ -1070,6 +1070,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .theme-toggle-btn, .notif-perm-btn {{ background: #334155; border: none; padding: 6px 12px; border-radius: 8px; color: white; cursor: pointer; font-size: 12px; font-weight: bold; }}
                     .notif-perm-btn {{ background: #10b981; }}
 
+                    /* GÖRSEL ALARM PENCERESİ */
+                    #alertModal {{
+                        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center;
+                    }}
+                    .alert-card {{
+                        background: #111827; border: 3px solid #ef4444; padding: 30px; border-radius: 16px;
+                        text-align: center; max-width: 400px; width: 90%; box-shadow: 0 0 30px rgba(239,68,68,0.6);
+                    }}
+
                     @media (max-width: 768px) {{
                         body {{ flex-direction: column !important; }}
                         .sidebar {{ width: 100% !important; flex-direction: row !important; overflow-x: auto !important; padding: 12px !important; gap: 8px; align-items: center; white-space: nowrap; }}
@@ -1092,12 +1102,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         const savedTheme = localStorage.getItem('theme') || 'dark';
                         document.documentElement.setAttribute('data-theme', savedTheme);
                         
-                        // Tarayıcı Bildirim İzni İste
                         if (window.Notification && Notification.permission !== "granted") {{
                             Notification.requestPermission();
                         }}
                         
-                        // Arka Planda Yeni Mesaj Polling
                         startMessageListener();
                     }});
 
@@ -1111,31 +1119,58 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     if (data.has_new) {{
                                         lastMessageId = data.id;
                                         playNotificationSound();
+                                        showVisualAlert(data.username, data.message, data.user_id);
                                         showBrowserNotification(data.username, data.message, data.user_id);
                                     }}
                                 }}
                             }} catch(e) {{
                                 console.error(e);
                             }}
-                        }}, 5000);
+                        }}, 4000); // 4 saniyede bir kontrol
                     }}
 
                     function playNotificationSound() {{
-                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-                        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.start();
-                        osc.stop(ctx.currentTime + 0.2);
+                        try {{
+                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 yüksek ses
+                            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.3);
+                        }} catch(e) {{}}
+                    }}
+
+                    function showVisualAlert(senderName, text, userId) {{
+                        let modal = document.getElementById('alertModal');
+                        if(!modal) {{
+                            modal = document.createElement('div');
+                            modal.id = 'alertModal';
+                            modal.innerHTML = `
+                                <div class="alert-card">
+                                    <h2 style="color: #ef4444; margin-top:0;">🚨 YENİ MÜŞTERİ MESAJI!</h2>
+                                    <p id="alertSender" style="font-weight:bold; color:#38bdf8; font-size:16px; margin:10px 0;"></p>
+                                    <p id="alertText" style="background:#090d16; padding:12px; border-radius:8px; color:#f8fafc; font-size:14px; margin-bottom:20px; word-break:break-word;"></p>
+                                    <button onclick="goToChat(${{userId}})" style="background:#10b981; font-size:15px; padding:12px; font-weight:bold;">💬 Sohbete Git & Yanıtla</button>
+                                </div>
+                            `;
+                            document.body.appendChild(modal);
+                        }}
+                        document.getElementById('alertSender').innerText = senderName + " yazdı:";
+                        document.getElementById('alertText').innerText = "\"" + text + "\"";
+                        modal.style.display = 'flex';
+                    }}
+
+                    function goToChat(userId) {{
+                        window.location.href = "/admin-web?tab=support&user_id=" + userId;
                     }}
 
                     function showBrowserNotification(senderName, text, userId) {{
                         if (window.Notification && Notification.permission === "granted") {{
-                            const notif = new Notification("💬 Yeni Müşteri Mesajı: " + senderName, {{
+                            const notif = new Notification("💬 Yeni Mesaj: " + senderName, {{
                                 body: text,
                                 icon: "https://cdn-icons-png.flaticon.com/512/893/893257.png"
                             }});
@@ -1152,7 +1187,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 alert("Bildirim izni durumu: " + perm);
                             }});
                         }} else {{
-                            alert("Tarayıcınız masaüstü bildirimlerini desteklemiyor.");
+                            alert("Tarayıcınız bildirimleri desteklemiyor.");
                         }}
                     }}
 
