@@ -189,7 +189,6 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
             price REAL,
-            location_url TEXT,
             photo_ids TEXT,
             description TEXT,
             stock INTEGER DEFAULT 1,
@@ -712,11 +711,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "passive":
-                cursor.execute("SELECT id, title, price, stock, category, description, location_url FROM drops WHERE is_sold = 0")
+                cursor.execute("SELECT id, title, price, stock, category, description, lat, lon FROM drops WHERE is_sold = 0")
                 drops = cursor.fetchall()
                 rows = ""
                 for d in drops:
-                    d_id, title, price, stock, cat, desc, loc = d
+                    d_id, title, price, stock, cat, desc, lat, lon = d
                     rows += f"""
                     <tr>
                         <td>#{d_id}</td>
@@ -764,19 +763,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             container.innerHTML += `
                                 <div style="background: #0f172a; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #334155;">
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
-                                    <label>Google Maps Konum Linki:</label>
-                                    <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                                        <div>
-                                            <label style="font-size: 12px; color: #38bdf8;">Enlem (Latitude):</label>
-                                            <input type="text" name="lat_${i}" placeholder="Örn: 40.8885" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
-                                        </div>
-                                        <div>
-                                            <label style="font-size: 12px; color: #38bdf8;">Boylam (Longitude):</label>
-                                            <input type="text" name="lon_${i}" placeholder="Örn: 29.1856" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
-                                        </div>
-                                    </div>
-                                    <label style="margin-top: 10px; display:block;">Fotoğraf URL'si:</label>
+                                    <label style="color: #38bdf8; font-size: 13px;">Koordinat (Tek Satır - Örn: 40.8885, 29.1856):</label>
+                                    <input type="text" name="coords_${i}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
+                                    <label>Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
                                     <label>Açıklama / İpucu Notu:</label>
                                     <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
@@ -791,10 +780,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             edit_form_html = ""
             if tab == "edit":
                 edit_id = query_params.get("id", ["0"])[0]
-                cursor.execute("SELECT title, price, stock, category, location_url, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
+                cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
                 drop_data = cursor.fetchone()
                 if drop_data:
-                    e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc, e_lat, e_lon = drop_data
+                    e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
+                    combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
                     edit_form_html = f"""
                     <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
                         <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
@@ -808,19 +798,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" step="0.1" name="price" value="{e_price}" required>
                             <label>Stok Adedi:</label>
                             <input type="number" name="stock" value="{e_stock}" required>
-                            <label>Google Maps Konum Linki:</label>
-                            <input type="text" name="location" value="{e_loc}" required>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                                <div>
-                                    <label style="font-size: 12px; color: #38bdf8;">Enlem (Latitude):</label>
-                                    <input type="text" name="lat" value="{e_lat}" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
-                                </div>
-                                <div>
-                                    <label style="font-size: 12px; color: #38bdf8;">Boylam (Longitude):</label>
-                                    <input type="text" name="lon" value="{e_lon}" style="margin:4px 0 0 0; padding:8px; font-size:13px;" required>
-                                </div>
-                            </div>
-                            <label style="margin-top: 10px; display:block;">Fotoğraf URL'si:</label>
+                            <label style="color: #38bdf8; font-size: 13px;">Koordinat (Tek Satır - Örn: 40.8885, 29.1856):</label>
+                            <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
+                            <label>Fotoğraf URL'si:</label>
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
@@ -926,7 +906,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT orders.status, drops.title, drops.location_url, drops.photo_ids, drops.description 
+                    SELECT orders.status, drops.title, drops.lat, drops.lon, drops.photo_ids, drops.description 
                     FROM orders 
                     JOIN drops ON orders.drop_id = drops.id 
                     WHERE orders.id = ?
@@ -938,11 +918,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     self.send_html_error("Ürün veya sipariş bulunamadı.")
                     return
 
-                status, title, location_url, photo_url, description = row
+                status, title, lat, lon, photo_url, description = row
                 if status != 'completed':
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
 
+                location_url = f"https://www.google.com/maps?q={lat},{lon}"
                 photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #374151;" />' if photo_url else ''
 
                 html_content = f"""
@@ -1057,24 +1038,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             for i in range(1, count + 1):
-                loc = params.get(f"location_{i}", [""])[0]
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
                 
+                coord_raw = params.get(f"coords_{i}", ["0.0, 0.0"])[0]
+                lat, lon = get_district_coord(category)
                 try:
-                    lat = float(params.get(f"lat_{i}", [0.0])[0])
-                except:
-                    lat = 0.0
-                try:
-                    lon = float(params.get(f"lon_{i}", [0.0])[0])
-                except:
-                    lon = 0.0
+                    if "," in coord_raw:
+                        c_parts = coord_raw.split(",")
+                        lat = float(c_parts[0].strip())
+                        lon = float(c_parts[1].strip())
+                except Exception as e:
+                    logging.error(f"Coord parse error: {e}")
 
-                if loc and desc:
+                if desc:
                     cursor.execute("""
-                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category, lat, lon)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (title, price, loc, photo, desc, 1, category, lat, lon))
+                        INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (title, price, photo, desc, 1, category, lat, lon))
             conn.commit()
             conn.close()
 
@@ -1090,21 +1071,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             try:
                 price = float(params.get("price", [0])[0])
                 stock = int(params.get("stock", [1])[0])
-                lat = float(params.get("lat", [0.0])[0])
-                lon = float(params.get("lon", [0.0])[0])
             except:
-                price, stock, lat, lon = 0.0, 1, 0.0, 0.0
+                price, stock = 0.0, 1
 
-            location = params.get("location", [""])[0]
+            coord_raw = params.get("coords", ["0.0, 0.0"])[0]
+            lat, lon = get_district_coord(category)
+            try:
+                if "," in coord_raw:
+                    c_parts = coord_raw.split(",")
+                    lat = float(c_parts[0].strip())
+                    lon = float(c_parts[1].strip())
+            except Exception as e:
+                logging.error(e)
+
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, location_url = ?, photo_ids = ?, description = ?, lat = ?, lon = ?
+                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ?
                 WHERE id = ?
-            """, (title, price, stock, category, location, photo, description, lat, lon, drop_id))
+            """, (title, price, stock, category, photo, description, lat, lon, drop_id))
             conn.commit()
             conn.close()
 
