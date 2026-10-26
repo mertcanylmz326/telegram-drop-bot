@@ -966,17 +966,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
             verified = False
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(api_url) as response:
-                        if response.status == 200:
-                            res_json = loop.run_until_complete(response.json())
-                            for tx in res_json.get("data", []):
-                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                                    verified = True
-                                    break
-                loop.close()
+                async def verify_tx():
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(api_url) as response:
+                            if response.status == 200:
+                                res_json = await response.json()
+                                for tx in res_json.get("data", []):
+                                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                                        return True
+                    return False
+
+                verified = asyncio.run(verify_tx())
             except Exception as e:
                 logging.error(e)
 
@@ -2639,7 +2639,7 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
     cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (user_id, user_msg))
     conn.commit()
     conn.close()
