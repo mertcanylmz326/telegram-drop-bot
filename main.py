@@ -38,6 +38,37 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
+# --- İSTANBUL İLÇE KOORDİNATLARI (HARİTA İÇİN) ---
+DISTRICT_COORDS = {
+    "BEŞİKTAŞ": [41.0429, 29.0077],
+    "KADIKÖY": [40.9901, 29.0254],
+    "ÜSKÜDAR": [41.0256, 29.0153],
+    "ŞİŞLİ": [41.0615, 28.9877],
+    "BEYOĞLU": [41.0369, 28.9776],
+    "FATİH": [41.0092, 28.9556],
+    "SARIYER": [41.1687, 29.0565],
+    "MALTEPE": [40.9273, 29.1303],
+    "KARTAL": [40.8885, 29.1856],
+    "PENDİK": [40.8763, 29.2366],
+    "ATAŞEHİR": [40.9859, 29.1136],
+    "ÜMRANİYE": [41.0298, 29.1157],
+    "ÇEKMEKÖY": [41.0422, 29.1764],
+    "BEYKOZ": [41.1150, 29.1028],
+    "BAKIRKÖY": [40.9791, 28.8756],
+    "ZEYTİNBURNU": [40.9928, 28.8988],
+    "ESENYURT": [41.0261, 28.6811],
+    "BAĞCILAR": [41.0375, 28.8503],
+    "BAHÇELİEVLER": [40.9981, 28.8584],
+    "GENEL": [41.0082, 28.9784]
+}
+
+def get_district_coord(category_name):
+    cat_upper = category_name.upper().strip()
+    for key, coord in DISTRICT_COORDS.items():
+        if key in cat_upper:
+            return coord
+    return [41.0082, 28.9784] # İstanbul Merkez (Eminönü/Fatih) varsayılan
+
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
     "tr": {
@@ -45,6 +76,7 @@ LANG = {
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
+        "btn_track": "🔍 Sipariş Takip / Sorgula",
         "btn_wallet": "💰 Cüzdanım / Bakiye",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
         "btn_support": "📞 Destek",
@@ -55,9 +87,12 @@ LANG = {
         "no_cat_stock": "Bu bölgede aktif ürün kalmadı.",
         "my_orders_title": "📦 **Sipariş Geçmişiniz:**",
         "no_orders": "📦 Henüz bir sipariş geçmişiniz bulunmuyor.",
-        "order_item": "• **Sipariş #{id}** | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
+        "order_item": "• **Sipariş #{id}** (Kod: `WEE-{id}`) | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
+        "track_prompt": "🔍 Lütfen sorgulamak istediğiniz **Sipariş Kodunu** yazın (Örn: WEE-5 veya sadece 5):",
+        "track_not_found": "❌ Bu koda ait bir sipariş bulunamadı veya henüz onaylanmadı.",
+        "track_result": "🔍 **Sipariş Sorgulama Sonucu (#{id})**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🟢 Durum: Tamamlandı\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
@@ -68,7 +103,7 @@ LANG = {
         "pay_balance": "⚡ Bakiyeden Öde ({price} USDT)",
         "pay_crypto": "🔒 Blokzincir ile Doğrudan Öde",
         "insufficient_balance": "❌ Bakiyeniz yetersiz! Lütfen cüzdanınıza bakiye yükleyin veya doğrudan ödeme yapın.",
-        "balance_success": "🎉 Siparişiniz başarıyla onaylandı! {price} USDT bakiyenizden düşüldü.\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
+        "balance_success": "🎉 Siparişiniz başarıyla onaylandı! {price} USDT bakiyenizden düşüldü.\n\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "cancel": "❌ İptal",
         "invalid_drop": "⚠️ Ürün artık mevcut değil.",
         "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
@@ -79,8 +114,8 @@ LANG = {
         "already_approved": "Zaten onaylanmış.",
         "expired": "Süresi dolmuş.",
         "time_out": "⏰ Süre aşımı nedeniyle iptal edildi.",
-        "success_order": "✅ Sipariş #{id} onaylandı.",
-        "success_msg": "🎉 Ödemeniz onaylandı!\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
+        "success_order": "✅ Sipariş #{id} onaylandı. Takip Kodunuz: `WEE-{id}`",
+        "success_msg": "🎉 Ödemeniz onaylandı!\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wait_tx": "⚠️ Henüz transfer yansımadı, bekleyin.",
         "support_ask": "📞 Destek mesajınızı yazın, admin grubuna iletilsin:",
         "support_sent": "✅ Destek mesajınız admin grubuna iletildi.",
@@ -91,6 +126,7 @@ LANG = {
         "lang_set": "✅ Language set to English.",
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
+        "btn_track": "🔍 Track Order",
         "btn_wallet": "💰 My Wallet / Balance",
         "btn_faq": "❓ How It Works (FAQ)",
         "btn_support": "📞 Support",
@@ -101,9 +137,12 @@ LANG = {
         "no_cat_stock": "No active products left in this region.",
         "my_orders_title": "📦 **Your Order History:**",
         "no_orders": "📦 You don't have any order history yet.",
-        "order_item": "• **Order #{id}** | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
+        "order_item": "• **Order #{id}** (Code: `WEE-{id}`) | {title} - {price} USDT\n  Status: {status} ({date})\n\n",
         "open_loc": "🔗 Open Order #{id} Location",
         "sold_out": "⚠️ This product is sold out.",
+        "track_prompt": "🔍 Please enter your **Order Code** (e.g. WEE-5 or just 5):",
+        "track_not_found": "❌ No order found with this code or not approved yet.",
+        "track_result": "🔍 **Order Tracking Result (#{id})**\n\n📌 Product: {title}\n💰 Price: {price} USDT\n🟢 Status: Completed\n\n👉 [Open Secure Location Page]({link})",
         "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
@@ -114,7 +153,7 @@ LANG = {
         "pay_balance": "⚡ Pay from Balance ({price} USDT)",
         "pay_crypto": "🔒 Pay Directly via Blockchain",
         "insufficient_balance": "❌ Insufficient balance! Please deposit funds or pay directly.",
-        "balance_success": "🎉 Order successfully approved! {price} USDT deducted from your balance.\n\n👉 [Open Secure Location Page]({link})",
+        "balance_success": "🎉 Order successfully approved! {price} USDT deducted from your balance.\n🔑 Order Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
         "cancel": "❌ Cancel",
         "invalid_drop": "⚠️ Product is no longer available.",
         "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
@@ -125,8 +164,8 @@ LANG = {
         "already_approved": "Already approved.",
         "expired": "Expired.",
         "time_out": "⏰ Canceled due to timeout.",
-        "success_order": "✅ Order #{id} approved.",
-        "success_msg": "🎉 Your payment is approved!\n\n👉 [Open Secure Location Page]({link})",
+        "success_order": "✅ Order #{id} approved. Tracking Code: `WEE-{id}`",
+        "success_msg": "🎉 Your payment is approved!\n🔑 Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
         "wait_tx": "⚠️ Transfer not reflected yet, please wait.",
         "support_ask": "📞 Type your support message to send to the admin team:",
         "support_sent": "✅ Your support message has been sent to the admin team.",
@@ -269,7 +308,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- GELİŞMİŞ WEB SUNUCUSU & CÜZDAN / CRM PANELİ ---
+# --- WEB SUNUCUSU & PANEL (İSTANBUL HARİTASI İLE) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -304,6 +343,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "home":
+                # Aktif dropları çek ve harita için marker listesi hazırla
+                cursor.execute("SELECT id, title, price, stock, category FROM drops WHERE is_sold = 0 AND stock > 0")
+                active_drops_for_map = cursor.fetchall()
+                
+                map_markers_js = ""
+                for ad in active_drops_for_map:
+                    d_id, d_title, d_price, d_stock, d_cat = ad
+                    coord = get_district_coord(d_cat)
+                    map_markers_js += f"""
+                    L.marker([{coord[0]}, {coord[1]}]).addTo(map)
+                        .bindPopup("<b>{d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
+                    """
+
                 cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
                 logs = cursor.fetchall()
                 logs_html = ""
@@ -333,9 +385,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
+                <!-- 🗺️ İSTANBUL AKTİF DROP HARİTASI -->
+                <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
+                    <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+                        🗺️ İstanbul Aktif Drop Haritası 
+                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Canlı Semt Takibi</span>
+                    </h2>
+                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların ilçelere göre dağılımını buradan anlık olarak takip edebilirsin:</p>
+                    <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid #334155; z-index: 1;"></div>
+                </div>
+
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Akış Yönetimi</h2>
-                    <p style="font-size: 13px; color: #94a3b8;">Sistemin para akışı ve cüzdan yapılandırması aşağıda güvenle çalışmaktadır:</p>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
                         <div style="background: #090d16; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
                             <h4 style="margin: 0 0 5px 0; color: #38bdf8;">📥 1. Giriş Hesabı (Bot Ödemeleri)</h4>
@@ -366,8 +427,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
 
+                <!-- Leaflet Harita Kütüphanesi -->
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
+                    // Harita Başlatma (İstanbul Odaklı)
+                    const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
+                    
+                    // Koyu tema harita katmanı (CartoDB Dark Matter)
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {{
+                        attribution: '&copy; OpenStreetMap & CARTO',
+                        subdomains: 'abcd',
+                        maxZoom: 19
+                    }}).addTo(map);
+
+                    // Drop İşaretçileri
+                    {map_markers_js}
+
+                    // Grafik
                     const ctx = document.getElementById('revenueChart').getContext('2d');
                     new Chart(ctx, {{
                         type: 'line',
@@ -410,7 +488,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     username_str = f"@{uname}" if uname else "N/A"
                     status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
                     
-                    # Bakiye güncelleme formu
                     balance_form = f"""
                     <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:5px; align-items:center;">
                         <input type="hidden" name="user_id" value="{uid}">
@@ -418,7 +495,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <button type="submit" style="background:#2563eb; padding:6px 10px; font-size:11px; width:auto;">Güncelle</button>
                     </form>
                     """
-
                     ban_btn = f"""
                     <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                         <input type="hidden" name="user_id" value="{uid}">
@@ -433,7 +509,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 content_html = f"""
                 <div class="table-box">
                     <h2>👥 Müşteri CRM & Bakiye Yönetimi</h2>
-                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Müşterilerin güncel bakiyelerini görüntüleyebilir, doğrudan bakiye miktarını değiştirip güncelleyebilir ve sipariş analizlerini inceleyebilirsin.</p>
                     <table>
                         <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Bakiye (USDT)</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
                         {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
@@ -454,13 +529,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for o in orders:
                     o_id, uname, title, f_price, status, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    rows += f"<tr><td>#{o_id}</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
+                    rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
                 
                 content_html = f"""
                 <div class="table-box">
                     <h2>🟢 Aktif / Tamamlanan Satışlar</h2>
                     <table>
-                        <tr><th>Sipariş ID</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
+                        <tr><th>Sipariş Kodu</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
                         {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
                     </table>
                 </div>
@@ -481,7 +556,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
                     rows += f"""
                     <tr>
-                        <td>#{o_id}</td>
+                        <td>#{(o_id)}</td>
                         <td>{username_str}</td>
                         <td>{title}</td>
                         <td>{f_price} USDT</td>
@@ -523,7 +598,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     """
                 content_html = f"""
                 <div class="table-box">
-                    <h2>📦 Pasif / Stoktaki Ürünler (Düzenlenebilir)</h2>
+                    <h2>📦 Pasif / Stoktaki Ürünler</h2>
                     <table>
                         <tr><th>ID</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
                         {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
@@ -537,18 +612,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <form action="/admin-add" method="POST" id="addForm">
                         <label>Ürün Başlığı:</label>
                         <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
-                        
-                        <label>Semt / Şehir (Kategori):</label>
-                        <input type="text" name="category" required placeholder="Örn: Kadıköy, Taksim vb.">
-                        
+                        <label>Semt / İlçe (Örn: Beşiktaş, Kadıköy, Çekmeköy vb.):</label>
+                        <input type="text" name="category" required placeholder="Beşiktaş">
                         <label>Fiyat (USDT):</label>
                         <input type="number" step="0.1" name="price" required placeholder="65">
-                        
                         <label>Kaç Adet Ekleyeceksin? (Stok):</label>
                         <input type="number" name="count" id="countInput" value="1" min="1" max="30" required onchange="generateFields()">
-                        
                         <div id="dynamicFields"></div>
-                        
                         <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
                     </form>
                 </div>
@@ -563,8 +633,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <h4 style="color: #38bdf8; margin-top: 0;">📍 Drop #${i} Detayları</h4>
                                     <label>Google Maps Konum Linki:</label>
                                     <input type="text" name="location_${i}" required placeholder="https://maps.app.goo.gl/...">
-                                    <label>Fotoğraf URL'si (Görsel Linki):</label>
-                                    <input type="text" name="photo_${i}" placeholder="https://imgur.com/... veya resim linki">
+                                    <label>Fotoğraf URL'si:</label>
+                                    <input type="text" name="photo_${i}" placeholder="https://...">
                                     <label>Açıklama / İpucu Notu:</label>
                                     <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
                                 </div>
@@ -589,7 +659,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="hidden" name="id" value="{edit_id}">
                             <label>Ürün Başlığı:</label>
                             <input type="text" name="title" value="{e_title}" required>
-                            <label>Semt / Şehir (Kategori):</label>
+                            <label>Semt / İlçe:</label>
                             <input type="text" name="category" value="{e_cat or 'Genel'}" required>
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" value="{e_price}" required>
@@ -597,7 +667,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" name="stock" value="{e_stock}" required>
                             <label>Google Maps Konum Linki:</label>
                             <input type="text" name="location" value="{e_loc}" required>
-                            <label>Fotoğraf URL'si (Görsel Linki):</label>
+                            <label>Fotoğraf URL'si:</label>
                             <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
@@ -623,15 +693,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .sidebar a.active, .sidebar a:hover {{ background: #1e293b; color: #38bdf8; border-color: #334155; }}
                     .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
                     .logout-link:hover {{ background: #dc2626 !important; }}
-                    
                     .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
                     .header-title {{ color: #f8fafc; font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid #1f2937; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
-                    
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
                     .card {{ background: #111827; padding: 22px; border-radius: 14px; border: 1px solid #1f2937; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
                     .card h3 {{ margin: 0 0 10px 0; color: #6b7280; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
                     .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
-                    
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
                     .form-box, .table-box {{ background: #111827; padding: 25px; border-radius: 14px; border: 1px solid #1f2937; margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
                     input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; }}
@@ -643,22 +710,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
                     .edit-btn:hover {{ background: #b45309; }}
-
-                    @media (max-width: 768px) {{
-                        body {{ flex-direction: column; }}
-                        .sidebar {{ width: 100%; flex-direction: row; flex-wrap: wrap; gap: 5px; padding: 15px; }}
-                        .sidebar .brand {{ width: 100%; margin-bottom: 15px; }}
-                        .sidebar a {{ flex: 1; min-width: 90px; font-size: 11px; text-align: center; padding: 10px 4px; margin-bottom: 0; }}
-                        .main-content {{ padding: 20px; }}
-                        .grid-2 {{ grid-template-columns: 1fr; }}
-                        .header-title {{ flex-direction: column; align-items: flex-start; gap: 10px; }}
-                    }}
                 </style>
             </head>
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home</a>
+                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
                     <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
                     <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
@@ -666,11 +723,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
-
                 <div class="main-content">
                     <div class="header-title">
                         <span>👑 Weed Istanbul Management System</span>
-                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🌐 Multi-Language & Wallet Active</span>
+                        <span style="font-size: 13px; color: #38bdf8; background: #111827; padding: 6px 12px; border-radius: 8px; border: 1px solid #1f2937;">🗺️ Live Map & Wallet Active</span>
                     </div>
                     {edit_form_html}
                     {content_html}
@@ -804,7 +860,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.close()
 
             log_panel_event(f"🛡️ User {target_uid} status updated: {'BANNED' if is_b == 1 else 'UNBANNED'}", "warning" if is_b == 1 else "info")
-
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -822,8 +877,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
-            log_panel_event(f"💵 Admin Bakiye Düzenledi: Kullanıcı {target_uid} -> Yeni Bakiye: {new_bal} USDT", "success")
-
+            log_panel_event(f"💵 Admin Bakiye Düzenledi: Kullanıcı {target_uid} -> {new_bal} USDT", "success")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -839,7 +893,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-
             for i in range(1, count + 1):
                 loc = params.get(f"location_{i}", [""])[0]
                 photo = params.get(f"photo_{i}", [""])[0]
@@ -849,12 +902,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                     """, (title, price, loc, photo, desc, 1, category))
-
             conn.commit()
             conn.close()
 
-            log_panel_event(f"➕ Yeni Ürün Eklendi: {title} ({count} Adet, Bölge: {category})", "success")
-
+            log_panel_event(f"➕ Yeni Ürün Eklendi: {title} ({count} Adet, Semt: {category})", "success")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -881,8 +932,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
-            log_panel_event(f"✏️ Ürün Güncellendi: #{drop_id} - {title}", "info")
-
+            log_panel_event(f"✏️ Ürün Güncellendi: #{drop_id}", "info")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -907,36 +957,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     else:
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-                    
-                    cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (t_cat,))
-                    rem_stock = cursor.fetchone()[0] or 0
-
                     conn.commit()
                     conn.close()
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = LANG[u_lang]["success_msg"].format(link=secure_link)
+                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
 
-                    log_msg = f"🎉 Manuel Onay & Satış: #{order_id} - {t_title} ({f_price} USDT)"
-                    log_panel_event(log_msg, "success")
-
+                    log_panel_event(f"🎉 Manuel Onay & Satış: #{order_id} - {t_title}", "success")
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(
                             bot.send_message(u_id, success_text, parse_mode="Markdown"),
                             main_loop
                         )
                         asyncio.run_coroutine_threadsafe(
-                            bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ GERÇEKLEŞTİ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n👤 Alıcı ID: `{u_id}`\n🆔 Sipariş ID: `#{order_id}`"),
+                            bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n🔑 Kod: `WEE-{order_id}`"),
                             main_loop
                         )
-                        if rem_stock <= 2:
-                            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {t_cat} bölgesinde kalan aktif stok: {rem_stock} adet!"
-                            log_panel_event(warn_msg, "warning")
-                            asyncio.run_coroutine_threadsafe(
-                                bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{t_cat}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir."),
-                                main_loop
-                            )
             else:
                 conn.close()
 
@@ -952,18 +989,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         login_html = f"""
         <!DOCTYPE html>
         <html lang="tr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Admin Giriş</title>
-            <style>
-                body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
-                h2 {{ color: #38bdf8; margin-top: 0; }}
-                input {{ width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; }}
-                button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 14px; }}
-                button:hover {{ background: #1d4ed8; }}
-            </style>
+        <head><meta charset="UTF-8"><title>Admin Giriş</title>
+        <style>
+            body {{ background-color: #090d16; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+            .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; }}
+            input {{ width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; }}
+            button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }}
+        </style>
         </head>
         <body>
             <div class="login-card">
@@ -987,16 +1019,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         self.send_response(400)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        err_html = f"""
-        <!DOCTYPE html>
-        <html lang="tr">
-        <head><meta charset="UTF-8"><title>Hata</title></head>
-        <body style="background:#090d16;color:#f8fafc;font-family:sans-serif;text-align:center;padding-top:50px;">
-            <h2>⚠️ {message}</h2>
-        </body>
-        </html>
-        """
-        self.wfile.write(err_html.encode("utf-8"))
+        self.wfile.write(f"<h2>⚠️ {message}</h2>".encode("utf-8"))
 
 def run_health_server():
     port = int(os.environ.get("PORT", 10000))
@@ -1018,6 +1041,9 @@ class PromoState(StatesGroup):
 class DepositState(StatesGroup):
     amount = State()
 
+class TrackState(StatesGroup):
+    code = State()
+
 dp = Dispatcher(storage=MemoryStorage())
 bot = Bot(token=BOT_TOKEN)
 
@@ -1026,8 +1052,9 @@ def main_keyboard(lang="tr"):
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
-            [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
+            [KeyboardButton(text=t["btn_track"]), KeyboardButton(text=t["btn_wallet"])],
+            [KeyboardButton(text=t["btn_faq"]), KeyboardButton(text=t["btn_support"])],
+            [KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
     )
@@ -1071,6 +1098,60 @@ async def change_lang_menu(message: types.Message):
         [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
     ])
     await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
+
+# --- 🔍 SİPARİŞ TAKİP / SORGULAMA SİSTEMİ ---
+@dp.message(F.text.in_([LANG["tr"]["btn_track"], LANG["en"]["btn_track"]]))
+async def track_order_start(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+    await state.set_state(TrackState.code)
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data="cancel_track")]])
+    await message.answer(t["track_prompt"], reply_markup=kb)
+
+@dp.callback_query(F.data == "cancel_track")
+async def cancel_track(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ İşlem iptal edildi.")
+
+@dp.message(TrackState.code)
+async def process_track_code(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    if message.chat.type != "private" or is_user_banned(user_id):
+        return
+    lang = get_user_lang(user_id)
+    t = LANG[lang]
+
+    raw_input = message.text.strip().upper().replace("WEE-", "").replace("#", "")
+    await state.clear()
+
+    try:
+        order_id = int(raw_input)
+    except:
+        await message.answer("⚠️ Lütfen geçerli bir sipariş kodu girin (Örn: WEE-5)")
+        return
+
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT orders.status, drops.title, orders.final_price 
+        FROM orders 
+        JOIN drops ON orders.drop_id = drops.id 
+        WHERE orders.id = ? AND orders.user_id = ?
+    """, (order_id, user_id))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row or row[0] != 'completed':
+        await message.answer(t["track_not_found"])
+        return
+
+    status, title, price = row
+    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
+    res_msg = t["track_result"].format(id=order_id, title=title, price=price, link=secure_link)
+    await message.answer(res_msg, parse_mode="Markdown")
 
 # --- 💰 CÜZDAN & BAKİYE YÜKLEME ---
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
@@ -1217,9 +1298,9 @@ async def faq_callback(callback: types.CallbackQuery):
     lang = get_user_lang(user_id)
     action = callback.data.split("_")[1]
     if lang == "tr":
-        text = "💳 Cüzdanınıza bakiye yükleyerek veya doğrudan ödeme yaparak ürün alabilirsiniz." if action == "pay" else ("⏱️ Ödeme onaylanınca şifreli web bağlantısı anında iletilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
+        text = "💳 Cüzdanınıza bakiye yükleyerek ürün alabilirsiniz." if action == "pay" else ("⏱️ Ödeme onaylanınca takip kodunuz ve konum linkiniz verilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
     else:
-        text = "💳 You can deposit to your wallet or pay directly." if action == "pay" else ("⏱️ Secure web link is sent instantly upon payment approval." if action == "delivery" else "🔒 Locations are not stored in Telegram, single-use via web.")
+        text = "💳 You can deposit to your wallet to buy products." if action == "pay" else ("⏱️ Tracking code and secure link are sent upon payment." if action == "delivery" else "🔒 Locations are single-use via web.")
     await callback.answer()
     await callback.message.answer(text)
 
@@ -1248,8 +1329,8 @@ async def forward_support_to_group(message: types.Message, state: FSMContext):
         cursor.execute("INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
         conn.commit()
         conn.close()
-        log_panel_event(f"📩 Yeni Destek Talebi: @{username} (ID: {user_id})", "info")
-        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\nKullanıcı Adı: @{username}\n\n💬 Mesaj:\n{user_msg}")
+        log_panel_event(f"📩 Yeni Destek: @{username} (ID: {user_id})", "info")
+        await bot.send_message(ADMIN_GROUP_ID, f"📩 **YENİ DESTEK TALEBİ**\n\n👤 Kullanıcı ID: `{user_id}`\n💬 Mesaj:\n{user_msg}")
     except Exception as e:
         logging.error(e)
 
@@ -1258,7 +1339,7 @@ async def cmd_admin(message: types.Message, state: FSMContext):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
         return
     await state.set_state(AdminPassState.password)
-    await message.answer("🔐 Yönetim paneline erişmek için lütfen admin şifresini girin:")
+    await message.answer("🔐 Yönetim paneline erişmek için admin şifresini girin:")
 
 @dp.message(AdminPassState.password)
 async def process_admin_password(message: types.Message, state: FSMContext):
@@ -1275,7 +1356,7 @@ async def process_admin_password(message: types.Message, state: FSMContext):
         await message.answer("✅ Şifre Doğru!\n\n👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
     else:
         await state.clear()
-        await message.answer("❌ Hatalı şifre! Erişim reddedildi.")
+        await message.answer("❌ Hatalı şifre!")
 
 @dp.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
@@ -1300,7 +1381,7 @@ async def back_admin(callback: types.CallbackQuery):
     ])
     await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
-# --- 🏙️ KATEGORİ SEÇİMİ ---
+# --- 🏙️ ÜRÜNLER / KATEGORİ ---
 @dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
 async def list_categories(message: types.Message):
     user_id = message.from_user.id
@@ -1410,7 +1491,7 @@ async def my_orders(message: types.Message):
 
     await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
 
-# --- ⚡ SATIN ALMA & BAKİYEDEN ÖDEME ---
+# --- ⚡ SATIN ALMA AKIŞI ---
 @dp.callback_query(F.data.startswith("buy_"))
 async def process_buy(callback: types.CallbackQuery):
     user_id = callback.from_user.id
@@ -1477,27 +1558,17 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
 
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
-
-    cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
-    rem_stock = cursor.fetchone()[0] or 0
-
     conn.commit()
     conn.close()
 
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    success_text = t["balance_success"].format(price=price, link=secure_link)
+    success_text = t["balance_success"].format(id=order_id, price=price, link=secure_link)
 
     await callback.message.edit_text(success_text, parse_mode="Markdown")
-    
-    log_msg = f"⚡ Bakiyeden Satış: #{order_id} - {title} ({price} USDT)"
-    log_panel_event(log_msg, "success")
+    log_panel_event(f"⚡ Bakiyeden Satış: #{order_id} (WEE-{order_id}) - {title} ({price} USDT)", "success")
 
     try:
-        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI GERÇEKLEŞTİ!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
-        if rem_stock <= 2:
-            warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
-            log_panel_event(warn_msg, "warning")
-            await bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{category}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**!")
+        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🔑 Takip Kodu: `WEE-{order_id}`")
     except Exception as e:
         logging.error(e)
 
@@ -1529,9 +1600,9 @@ async def process_buy_crypto(callback: types.CallbackQuery):
     conn.commit()
     conn.close()
 
-    msg = t["order_created"].format(id=order_id, title=title) + f"💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
+    msg = t["order_created"].format(id=order_id, title=title) + f"🔑 Sipariş Takip Kodunuz: `WEE-{order_id}`\n💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
-    await callback.message.edit_text(msg, reply_markup=kb)
+    await callback.message.edit_text(msg, reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("usepromo_"))
 async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
@@ -1588,7 +1659,7 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
     conn.commit()
     conn.close()
 
-    msg = t["order_created"].format(id=order_id, title=title)
+    msg = t["order_created"].format(id=order_id, title=title) + f"🔑 Sipariş Takip Kodunuz: `WEE-{order_id}`\n"
     if promo_applied:
         msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{PROMO_DISCOUNT} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
     else:
@@ -1596,7 +1667,7 @@ async def verify_promo_code(message: types.Message, state: FSMContext):
 
     msg += t["wallet_text"].format(wallet=CRYPTO_WALLET)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
-    await message.answer(msg, reply_markup=kb)
+    await message.answer(msg, reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("autocheck_"))
 async def check_blockchain_payment(callback: types.CallbackQuery):
@@ -1658,28 +1729,18 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         else:
             cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
         cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-        
-        cursor.execute("SELECT SUM(stock) FROM drops WHERE category = ? AND is_sold = 0", (category,))
-        rem_stock = cursor.fetchone()[0] or 0
-
         conn.commit()
         conn.close()
 
         secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-        success_text = t["success_msg"].format(link=secure_link)
+        success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
         await callback.message.edit_text(t["success_order"].format(id=order_id))
         await bot.send_message(user_id, success_text, parse_mode="Markdown")
-        
-        log_msg = f"🎉 Otomatik Satış: #{order_id} - {title} ({final_price} USDT)"
-        log_panel_event(log_msg, "success")
+        log_panel_event(f"🎉 Otomatik Satış: #{order_id} (WEE-{order_id}) - {title} ({final_price} USDT)", "success")
 
         try:
-            await bot.send_message(ADMIN_GROUP_ID, f"🎉 **YENİ BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n👤 Alıcı ID: `{user_id}`\n🆔 Sipariş ID: `#{order_id}`")
-            if rem_stock <= 2:
-                warn_msg = f"⚠️ KRİTİK STOK UYARISI: {category} bölgesinde kalan aktif stok: {rem_stock} adet!"
-                log_panel_event(warn_msg, "warning")
-                await bot.send_message(ADMIN_GROUP_ID, f"⚠️ **KRİTİK STOK UYARISI!**\n\n🏙️ `{category}` bölgesinde toplam kalan aktif stok: **{rem_stock} adet**! Takviye yapman önerilir.")
+            await bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n🔑 Takip Kodu: `WEE-{order_id}`")
         except Exception as e:
             logging.error(e)
     else:
