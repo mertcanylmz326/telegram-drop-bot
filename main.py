@@ -31,7 +31,12 @@ MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
 EXIT_WALLET = "TMxF3AFaqpHgRF5S8RkmZtAkwzzYxgwzLn"
 
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://senin-botun.onrender.com")
+
+# Render Web Linki (Eğer ortam değişkeni yoksa otomatik Render URL'sini alacak şekilde ayarlandı)
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+if not RENDER_EXTERNAL_URL:
+    # Render'da RENDER_SERVICE_NAME veya varsayılan URL kullanımı için fallback
+    RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -63,11 +68,13 @@ DISTRICT_COORDS = {
 }
 
 def get_district_coord(category_name):
+    if not category_name:
+        return [41.0082, 28.9784]
     cat_upper = category_name.upper().strip()
     for key, coord in DISTRICT_COORDS.items():
         if key in cat_upper:
             return coord
-    return [41.0082, 28.9784] # İstanbul Merkez (Eminönü/Fatih) varsayılan
+    return [41.0082, 28.9784]
 
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
@@ -308,7 +315,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- WEB SUNUCUSU & PANEL (İSTANBUL HARİTASI İLE) ---
+# --- WEB SUNUCUSU & HARİTALI WEB PANENİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -343,7 +350,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "home":
-                # Aktif dropları çek ve harita için marker listesi hazırla
                 cursor.execute("SELECT id, title, price, stock, category FROM drops WHERE is_sold = 0 AND stock > 0")
                 active_drops_for_map = cursor.fetchall()
                 
@@ -385,7 +391,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                 </div>
 
-                <!-- 🗺️ İSTANBUL AKTİF DROP HARİTASI -->
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
                         🗺️ İstanbul Aktif Drop Haritası 
@@ -427,25 +432,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
 
-                <!-- Leaflet Harita Kütüphanesi -->
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                 <script>
-                    // Harita Başlatma (İstanbul Odaklı)
                     const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    
-                    // Koyu tema harita katmanı (CartoDB Dark Matter)
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {{
+                    L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png', {{
                         attribution: '&copy; OpenStreetMap & CARTO',
                         subdomains: 'abcd',
                         maxZoom: 19
                     }}).addTo(map);
 
-                    // Drop İşaretçileri
                     {map_markers_js}
 
-                    // Grafik
                     const ctx = document.getElementById('revenueChart').getContext('2d');
                     new Chart(ctx, {{
                         type: 'line',
@@ -1045,7 +1044,6 @@ class TrackState(StatesGroup):
     code = State()
 
 dp = Dispatcher(storage=MemoryStorage())
-bot = Bot(token=BOT_TOKEN)
 
 def main_keyboard(lang="tr"):
     t = LANG[lang]
