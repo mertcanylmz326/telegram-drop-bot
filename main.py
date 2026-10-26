@@ -520,7 +520,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .promo-banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }}
                     .coupon-tag {{ background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }}
                     
-                    #mainMap {{ width: 100%; height: 300px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 15px; }}
+                    #mainMap {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
                     .card {{ background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
                     
                     input, select {{ width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }}
@@ -539,7 +539,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
             </head>
             <body>
-                <div class="nav-tabs">
+                <!-- ARKA PLAN MÜZİK WİDGET (wo3OCsPNevc) -->
+                <div id="musicWidget" style="position: fixed; top: 12px; right: 12px; background: rgba(17, 24, 39, 0.95); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; z-index: 1000; font-size: 11px; backdrop-filter: blur(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                    <span>🎵 Müzik</span>
+                    <button onclick="toggleMusic()" id="musicBtn" style="padding: 4px 10px; width: auto; font-size: 11px; background: var(--accent-green); border-radius: 6px;">Oynat</button>
+                </div>
+                <div id="playerContainer" style="display:none;">
+                    <iframe id="ytAudio" width="0" height="0" src="" frameborder="0" allow="autoplay"></iframe>
+                </div>
+
+                <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Aktif Harita</button>
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdanım</button>
@@ -550,7 +559,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <!-- 1. TAB: HARİTA -->
                 <div id="tabMap" class="tab-content active">
                     <div id="promoContainer"></div>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>🌿 <b>Kenevir Pinler:</b> Temsili bölge stokları.</p>
+                    
+                    <!-- FİLTRELEME MENÜSÜ -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+                        <select id="districtFilter" onchange="filterMapDrops()" style="margin:0; font-weight:bold; color:var(--accent-blue);">
+                            <option value="ALL">🏙️ Tüm Bölgeler (Genel Harita)</option>
+                        </select>
+                    </div>
+
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">📌 <b>Kırmızı Pin:</b> Satın aldığınız tam konum.<br>🌿 <b>Kenevir & Çember:</b> Yaklaşık bölge alanı (Satın alımda tam nokta açılır).</p>
                     <div id="mainMap"></div>
                     <div id="activeOrdersList"></div>
                 </div>
@@ -597,17 +614,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     const tg = window.Telegram.WebApp;
                     tg.expand();
                     
-                    // Güvenli User ID tespiti (Fallback mekanizması)
                     let userId = 0;
                     if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
                         userId = tg.initDataUnsafe.user.id;
                     }} else {{
-                        // Eğer Telegram dışı veya test açıldıysa son aktif kullanıcı ID'sini simüle et veya URL'den al
                         const urlParams = new URLSearchParams(window.location.search);
-                        userId = urlParams.get('user_id') || 1012940363; // Admin ID veya test ID
+                        userId = urlParams.get('user_id') || 1012940363;
                     }}
 
                     let map, markersGroup;
+                    let globalAppData = null;
+                    let isMusicPlaying = false;
+
+                    function toggleMusic() {{
+                        const iframe = document.getElementById('ytAudio');
+                        const btn = document.getElementById('musicBtn');
+                        if(!isMusicPlaying) {{
+                            iframe.src = "https://www.youtube.com/embed/wo3OCsPNevc?autoplay=1&loop=1&playlist=wo3OCsPNevc";
+                            btn.innerText = "Durdur";
+                            btn.style.background = "var(--accent-red)";
+                            isMusicPlaying = true;
+                        }} else {{
+                            iframe.src = "";
+                            btn.innerText = "Oynat";
+                            btn.style.background = "var(--accent-green)";
+                            isMusicPlaying = false;
+                        }}
+                    }}
 
                     function switchTab(tabId) {{
                         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -625,6 +658,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         try {{
                             const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
+                            globalAppData = data;
                             
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
                             
@@ -639,6 +673,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }}
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
+                            // Filtre menüsünü doldur
+                            populateDistrictFilter(data.temsili_drops);
+
                             initMap(data.active_orders, data.temsili_drops);
 
                             let activeHtml = "";
@@ -649,9 +686,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${{o.id}} - ${{o.title}}</h4>
                                         <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${{o.description}}</p>
                                         <a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" style="color:#38bdf8; font-size:12px; text-decoration:none; font-weight:bold;">📍 Google Maps'te Aç</a>
-                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${{o.id}})">✅ Ürünü Teslim Aldım</button>
+                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
                                     </div>`;
-                                }});
+                                });
                             }} else {{
                                 activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
                             }}
@@ -666,7 +703,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
                                     <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
                                 </div>`;
-                            }});
+                            });
                             document.getElementById('productsList').innerHTML = prodHtml;
 
                             let pastHtml = "";
@@ -688,15 +725,32 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }}
                     }}
 
+                    function populateDistrictFilter(drops) {{
+                        const select = document.getElementById('districtFilter');
+                        const categories = [...new Set(drops.map(d => d.category))];
+                        categories.forEach(cat => {{
+                            const opt = document.createElement('option');
+                            opt.value = cat;
+                            opt.innerText = "🏙️ " + cat + " Bölgesi";
+                            select.appendChild(opt);
+                        }});
+                    }}
+
                     function initMap(activeOrders, temsilidrops) {{
                         if(map) return;
                         map = L.map('mainMap').setView([41.0082, 28.9784], 11);
                         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
+                        renderMapMarkers(activeOrders, temsilidrops);
+                    }}
+
+                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {{
+                        markersGroup.clearLayers();
+
                         activeOrders.forEach(o => {{
                             const redIcon = L.divIcon({{
-                                html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📍</div>',
+                                html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">📍</div>',
                                 iconSize: [24, 24]
                             }});
                             L.marker([o.lat, o.lon], {{icon: redIcon}}).addTo(markersGroup)
@@ -704,14 +758,39 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }});
 
                         temsilidrops.forEach(td => {{
+                            if(filterCat !== "ALL" && td.category !== filterCat) return;
+
+                            // BÖLGE ALAN ÇEMBERİ (BLURRING / AREA CIRCLE)
+                            L.circle([td.lat, td.lon], {{
+                                color: '#38bdf8',
+                                fillColor: '#38bdf8',
+                                fillOpacity: 0.12,
+                                radius: 1100
+                            }}).addTo(markersGroup);
+
                             const weedIcon = L.divIcon({{
-                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">🌿</div>',
+                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
                                 iconSize: [28, 28],
                                 iconAnchor: [14, 14]
                             }});
                             L.marker([td.lat, td.lon], {{icon: weedIcon}}).addTo(markersGroup)
-                                .bindPopup(`<b>${{td.title}}</b><br>Temsili Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT`);
+                                .bindPopup(`<b>${{td.title}}</b><br>Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
                         }});
+                    }}
+
+                    function filterMapDrops() {{
+                        const selectedCat = document.getElementById('districtFilter').value;
+                        if(globalAppData) {{
+                            renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
+                            if(selectedCat !== "ALL") {{
+                                const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
+                                if(sample) {{
+                                    map.setView([sample.lat, sample.lon], 13);
+                                }}
+                            }} else {{
+                                map.setView([41.0082, 28.9784], 11);
+                            }}
+                        }}
                     }}
 
                     async function markReceived(orderId) {{
