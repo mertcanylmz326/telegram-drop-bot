@@ -13,7 +13,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 BOT_TOKEN = "8917981396:AAFliW6Hl6gT8CQZP9BgJrPYGQEAggga6WA"
@@ -98,6 +98,7 @@ LANG = {
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
         "btn_track": "🔍 Sipariş Takip / Sorgula",
+        "btn_miniapp": "🗺️ Harita & Mini App",
         "btn_wallet": "💰 Cüzdanım / Bakiye",
         "btn_faq": "❓ Nasıl Çalışır? (SSS)",
         "btn_support": "📞 Destek",
@@ -113,7 +114,7 @@ LANG = {
         "sold_out": "⚠️ Bu ürün tükenmiş.",
         "track_prompt": "🔍 Lütfen sorgulamak istediğiniz **Sipariş Kodunu** yazın (Örn: WEE-5 veya sadece 5):",
         "track_not_found": "❌ Bu koda ait bir sipariş bulunamadı veya henüz onaylanmadı.",
-        "track_result": "🔍 **Sipariş Sorgulama Sonucu (#{id})**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🟢 Durum: Tamamlandı\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
+        "track_result": "🔍 **Sipariş Sorgulama Sonucu (#{id})**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🟢 Durum: {status_text}\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
@@ -149,6 +150,7 @@ LANG = {
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
         "btn_track": "🔍 Track Order",
+        "btn_miniapp": "🗺️ Map & Mini App",
         "btn_wallet": "💰 My Wallet / Balance",
         "btn_faq": "❓ How It Works (FAQ)",
         "btn_support": "📞 Support",
@@ -164,7 +166,7 @@ LANG = {
         "sold_out": "⚠️ This product is sold out.",
         "track_prompt": "🔍 Please enter your **Order Code** (e.g. WEE-5 or just 5):",
         "track_not_found": "❌ No order found with this code or not approved yet.",
-        "track_result": "🔍 **Order Tracking Result (#{id})**\n\n📌 Product: {title}\n💰 Price: {price} USDT\n🟢 Status: Completed\n\n👉 [Open Secure Location Page]({link})",
+        "track_result": "🔍 **Order Tracking Result (#{id})**\n\n📌 Product: {title}\n💰 Price: {price} USDT\n🟢 Status: {status_text}\n\n👉 [Open Secure Location Page]({link})",
         "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
@@ -487,6 +489,196 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
+        if parsed_path.path == "/miniapp":
+            miniapp_html = f"""
+            <!DOCTYPE html>
+            <html lang="tr">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Weed Istanbul - Mini App</title>
+                <script src="https://telegram.org/js/telegram-web-app.js"></script>
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <style>
+                    body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 15px; box-sizing: border-box; }}
+                    .container {{ max-width: 500px; margin: 0 auto; }}
+                    h2 {{ color: #38bdf8; text-align: center; margin-bottom: 15px; }}
+                    .search-box {{ background: #111827; padding: 15px; border-radius: 12px; border: 1px solid #1f2937; margin-bottom: 20px; }}
+                    input {{ width: 100%; padding: 12px; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 14px; margin-bottom: 10px; }}
+                    button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
+                    button:hover {{ background: #1d4ed8; }}
+                    #map {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid #1f2937; margin-bottom: 15px; display: none; }}
+                    .result-card {{ background: #111827; padding: 15px; border-radius: 12px; border: 1px solid #1f2937; display: none; margin-bottom: 15px; }}
+                    .btn-received {{ background: #10b981; margin-top: 10px; }}
+                    .btn-received:hover {{ background: #059669; }}
+                    .btn-close {{ background: #ef4444; margin-top: 15px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h2>🗺️ Weed Istanbul Mini App</h2>
+                    <div class="search-box">
+                        <label style="font-size: 13px; color: #9ca3af;">Sipariş Kodunuzu Girin (Örn: WEE-5 veya 5):</label>
+                        <input type="text" id="orderInput" placeholder="Sipariş No...">
+                        <button onclick="searchOrder()">🔍 Haritada Konumu Bul</button>
+                    </div>
+
+                    <div id="map"></div>
+
+                    <div id="resultCard" class="result-card">
+                        <h3 id="resTitle" style="color: #38bdf8; margin-top: 0;"></h3>
+                        <div id="resPhotoContainer"></div>
+                        <p id="resDesc" style="background: #090d16; padding: 10px; border-radius: 8px; font-size: 13px; word-break: break-all; border: 1px solid #374151;"></p>
+                        <a id="resMapsBtn" href="#" target="_blank" class="btn" style="display:block; background:#2563eb; color:white; text-align:center; padding:10px; border-radius:8px; text-decoration:none; font-weight:bold; margin-top:10px;">Google Haritalar'da Aç</a>
+                        <button id="receivedBtn" class="btn btn-received" onclick="markReceived()">✅ Ürünü Teslim Aldım</button>
+                    </div>
+
+                    <button class="btn btn-close" onclick="Telegram.WebApp.close()">🤖 Bot ile Devam Et / Kapat</button>
+                </div>
+
+                <script>
+                    let map, marker;
+                    let currentOrderId = null;
+
+                    function initMap() {{
+                        map = L.map('map').setView([41.0082, 28.9784], 12);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }}).addTo(map);
+                    }}
+
+                    async function searchOrder() {{
+                        const raw = document.getElementById('orderInput').value.trim().toUpperCase().replace("WEE-", "").replace("#", "");
+                        if(!raw) {{
+                            alert("Lütfen geçerli bir sipariş numarası yazın!");
+                            return;
+                        }}
+
+                        try {{
+                            const res = await fetch('/api/miniapp-lookup?code=' + raw);
+                            const data = await res.json();
+                            if(data.success) {{
+                                currentOrderId = data.id;
+                                document.getElementById('map').style.display = 'block';
+                                document.getElementById('resultCard').style.display = 'block';
+
+                                document.getElementById('resTitle').innerText = "#" + data.id + " - " + data.title;
+                                document.getElementById('resDesc').innerText = "📝 İpucu / Not: " + data.description;
+                                document.getElementById('resMapsBtn').href = `https://www.google.com/maps?q=${{data.lat}},${{data.lon}}`;
+
+                                const photoContainer = document.getElementById('resPhotoContainer');
+                                if(data.photo) {{
+                                    photoContainer.innerHTML = `<img src="${{data.photo}}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-bottom:10px; border:1px solid #374151;">`;
+                                }} else {{
+                                    photoContainer.innerHTML = '';
+                                }}
+
+                                const recvBtn = document.getElementById('receivedBtn');
+                                if(data.status === 'received') {{
+                                    recvBtn.innerText = "✅ Teslim Alındı Olarak İşaretlendi";
+                                    recvBtn.disabled = true;
+                                    recvBtn.style.background = '#374151';
+                                }} else {{
+                                    recvBtn.innerText = "✅ Ürünü Teslim Aldım";
+                                    recvBtn.disabled = false;
+                                    recvBtn.style.background = '#10b981';
+                                }}
+
+                                if(!map) initMap();
+                                map.setView([data.lat, data.lon], 16);
+                                if(marker) map.removeLayer(marker);
+                                marker = L.marker([data.lat, data.lon]).addTo(map)
+                                    .bindPopup(`<b>${{data.title}}</b><br>Bölge: ${{data.category}}`).openPopup();
+                            }} else {{
+                                alert("Bu kodla eşleşen aktif veya onaylanmış bir sipariş bulunamadı!");
+                            }}
+                        }} catch(e) {{
+                            alert("Sorgulama sırasında bir hata oluştu.");
+                        }}
+                    }}
+
+                    async function markReceived() {{
+                        if(!currentOrderId) return;
+                        try {{
+                            const res = await fetch('/api/miniapp-received?id=' + currentOrderId);
+                            const data = await res.json();
+                            if(data.success) {{
+                                alert("Ürün teslim alındı olarak kaydedildi!");
+                                searchOrder();
+                            }}
+                        }} catch(e) {{
+                            alert("İşlem başarısız.");
+                        }}
+                    }}
+                </script>
+            </body>
+            </html>
+            """
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(miniapp_html.encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-lookup":
+            code = query_params.get("code", ["0"])[0]
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            try:
+                oid = int(code)
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT orders.id, drops.title, drops.lat, drops.lon, drops.photo_ids, drops.description, drops.category, orders.status 
+                    FROM orders 
+                    JOIN drops ON orders.drop_id = drops.id 
+                    WHERE orders.id = ? AND orders.status IN ('completed', 'received')
+                """, (oid,))
+                row = cursor.fetchone()
+                conn.close()
+
+                if row:
+                    d_id, title, lat, lon, photo, desc, cat, status = row
+                    lat = lat if lat and lat != 0.0 else get_district_coord(cat)[0]
+                    lon = lon if lon and lon != 0.0 else get_district_coord(cat)[1]
+                    resp = {
+                        "success": True,
+                        "id": d_id,
+                        "title": title,
+                        "lat": lat,
+                        "lon": lon,
+                        "photo": photo,
+                        "description": desc,
+                        "category": cat,
+                        "status": status
+                    }
+                    self.wfile.write(json.dumps(resp).encode("utf-8"))
+                else:
+                    self.wfile.write(b'{"success": false}')
+            except:
+                self.wfile.write(b'{"success": false}')
+            return
+
+        if parsed_path.path == "/api/miniapp-received":
+            oid = query_params.get("id", ["0"])[0]
+            try:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (oid,))
+                conn.commit()
+                conn.close()
+                log_panel_event(f"✅ Mini App üzerinden sipariş #{oid} teslim alındı olarak onaylandı.", "success")
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+            except:
+                self.send_response(500)
+                self.end_headers()
+            return
+
         if parsed_path.path == "/api/check-new-messages":
             if not is_logged_in:
                 self.send_response(401)
@@ -526,7 +718,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("SELECT SUM(stock) FROM drops WHERE is_sold = 0")
             total_active_stock = cursor.fetchone()[0] or 0
             
-            cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
+            cursor.execute("SELECT SUM(final_price) FROM orders WHERE status IN ('completed', 'received')")
             rev_res = cursor.fetchone()[0]
             total_revenue = rev_res if rev_res is not None else 0.0
 
@@ -560,7 +752,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 cursor.execute("""
                     SELECT DATE(created_at) as cday, SUM(final_price) 
-                    FROM orders WHERE status = 'completed' 
+                    FROM orders WHERE status IN ('completed', 'received') 
                     GROUP BY cday ORDER BY cday ASC LIMIT 7
                 """)
                 chart_rows = cursor.fetchall()
@@ -854,16 +1046,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 content_html = f"""
                 <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-box" style="margin:0;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🎟️ Yeni Kupon Oluştur</h2>
+                    <div class="form-box" style="margin:0; border: 1px solid #10b981;">
+                        <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur & Bot Duyurusu</h2>
+                        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Kuponu kaydettiğin an, sistem tüm kullanıcılara otomatik haber verir.</p>
                         <form action="/admin-add-coupon" method="POST">
                             <label>Kupon Kodu:</label>
                             <input type="text" name="code" required placeholder="Örn: YAZ2026">
                             <label>İndirim Tutarı (USDT):</label>
                             <input type="number" step="0.1" name="discount" required placeholder="10.0">
-                            <label>Kullanım Limiti (Kaç kez kullanılsın?):</label>
+                            <label>Kullanım Limiti (Kaç kişi kullansın?):</label>
                             <input type="number" name="uses" value="100" required>
-                            <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet</button>
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet & Botu Ateşle</button>
                         </form>
                     </div>
                     <div class="table-box" style="margin:0;">
@@ -883,7 +1076,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                            COUNT(o.id) as total_orders, 
                            COALESCE(SUM(o.final_price), 0.0) as total_spent
                     FROM users u
-                    LEFT JOIN orders o ON u.user_id = o.user_id AND o.status = 'completed'
+                    LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('completed', 'received')
                     GROUP BY u.user_id
                     ORDER BY total_spent DESC
                 """)
@@ -928,7 +1121,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     FROM orders 
                     JOIN drops ON orders.drop_id = drops.id 
                     LEFT JOIN users ON orders.user_id = users.user_id
-                    WHERE orders.status = 'completed'
+                    WHERE orders.status IN ('completed', 'received')
                     ORDER BY orders.id DESC
                 """)
                 orders = cursor.fetchall()
@@ -936,11 +1129,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for o in orders:
                     o_id, uname, title, f_price, status, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>🟢 Tamamlandı</td><td>{date}</td></tr>"
+                    status_badge = "🟢 Teslim Alındı (Müşteri Onayladı)" if status == 'received' else "🔵 Ödendi / Bekliyor"
+                    rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>{status_badge}</td><td>{date}</td></tr>"
                 
                 content_html = f"""
                 <div class="table-box">
-                    <h2>🟢 Aktif / Tamamlanan Satışlar</h2>
+                    <h2>🟢 Aktif / Tamamlanan & Teslim Alınan Satışlar</h2>
                     <table>
                         <tr><th>Sipariş Kodu</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
                         {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
@@ -1301,12 +1495,22 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     return
 
                 status, title, lat, lon, photo_url, description = row
-                if status != 'completed':
+                if status not in ['completed', 'received']:
                     self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
                     return
 
                 location_url = f"https://www.google.com/maps?q={lat},{lon}"
                 photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #374151;" />' if photo_url else ''
+
+                received_section = ""
+                if status == 'received':
+                    received_section = '<div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 15px;">✅ Bu ürün başarıyla teslim alındı olarak işaretlendi.</div>'
+                else:
+                    received_section = f"""
+                    <form action="/mark-received/{order_id}" method="POST" style="margin-top: 15px;">
+                        <button type="submit" style="background: #10b981; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">✅ Ürünü Teslim Aldım (Onayla)</button>
+                    </form>
+                    """
 
                 html_content = f"""
                 <!DOCTYPE html>
@@ -1335,6 +1539,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <p><b>📝 Note:</b> {description}</p>
                         </div>
                         <a href="{location_url}" class="btn" target="_blank">Open Google Maps</a>
+                        {received_section}
                         <p class="warning">⚠️ This page is single-use for your privacy. Leave the area once completed.</p>
                     </div>
                 </body>
@@ -1346,6 +1551,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.wfile.write(html_content.encode("utf-8"))
             except Exception:
                 self.send_html_error("Bir hata oluştu.")
+        elif parsed_path.path.startswith("/mark-received/"):
+            try:
+                order_id = int(parsed_path.path.split("/")[-1])
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
+                conn.commit()
+                conn.close()
+                log_panel_event(f"✅ Müşteri ürünü teslim aldığını onayladı: Sipariş #{order_id}", "success")
+                
+                self.send_response(303)
+                self.send_header('Location', f'/drop/{order_id}')
+                self.end_headers()
+            except Exception:
+                self.send_html_error("İşlem gerçekleştirilemedi.")
         else:
             self.send_response(404)
             self.end_headers()
@@ -1425,8 +1645,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor = conn.cursor()
                     cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
                     conn.commit()
+                    
+                    cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
+                    all_users = cursor.fetchall()
                     conn.close()
-                    log_panel_event(f"🎟️ Kupon eklendi: {code} ({discount} USDT)", "success")
+
+                    if main_loop:
+                        async def send_coupon_broadcast():
+                            promo_msg = f"🎟️ **YENİ KAMPANYA & İNDİRİM KUPONU!**\n\nSizler için özel indirim kodu aktif edildi:\n🔑 Kod: `{code}`\n💰 İndirim Tutarı: **{discount} USDT**\n⚡ Kullanım Limiti: **{uses} Kişi**\n\nAlışveriş yaparken kuponu kullanarak anında indirimden yararlanabilirsiniz!"
+                            for u in all_users:
+                                try:
+                                    await bot.send_message(u[0], promo_msg, parse_mode="Markdown")
+                                    await asyncio.sleep(0.05)
+                                except:
+                                    pass
+
+                        asyncio.run_coroutine_threadsafe(send_coupon_broadcast(), main_loop)
+
+                    log_panel_event(f"🎟️ Kupon eklendi ve kullanıcılara duyuruldu: {code} ({discount} USDT)", "success")
                 except Exception as e:
                     logging.error(e)
 
@@ -1745,12 +1981,13 @@ dp = Dispatcher(storage=MemoryStorage())
 
 def main_keyboard(lang="tr"):
     t = LANG[lang]
+    miniapp_url = f"{RENDER_EXTERNAL_URL}/miniapp"
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_track"]), KeyboardButton(text=t["btn_wallet"])],
-            [KeyboardButton(text=t["btn_faq"]), KeyboardButton(text=t["btn_support"])],
-            [KeyboardButton(text=t["btn_lang"])]
+            [KeyboardButton(text=t["btn_track"]), KeyboardButton(text=t["btn_miniapp"], web_app=WebAppInfo(url=miniapp_url))],
+            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
+            [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
     )
@@ -1839,13 +2076,14 @@ async def process_track_code(message: types.Message, state: FSMContext):
     row = cursor.fetchone()
     conn.close()
 
-    if not row or row[0] != 'completed':
+    if not row or row[0] not in ['completed', 'received']:
         await message.answer(t["track_not_found"])
         return
 
     status, title, price = row
+    status_text = "✅ Teslim Alındı" if status == 'received' else "🟢 Bekliyor / Aktif"
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    res_msg = t["track_result"].format(id=order_id, title=title, price=price, link=secure_link)
+    res_msg = t["track_result"].format(id=order_id, title=title, price=price, status_text=status_text, link=secure_link)
     await message.answer(res_msg, parse_mode="Markdown")
 
 @dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
@@ -2079,7 +2317,7 @@ async def show_stats(callback: types.CallbackQuery):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*), SUM(stock) FROM drops WHERE is_sold = 0")
     res = cursor.fetchone()
-    cursor.execute("SELECT SUM(final_price) FROM orders WHERE status = 'completed'")
+    cursor.execute("SELECT SUM(final_price) FROM orders WHERE status IN ('completed', 'received')")
     rev_res = cursor.fetchone()[0]
     rev = rev_res if rev_res is not None else 0.0
     conn.close()
@@ -2114,7 +2352,6 @@ async def list_categories(message: types.Message):
         await message.answer(t["no_stock"])
         return
 
-    # Kampanya aktifse kullanıcıya bilgi verelim
     if p_res and p_res[0] == "1":
         await message.answer("🎁 **Önemli Kampanya:** Toplu alımlarda **5 Gram Alana 1 Gram Hediye!** fırsatı geçerlidir.")
 
@@ -2200,9 +2437,17 @@ async def my_orders(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for o in orders:
         o_id, title, f_price, status, date = o
-        st_str = "Completed" if status == 'completed' else ("Expired" if status == 'expired' else "Pending")
+        if status == 'received':
+            st_str = "✅ Teslim Alındı"
+        elif status == 'completed':
+            st_str = "🟢 Aktif (Ödendi)"
+        elif status == 'expired':
+            st_str = "❌ Süresi Doldu"
+        else:
+            st_str = "⏳ Bekliyor"
+
         text += t["order_item"].format(id=o_id, title=title, price=f_price, status=st_str, date=date)
-        if status == 'completed':
+        if status in ['completed', 'received']:
             secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
             kb.inline_keyboard.append([InlineKeyboardButton(text=t["open_loc"].format(id=o_id), url=secure_link)])
 
@@ -2411,7 +2656,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
         conn.close()
         return
     user_id, drop_id, stock, status, created_at_str, title, final_price, category = data
-    if status == 'completed':
+    if status in ['completed', 'received']:
         await callback.answer(t["already_approved"], show_alert=True)
         conn.close()
         return
@@ -2463,7 +2708,7 @@ async def check_blockchain_payment(callback: types.CallbackQuery):
             logging.error(e)
     else:
         conn.close()
-        await callback.answer(t["wait_tx"], show_alert=True)
+        await callback.answer(t["wait_trx"], show_alert=True)
 
 async def main():
     global main_loop
