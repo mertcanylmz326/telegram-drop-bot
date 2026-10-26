@@ -5,6 +5,8 @@ import os
 import threading
 import re
 import aiohttp
+import urllib.request
+import urllib.parse
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -41,7 +43,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
-# --- İSTANBUL İLÇE KOORDİNATLARI (HARİTA İÇİN) ---
+# --- İSTANBUL İLÇE KOORDİNATLARI (YEDEK / FALLBACK) ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
     "KADIKÖY": [40.9901, 29.0254],
@@ -73,6 +75,42 @@ def get_district_coord(category_name):
         if key in cat_upper:
             return coord
     return [41.0082, 28.9784]
+
+# --- 🗺️ GOOGLE MAPS LİNKİNDEN OTOMATİK KOORDİNAT ÇÖZÜCÜ ---
+def extract_lat_lon_from_url(url, category_name="Genel"):
+    if not url:
+        return get_district_coord(category_name)
+    
+    target_url = url.strip()
+    # Kısa Google Maps linklerini (maps.app.goo.gl) çöz
+    if "goo.gl" in target_url or "maps.app.goo.gl" in target_url:
+        try:
+            req = urllib.request.Request(
+                target_url,
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                target_url = resp.url
+        except Exception as e:
+            logging.error(f"URL resolve error: {e}")
+    
+    # 1. @enlem,boylam formatını ara (Örn: /@41.0429,29.0077,15z)
+    match = re.search(r'@([-+]?[0-9]*\.?[0-9]+),([-+]?[0-9]*\.?[0-9]+)', target_url)
+    if match:
+        return float(match.group(1)), float(match.group(2))
+    
+    # 2. Query parametrelerini kontrol et (q=, center=, ll= vb.)
+    parsed_url = urllib.parse.urlparse(target_url)
+    qs = urllib.parse.parse_qs(parsed_url.query)
+    for key in ['q', 'center', 'll', 'sll']:
+        if key in qs:
+            val = qs[key][0]
+            m_val = re.search(r'([-+]?[0-9]*\.?[0-9]+)[,\s%2C]+([-+]?[0-9]*\.?[0-9]+)', val)
+            if m_val:
+                return float(m_val.group(1)), float(m_val.group(2))
+                
+    # Bulunamazsa ilçe merkezine atar
+    return get_district_coord(category_name)
 
 # --- ÇEVİRİ SÖZLÜĞÜ (TR / EN) ---
 LANG = {
@@ -194,7 +232,9 @@ def init_db():
             description TEXT,
             stock INTEGER DEFAULT 1,
             is_sold INTEGER DEFAULT 0,
-            category TEXT DEFAULT 'Genel'
+            category TEXT DEFAULT 'Genel',
+            lat REAL DEFAULT 0.0,
+            lon REAL DEFAULT 0.0
         )
     ''')
 
@@ -242,8 +282,14 @@ def init_db():
     for col, def_val in [
         ("is_banned", "INTEGER DEFAULT 0"), 
         ("language", "TEXT DEFAULT 'tr'"), 
-        ("balance", "REAL DEFAULT 0.0")
+        ("balance", "REAL DEFAULT 0.0"),
+        ("lat", "REAL DEFAULT 0.0"),
+        ("lon", "REAL DEFAULT 0.0")
     ]:
+        try:
+            cursor.execute(f"ALTER TABLE drops ADD COLUMN {col} {def_val}")
+        except:
+            pass
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
         except:
@@ -424,7 +470,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & DÜZELTİLMİŞ HARİTALı MOBİL UYUMLU PANEL ---
+# --- WEB SUNUCUSU & HARİTA SİSTEMİ ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -459,15 +505,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
             if tab == "home":
-                cursor.execute("SELECT id, title, price, stock, category FROM drops WHERE is_sold = 0 AND stock > 0")
+                cursor.execute("SELECT id, title, price, stock, category, lat, lon FROM drops WHERE is_sold = 0 AND stock > 0")
                 active_drops_for_map = cursor.fetchall()
                 
                 map_markers_js = ""
                 for ad in active_drops_for_map:
-                    d_id, d_title, d_price, d_stock, d_cat = ad
-                    coord = get_district_coord(d_cat)
+                    d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
+                    lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
+                    lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
                     map_markers_js += f"""
-                    L.marker([{coord[0]}, {coord[1]}], {{icon: weedIcon}}).addTo(map)
+                    L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
                         .bindPopup("<b>{d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
                     """
 
@@ -503,9 +550,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
                         🗺️ İstanbul Aktif Drop Haritası 
-                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Canlı Semt Takibi</span>
+                        <span style="font-size: 11px; background: #1e293b; padding: 4px 10px; border-radius: 6px; color: #94a3b8;">Canlı Nokta Takibi</span>
                     </h2>
-                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların semtlere göre haritadaki dağılımı:</p>
+                    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Sisteme yüklediğin tüm aktif dropların haritadaki tam konumları:</p>
                     <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid #334155; z-index: 1;"></div>
                 </div>
 
@@ -727,8 +774,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <form action="/admin-add" method="POST" id="addForm">
                         <label>Ürün Başlığı:</label>
                         <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
-                        <label>Semt / İlçe (Örn: Beşiktaş, Kadıköy vb.):</label>
-                        <input type="text" name="category" required placeholder="Beşiktaş">
+                        <label>Semt / İlçe (Örn: Kartal, Çekmeköy vb.):</label>
+                        <input type="text" name="category" required placeholder="Kartal">
                         <label>Fiyat (USDT):</label>
                         <input type="number" step="0.1" name="price" required placeholder="65">
                         <label>Kaç Adet Ekleyeceksin? (Stok):</label>
@@ -763,10 +810,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             edit_form_html = ""
             if tab == "edit":
                 edit_id = query_params.get("id", ["0"])[0]
-                cursor.execute("SELECT title, price, stock, category, location_url, photo_ids, description FROM drops WHERE id = ?", (edit_id,))
+                cursor.execute("SELECT title, price, stock, category, location_url, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
                 drop_data = cursor.fetchone()
                 if drop_data:
-                    e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc = drop_data
+                    e_title, e_price, e_stock, e_cat, e_loc, e_photo, e_desc, e_lat, e_lon = drop_data
                     edit_form_html = f"""
                     <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
                         <h2>✏️ Ürün Düzenle (ID: #{edit_id})</h2>
@@ -1022,11 +1069,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 loc = params.get(f"location_{i}", [""])[0]
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
+                
+                # Google Maps linkinden enlem ve boylamı otomatik çıkar!
+                lat, lon = extract_lat_lon_from_url(loc, category)
+
                 if loc and desc:
                     cursor.execute("""
-                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (title, price, loc, photo, desc, 1, category))
+                        INSERT INTO drops (title, price, location_url, photo_ids, description, stock, category, lat, lon)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (title, price, loc, photo, desc, 1, category, lat, lon))
             conn.commit()
             conn.close()
 
@@ -1044,16 +1095,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 stock = int(params.get("stock", [1])[0])
             except:
                 price, stock = 0.0, 1
+
             location = params.get("location", [""])[0]
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
+            # Güncellenen linkten koordinatları otomatik tekrar çıkar
+            lat, lon = extract_lat_lon_from_url(location, category)
+
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, location_url = ?, photo_ids = ?, description = ?
+                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, location_url = ?, photo_ids = ?, description = ?, lat = ?, lon = ?
                 WHERE id = ?
-            """, (title, price, stock, category, location, photo, description, drop_id))
+            """, (title, price, stock, category, location, photo, description, lat, lon, drop_id))
             conn.commit()
             conn.close()
 
