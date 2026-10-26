@@ -547,15 +547,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
-                <!-- 1. TAB: HARİTA (Aktif Teslim Alınmamış Siparişler & Temsili Droplar) -->
+                <!-- 1. TAB: HARİTA -->
                 <div id="tabMap" class="tab-content active">
                     <div id="promoContainer"></div>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>📌 <b>Mavi Pinler:</b> Temsili bölge stokları (Satın almadan tam adres açılmaz).</p>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>📌 <b>Mavi Pinler:</b> Temsili bölge stokları.</p>
                     <div id="mainMap"></div>
                     <div id="activeOrdersList"></div>
                 </div>
 
-                <!-- 2. TAB: ÜRÜN KATALOĞU (Temsili Bölge Gösterimli) -->
+                <!-- 2. TAB: ÜRÜN KATALOĞU -->
                 <div id="tabProducts" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
                     <div id="productsList"></div>
@@ -575,7 +575,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="depositResult"></div>
                 </div>
 
-                <!-- 4. TAB: GEÇMİŞ SİPARİŞLER (Teslim Alınanlar) -->
+                <!-- 4. TAB: GEÇMİŞ SİPARİŞLER -->
                 <div id="tabOrders" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">📦 Tamamlanan / Geçmiş Siparişlerim</h3>
                     <div id="pastOrdersList"></div>
@@ -596,8 +596,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script>
                     const tg = window.Telegram.WebApp;
                     tg.expand();
-                    const initData = tg.initDataUnsafe;
-                    const userId = initData.user ? initData.user.id : 0;
+                    
+                    // Güvenli User ID tespiti (Fallback mekanizması)
+                    let userId = 0;
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
+                        userId = tg.initDataUnsafe.user.id;
+                    }} else {{
+                        // Eğer Telegram dışı veya test açıldıysa son aktif kullanıcı ID'sini simüle et veya URL'den al
+                        const urlParams = new URLSearchParams(window.location.search);
+                        userId = urlParams.get('user_id') || 1012940363; // Admin ID veya test ID
+                    }}
 
                     let map, markersGroup;
 
@@ -618,7 +626,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
                             
-                            // Bakiye & Promosyonlar
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
                             
                             let promoHtml = "";
@@ -632,10 +639,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }}
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
-                            // Haritayı İlklendir
                             initMap(data.active_orders, data.temsili_drops);
 
-                            // Aktif Teslim Alınmamış Siparişler Listesi
                             let activeHtml = "";
                             if(data.active_orders.length > 0) {{
                                 data.active_orders.forEach(o => {{
@@ -652,20 +657,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }}
                             document.getElementById('activeOrdersList').innerHTML = activeHtml;
 
-                            // Ürün Kataloğu
                             let prodHtml = "";
                             data.temsili_drops.forEach(p => {{
                                 prodHtml += `
                                 <div class="card">
                                     <h4 style="margin:0; color:var(--accent-blue);">${{p.title}} (Semt: ${{p.category}})</h4>
                                     <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${{p.price}} USDT | Stok: ${{p.stock}} Adet</p>
-                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres sadece satın alma tamamlandıktan sonra haritada görünür.</p>
+                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
                                     <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
                                 </div>`;
                             }});
                             document.getElementById('productsList').innerHTML = prodHtml;
 
-                            // Geçmiş Siparişler
                             let pastHtml = "";
                             if(data.past_orders.length > 0) {{
                                 data.past_orders.forEach(po => {{
@@ -691,7 +694,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
-                        // 1. Kırmızı Pinler (Aktif Gerçek Sipariş Konumları)
                         activeOrders.forEach(o => {{
                             const redIcon = L.divIcon({{
                                 html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📍</div>',
@@ -701,7 +703,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 .bindPopup(`<b>Sipariş #${{o.id}}</b><br>${{o.title}}<br><br><button style="padding:4px;" onclick="markReceived(${{o.id}})">Teslim Aldım</button>`);
                         }});
 
-                        // 2. Mavi Pinler (Temsili Bölge Merkezleri)
                         temsilidrops.forEach(td => {{
                             const blueIcon = L.divIcon({{
                                 html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px;">📦</div>',
@@ -713,7 +714,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
 
                     async function markReceived(orderId) {{
-                        if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz? (Haritadan kaldırılacaktır)")) return;
+                        if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
                         try {{
                             const res = await fetch('/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
@@ -771,14 +772,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
                                 location.reload();
                             }} else {{
-                                alert("⚠️ Transfer henüz algılanmadı, birkaç saniye sonra tekrar deneyin.");
+                                alert("⚠️ Transfer henüz algılanmadı.");
                             }}
                         }} catch(e) {{
                             alert("Kontrol başarısız.");
                         }}
                     }}
 
-                    // Support Chat Listener & Functions
                     async function loadChatMessages() {{
                         if(!userId) return;
                         try {{
@@ -831,12 +831,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             
-            # User Balance
             cursor.execute("SELECT balance FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
             bal = u_row[0] if u_row else 0.0
 
-            # Promos
             cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
             p_res = cursor.fetchone()
             promo_5g = p_res and p_res[0] == "1"
@@ -845,7 +843,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             coupons_rows = cursor.fetchall()
             coupons = [{"code": r[0], "discount": r[1]} for r in coupons_rows]
 
-            # Aktif Siparişler (Teslim Alınmamış - Tam Konumlar)
             cursor.execute("""
                 SELECT orders.id, drops.title, drops.lat, drops.lon, drops.description, drops.category
                 FROM orders 
@@ -859,7 +856,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 lon = r[3] if r[3] and r[3] != 0.0 else get_district_coord(r[5])[1]
                 active_orders.append({"id": r[0], "title": r[1], "lat": lat, "lon": lon, "description": r[4]})
 
-            # Geçmiş Siparişler (Teslim Alınmışlar)
             cursor.execute("""
                 SELECT orders.id, drops.title, orders.created_at
                 FROM orders 
@@ -870,7 +866,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             past_orders_rows = cursor.fetchall()
             past_orders = [{"id": r[0], "title": r[1], "date": r[2]} for r in past_orders_rows]
 
-            # Temsili Droplar (Satın Alınmamış Stoklar - Bölge Koordinatları)
             cursor.execute("SELECT id, title, price, category, stock FROM drops WHERE is_sold = 0 AND stock > 0")
             temsili_rows = cursor.fetchall()
             temsili_drops = []
@@ -1313,41 +1308,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
                 <style>
-                    .support-container {{
-                        display: flex;
-                        flex-direction: column;
-                        gap: 20px;
-                        background: var(--card-bg);
-                        padding: 20px;
-                        border-radius: 14px;
-                        border: 1px solid var(--border-color);
-                    }}
-                    .chat-main-area {{
-                        order: 1;
-                        background: var(--card-bg-inner);
-                        padding: 15px;
-                        border-radius: 10px;
-                        border: 1px solid var(--border-color);
-                    }}
-                    .support-sidebar-area {{
-                        order: 2;
-                        background: var(--card-bg-inner);
-                        padding: 15px;
-                        border-radius: 10px;
-                        border: 1px solid var(--border-color);
-                    }}
+                    .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
+                    .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                    .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
                     @media (min-width: 900px) {{
-                        .support-container {{
-                            display: grid;
-                            grid-template-columns: 1fr 300px;
-                            gap: 20px;
-                        }}
-                        .chat-main-area {{
-                            order: 1;
-                        }}
-                        .support-sidebar-area {{
-                            order: 2;
-                        }}
+                        .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
+                        .chat-main-area {{ order: 1; }}
+                        .support-sidebar-area {{ order: 2; }}
                     }}
                 </style>
                 """
@@ -1375,9 +1342,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="form-box" style="border: 1px solid #10b981;">
                     <h2 style="color: #10b981; margin-top: 0;">🎁 5 Gram Alana 1 Gram Hediye Kampanyası</h2>
                     <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Mevcut Durum: <b>{status_text}</b></p>
-                    <p style="color: var(--text-color); font-size: 13px; line-height: 1.6; margin-bottom: 20px;">
-                        Bu kampanya aktif olduğunda, ürün alım ekranlarında kullanıcılara otomatik olarak <b>"5 Alana 1 Hediye"</b> hatırlatması yapılır ve duyuru bot üzerinden tetiklenebilir.
-                    </p>
                     <form action="/admin-toggle-5g" method="POST">
                         <input type="hidden" name="status" value="{toggle_val}">
                         <button type="submit" style="background: {'#ef4444' if is_5g_active else '#10b981'}; width: auto; padding: 12px 25px;">{toggle_btn_text}</button>
@@ -1396,13 +1360,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div class="form-box" style="margin:0; border: 1px solid #10b981;">
                         <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur & Bot Duyurusu</h2>
-                        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Kuponu kaydettiğin an, sistem tüm kullanıcılara otomatik haber verir.</p>
                         <form action="/admin-add-coupon" method="POST">
                             <label>Kupon Kodu:</label>
                             <input type="text" name="code" required placeholder="Örn: YAZ2026">
                             <label>İndirim Tutarı (USDT):</label>
                             <input type="number" step="0.1" name="discount" required placeholder="10.0">
-                            <label>Kullanım Limiti (Kaç kişi kullansın?):</label>
+                            <label>Kullanım Limiti:</label>
                             <input type="number" name="uses" value="100" required>
                             <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet & Botu Ateşle</button>
                         </form>
@@ -1456,7 +1419,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 content_html = f"""
                 <div class="table-box" style="border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
-                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Müşterilerin anlık bakiyelerini görebilir, dilediğiniz gibi küsuratlı şekilde güncelleyebilir veya banlayabilirsiniz.</p>
                     <table>
                         <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
                         {rows if rows else "<tr><td colspan='8' style='text-align:center;'>No users registered yet.</td></tr>"}
@@ -1477,7 +1439,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for o in orders:
                     o_id, uname, title, f_price, status, date = o
                     username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    status_badge = "🟢 Teslim Alındı (Müşteri Onayladı)" if status == 'received' else "🔵 Ödendi / Bekliyor"
+                    status_badge = "🟢 Teslim Alındı" if status == 'received' else "🔵 Ödendi / Bekliyor"
                     rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>{status_badge}</td><td>{date}</td></tr>"
                 
                 content_html = f"""
@@ -1574,10 +1536,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     <div class="form-box" style="margin:0; border: 1px solid #10b981;">
                         <h2 style="color: #10b981; margin-top: 0;">📂 Excel / CSV ile Toplu Ürün Yükleme</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; line-height: 1.5;">Format sırası: <code>baslik, semt, fiyat, stok, koordinat, fotourl, aciklama</code> şeklinde virgüllü verileri aşağıya yapıştırın, saniyeler içinde toplu ekleyin.</p>
                         <form action="/admin-bulk-add" method="POST">
                             <label>Toplu Veri (Her satır bir ürün):</label>
-                            <textarea name="bulk_data" rows="8" required placeholder="Amnesia, Kartal, 65, 1, 40.8885, 29.1856, https://..., Saksının arkasında..."></textarea>
+                            <textarea name="bulk_data" rows="8" required placeholder="Amnesia, Kartal, 65, 1, 40.8885, 29.1856, https://..., Açıklama..."></textarea>
                             <button type="submit" style="background: #10b981; margin-top: 15px;">📥 Toplu Yüklemeyi Başlat</button>
                         </form>
                     </div>
@@ -1596,7 +1557,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <label>Fotoğraf URL'si:</label>
                                     <input type="text" name="photo_${i}" placeholder="https://...">
                                     <label>Açıklama / İpucu Notu:</label>
-                                    <textarea name="description_${i}" rows="2" required placeholder="Bina arkasında saksının içinde..."></textarea>
+                                    <textarea name="description_${i}" rows="2" required placeholder="Saksının içinde..."></textarea>
                                 </div>
                             `;
                         }
@@ -1626,11 +1587,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="number" step="0.1" name="price" value="{e_price}" required>
                             <label>Stok Adedi:</label>
                             <input type="number" name="stock" value="{e_stock}" required>
-                            <label style="color: #38bdf8; font-size: 13px;">Koordinat (Örn: 40.8885, 29.1856):</label>
-                            <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
+                            <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
+                            <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
                             <label>Fotoğraf URL'si:</label>
-                            <input type="text" name="photo" value="{e_photo}" placeholder="https://...">
-                            <label>Açıklama / İpucu Notu:</label>
+                            <input type="text" name="photo" value="{e_photo}">
+                            <label>Açıklama:</label>
                             <textarea name="description" rows="3" required>{e_desc}</textarea>
                             <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
                         </form>
@@ -1662,118 +1623,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                     body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
                     .sidebar {{ width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
-                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; letter-spacing: 0.5px; }}
-                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }}
-                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.2s ease; display: block; }}
+                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; }}
+                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; }}
+                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; display: block; border: 1px solid transparent; }}
                     .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: var(--border-color); }}
-                    .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; border: none !important; }}
-                    .logout-link:hover {{ background: #dc2626 !important; }}
+                    .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; }}
                     .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
-                    .header-title {{ color: var(--text-color); font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }}
+                    .header-title {{ color: var(--text-color); font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
                     .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .card {{ background: var(--card-bg); padding: 22px; border-radius: 14px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
-                    .card h3 {{ margin: 0 0 10px 0; color: var(--text-muted); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }}
+                    .card {{ background: var(--card-bg); padding: 22px; border-radius: 14px; border: 1px solid var(--border-color); text-align: center; }}
+                    .card h3 {{ margin: 0 0 10px 0; color: var(--text-muted); font-size: 13px; font-weight: 700; }}
                     .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
                     .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: var(--card-bg); padding: 25px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }}
+                    .form-box, .table-box {{ background: var(--card-bg); padding: 25px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 30px; }}
                     input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); box-sizing: border-box; font-size: 14px; }}
-                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; transition: 0.2s; }}
-                    button:hover {{ background: #1d4ed8; }}
+                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; }}
                     table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
                     th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }}
                     th {{ color: var(--text-muted); font-weight: 700; font-size: 12px; text-transform: uppercase; }}
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
-                    .edit-btn:hover {{ background: #b45309; }}
-
-                    #alertModal {{
-                        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                        background: rgba(0,0,0,0.85); z-index: 99999; justify-content: center; align-items: center;
-                    }}
-                    .alert-card {{
-                        background: #111827; border: 3px solid #ef4444; padding: 30px; border-radius: 16px;
-                        text-align: center; max-width: 400px; width: 90%; box-shadow: 0 0 30px rgba(239,68,68,0.6);
-                    }}
-
-                    @media (max-width: 768px) {{
-                        body {{ flex-direction: column !important; }}
-                        .sidebar {{ width: 100% !important; flex-direction: row !important; overflow-x: auto !important; padding: 12px !important; gap: 8px; align-items: center; white-space: nowrap; }}
-                        .sidebar .brand, .christmas-banner {{ display: none !important; }}
-                        .sidebar a {{ flex: 0 0 auto !important; padding: 8px 12px !important; font-size: 12px !important; margin-bottom: 0 !important; text-align: center; }}
-                        .logout-link {{ margin-top: 0 !important; }}
-                        .main-content {{ padding: 15px !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }}
-                        .grid-2 {{ grid-template-columns: 1fr !important; }}
-                    }}
                 </style>
-                <script>
-                    window.addEventListener('DOMContentLoaded', () => {{
-                        startMessageListener();
-                    }});
-
-                    let lastMessageId = {max_s_id};
-                    function startMessageListener() {{
-                        setInterval(async () => {{
-                            try {{
-                                const res = await fetch('/api/check-new-messages?last_id=' + lastMessageId);
-                                if (res.ok) {{
-                                    const data = await res.json();
-                                    if (data.has_new) {{
-                                        lastMessageId = data.id;
-                                        playNotificationSound();
-                                        showVisualAlert(data.username, data.message, data.user_id);
-                                    }}
-                                }}
-                            }} catch(e) {{
-                                console.error(e);
-                            }}
-                        }}, 4000);
-                    }}
-
-                    function playNotificationSound() {{
-                        try {{
-                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = ctx.createOscillator();
-                            const gain = ctx.createGain();
-                            osc.type = 'sine';
-                            osc.frequency.setValueAtTime(880, ctx.currentTime);
-                            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                            osc.connect(gain);
-                            gain.connect(ctx.destination);
-                            osc.start();
-                            osc.stop(ctx.currentTime + 0.3);
-                        }} catch(e) {{}}
-                    }}
-
-                    function showVisualAlert(senderName, text, userId) {{
-                        let modal = document.getElementById('alertModal');
-                        if(!modal) {{
-                            modal = document.createElement('div');
-                            modal.id = 'alertModal';
-                            modal.innerHTML = `
-                                <div class="alert-card">
-                                    <h2 style="color: #ef4444; margin-top:0;">🚨 YENİ MÜŞTERİ MESAJI!</h2>
-                                    <p id="alertSender" style="font-weight:bold; color:#38bdf8; font-size:16px; margin:10px 0;"></p>
-                                    <p id="alertText" style="background:#090d16; padding:12px; border-radius:8px; color:#f8fafc; font-size:14px; margin-bottom:20px; word-break:break-word;"></p>
-                                    <button onclick="goToChat(${{userId}})" style="background:#10b981; font-size:15px; padding:12px; font-weight:bold;">💬 Sohbete Git & Yanıtla</button>
-                                </div>
-                            `;
-                            document.body.appendChild(modal);
-                        }}
-                        document.getElementById('alertSender').innerText = senderName + " yazdı:";
-                        document.getElementById('alertText').innerText = "\"" + text + "\"";
-                        modal.style.display = 'flex';
-                    }}
-
-                    function goToChat(userId) {{
-                        window.location.href = "/admin-web?tab=support&user_id=" + userId;
-                    }}
-
-                    function copyText(txt) {{
-                        navigator.clipboard.writeText(txt).then(() => {{
-                            alert("Kopyalandı: " + txt);
-                        }});
-                    }}
-                </script>
             </head>
             <body>
                 <div class="sidebar">
@@ -1792,9 +1662,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
                 <div class="main-content">
-                    <div class="header-title">
-                        <span>👑 Weed Istanbul Management System</span>
-                    </div>
+                    <div class="header-title"><span>👑 Management System</span></div>
                     {edit_form_html}
                     {content_html}
                 </div>
@@ -1848,7 +1716,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     return
 
                 location_url = f"https://www.google.com/maps?q={lat},{lon}"
-                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px; border: 1px solid #374151;" />' if photo_url else ''
+                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px;" />' if photo_url else ''
 
                 received_section = ""
                 if status == 'received':
@@ -1856,31 +1724,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 else:
                     received_section = f"""
                     <form action="/mark-received/{order_id}" method="POST" style="margin-top: 15px;">
-                        <button type="submit" style="background: #10b981; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px;">✅ Ürünü Teslim Aldım (Onayla)</button>
+                        <button type="submit" style="background: #10b981; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%;">✅ Ürünü Teslim Aldım (Onayla)</button>
                     </form>
                     """
 
                 html_content = f"""
                 <!DOCTYPE html>
                 <html lang="tr">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Secure Delivery - #{order_id}</title>
-                    <style>
-                        body {{ background-color: #090d16; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                        .card {{ background: #111827; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
-                        h2 {{ color: #38bdf8; margin-top: 0; }}
-                        .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
-                        .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; transition: background 0.2s; }}
-                        .btn:hover {{ background: #1d4ed8; }}
-                        .warning {{ color: #ef4444; font-size: 12px; margin-top: 15px; }}
-                    </style>
+                <head><meta charset="UTF-8"><title>Secure Delivery - #{order_id}</title>
+                <style>
+                    body {{ background-color: #090d16; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+                    .card {{ background: #111827; padding: 25px; border-radius: 16px; width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
+                    h2 {{ color: #38bdf8; margin-top: 0; }}
+                    .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
+                    .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; }}
+                </style>
                 </head>
                 <body>
                     <div class="card">
                         <h2>🔒 Secure Delivery</h2>
-                        <p style="margin-bottom: 15px;"><b>Product:</b> {title}</p>
+                        <p><b>Product:</b> {title}</p>
                         {photo_tag}
                         <div class="info">
                             <p><b>📍 Location:</b> <a href="{location_url}" target="_blank" style="color: #38bdf8;">Click to Open in Maps</a></p>
@@ -1888,7 +1751,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                         <a href="{location_url}" class="btn" target="_blank">Open Google Maps</a>
                         {received_section}
-                        <p class="warning">⚠️ This page is single-use for your privacy. Leave the area once completed.</p>
                     </div>
                 </body>
                 </html>
@@ -1907,7 +1769,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
                 conn.commit()
                 conn.close()
-                log_panel_event(f"✅ Müşteri ürünü teslim aldığını onayladı: Sipariş #{order_id}", "success")
+                log_panel_event(f"✅ Sipariş #{order_id} teslim alındı olarak onaylandı.", "success")
                 
                 self.send_response(303)
                 self.send_header('Location', f'/drop/{order_id}')
@@ -1977,7 +1839,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             pass
 
                 asyncio.run_coroutine_threadsafe(send_all(), main_loop)
-                log_panel_event(f"📢 Toplu duyuru gönderildi: {msg_text[:30]}...", "success")
+                log_panel_event(f"📢 Toplu duyuru gönderildi.", "success")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=broadcast')
@@ -1990,8 +1852,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE settings SET value = ? WHERE key = 'promo_5g_active'", (status,))
             conn.commit()
             conn.close()
-            log_panel_event(f"🎁 5 Alana 1 Hediye kampanyası güncellendi: {'Aktif' if status == '1' else 'Pasif'}", "info")
-
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=promo5g')
             self.end_headers()
@@ -2005,31 +1865,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 discount, uses = 5.0, 100
 
             if code:
-                try:
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
-                    conn.commit()
-                    
-                    cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
-                    all_users = cursor.fetchall()
-                    conn.close()
-
-                    if main_loop:
-                        async def send_coupon_broadcast():
-                            promo_msg = f"🎟️ **YENİ KAMPANYA & İNDİRİM KUPONU!**\n\nSizler için özel indirim kodu aktif edildi:\n🔑 Kod: `{code}`\n💰 İndirim Tutarı: **{discount} USDT**\n⚡ Kullanım Limiti: **{uses} Kişi**\n\nAlışveriş yaparken kuponu kullanarak anında indirimden yararlanabilirsiniz!"
-                            for u in all_users:
-                                try:
-                                    await bot.send_message(u[0], promo_msg, parse_mode="Markdown")
-                                    await asyncio.sleep(0.05)
-                                except:
-                                    pass
-
-                        asyncio.run_coroutine_threadsafe(send_coupon_broadcast(), main_loop)
-
-                    log_panel_event(f"🎟️ Kupon eklendi ve kullanıcılara duyuruldu: {code} ({discount} USDT)", "success")
-                except Exception as e:
-                    logging.error(e)
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
+                conn.commit()
+                conn.close()
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=coupons')
@@ -2040,39 +1880,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if bulk_text:
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                lines = bulk_text.split("\n")
-                added_count = 0
-                for line in lines:
+                for line in bulk_text.split("\n"):
                     parts = [p.strip() for p in line.split(",")]
                     if len(parts) >= 4:
-                        title = parts[0]
-                        category = parts[1]
+                        title, category = parts[0], parts[1]
                         try:
-                            price = float(parts[2])
-                            stock = int(parts[3])
+                            price, stock = float(parts[2]), int(parts[3])
                         except:
                             continue
-                        
                         lat, lon = get_district_coord(category)
-                        photo = parts[5] if len(parts) > 5 and parts[5].startswith("http") else ""
-                        desc = parts[6] if len(parts) > 6 else (parts[4] if len(parts) > 4 else "Güvenli teslimat.")
-
-                        if len(parts) > 4 and "," in parts[4]:
-                            try:
-                                c_parts = parts[4].split(",")
-                                lat = float(c_parts[0].strip())
-                                lon = float(c_parts[1].strip())
-                            except:
-                                pass
-
-                        cursor.execute("""
-                            INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (title, price, photo, desc, stock, category, lat, lon))
-                        added_count += 1
+                        desc = parts[6] if len(parts) > 6 else "Güvenli teslimat."
+                        cursor.execute("INSERT INTO drops (title, price, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?)", (title, price, desc, stock, category, lat, lon))
                 conn.commit()
                 conn.close()
-                log_panel_event(f"📥 Excel/Toplu Yükleme ile {added_count} ürün eklendi.", "success")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
@@ -2090,13 +1910,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     conn.close()
 
                     if main_loop:
-                        kb = InlineKeyboardMarkup(inline_keyboard=[
-                            [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
-                        ])
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(target_uid, f"💬 **Destek Ekibi:**\n\n{msg_text}", reply_markup=kb),
-                            main_loop
-                        )
+                        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
+                        asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, f"💬 **Destek Ekibi:**\n\n{msg_text}", reply_markup=kb), main_loop)
             except Exception as e:
                 logging.error(e)
 
@@ -2115,10 +1930,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     conn.close()
 
                     if main_loop:
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı ve mesaj geçmişiniz temizlendi."),
-                            main_loop
-                        )
+                        asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı."), main_loop)
             except Exception as e:
                 logging.error(e)
 
@@ -2136,8 +1948,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_b, target_uid))
             conn.commit()
             conn.close()
-
-            log_panel_event(f"🛡️ User {target_uid} status updated: {'BANNED' if is_b == 1 else 'UNBANNED'}", "warning" if is_b == 1 else "info")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2154,8 +1964,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
             conn.commit()
             conn.close()
-
-            log_panel_event(f"💵 Admin Bakiye Düzenledi: Kullanıcı {target_uid} -> {new_bal} USDT", "success")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2174,26 +1982,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             for i in range(1, count + 1):
                 photo = params.get(f"photo_{i}", [""])[0]
                 desc = params.get(f"description_{i}", [""])[0]
-                
                 coord_raw = params.get(f"coords_{i}", ["0.0, 0.0"])[0]
                 lat, lon = get_district_coord(category)
                 try:
                     if "," in coord_raw:
                         c_parts = coord_raw.split(",")
-                        lat = float(c_parts[0].strip())
-                        lon = float(c_parts[1].strip())
-                except Exception as e:
-                    logging.error(f"Coord parse error: {e}")
+                        lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+                except:
+                    pass
 
                 if desc:
-                    cursor.execute("""
-                        INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (title, price, photo, desc, 1, category, lat, lon))
+                    cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (title, price, photo, desc, 1, category, lat, lon))
             conn.commit()
             conn.close()
-
-            log_panel_event(f"➕ Yeni Ürün Eklendi: {title} ({count} Adet, Semt: {category})", "success")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2213,24 +2014,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             try:
                 if "," in coord_raw:
                     c_parts = coord_raw.split(",")
-                    lat = float(c_parts[0].strip())
-                    lon = float(c_parts[1].strip())
-            except Exception as e:
-                logging.error(e)
+                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+            except:
+                pass
 
             photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("""
-                UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ?
-                WHERE id = ?
-            """, (title, price, stock, category, photo, description, lat, lon, drop_id))
+            cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo, description, lat, lon, drop_id))
             conn.commit()
             conn.close()
-
-            log_panel_event(f"✏️ Ürün Güncellendi: #{drop_id}", "info")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2262,16 +2057,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     u_lang = get_user_lang(u_id)
                     success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
 
-                    log_panel_event(f"🎉 Manuel Onay & Satış: #{order_id} - {t_title}", "success")
                     if main_loop:
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(u_id, success_text, parse_mode="Markdown"),
-                            main_loop
-                        )
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(ADMIN_GROUP_ID, f"🎉 **MANUEL ONAY / SATIŞ!**\n\n📌 Ürün: {t_title}\n💰 Tutar: {f_price} USDT\n🔑 Kod: `WEE-{order_id}`"),
-                            main_loop
-                        )
+                        asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
             else:
                 conn.close()
 
@@ -2286,8 +2073,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         err_html = f'<p style="color: #ef4444; margin-bottom: 15px;">{error}</p>' if error else ''
         login_html = f"""
         <!DOCTYPE html>
-        <html lang="tr">
-        <head><meta charset="UTF-8"><title>Admin Giriş</title>
+        <html lang="tr"><head><meta charset="UTF-8"><title>Admin Giriş</title>
         <style>
             body {{ background-color: #090d16; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
             .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; }}
@@ -2460,9 +2246,7 @@ async def wallet_menu(message: types.Message):
     t = LANG[lang]
     bal = get_user_balance(user_id)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]
-    ])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]])
     await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
 
 @dp.callback_query(F.data == "start_deposit")
@@ -2518,8 +2302,7 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
     t = LANG[lang]
 
     parts = callback.data.split("_")
-    deposit_id = int(parts[1])
-    target_amount = float(parts[2])
+    deposit_id, target_amount = int(parts[1]), float(parts[2])
 
     await callback.answer(t["scan"], show_alert=True)
     conn = sqlite3.connect("drop_bot.db")
@@ -2560,16 +2343,10 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (deposit_id,))
         cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, user_id))
         conn.commit()
-
         new_bal = get_user_balance(user_id)
         conn.close()
 
         await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
-        log_panel_event(f"📥 Bakiye Yükleme Onaylandı: Kullanıcı {user_id} - {target_amount} USDT", "success")
-        try:
-            await bot.send_message(ADMIN_GROUP_ID, f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{user_id}`\n💵 Miktar: **{target_amount} USDT**")
-        except:
-            pass
     else:
         conn.close()
         await callback.answer(t["wait_tx"], show_alert=True)
@@ -2596,7 +2373,7 @@ async def faq_callback(callback: types.CallbackQuery):
     if lang == "tr":
         text = "💳 Cüzdanınıza bakiye yükleyerek ürün alabilirsiniz." if action == "pay" else ("⏱️ Ödeme onaylanınca takip kodunuz ve konum linkiniz verilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
     else:
-        text = "💳 You can deposit to your wallet to buy products." if action == "pay" else ("⏱️ Tracking code and secure link are sent upon payment." if action == "delivery" else "🔒 Locations are single-use via web.")
+        text = "💳 You can deposit to your wallet." if action == "pay" else ("⏱️ Tracking code sent upon payment." if action == "delivery" else "🔒 Locations are single-use via web.")
     await callback.answer()
     await callback.message.answer(text)
 
@@ -2608,9 +2385,7 @@ async def support_start(message: types.Message, state: FSMContext):
     lang = get_user_lang(user_id)
     t = LANG[lang]
     await state.set_state(SupportState.message)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
-    ])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
     await message.answer(t["support_ask"], reply_markup=kb)
 
 @dp.callback_query(F.data == "close_support_chat")
@@ -2644,11 +2419,8 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
     conn.commit()
     conn.close()
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]
-    ])
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
     await message.answer(t["support_sent"], reply_markup=kb)
-    log_panel_event(f"💬 Canlı Destek Mesajı: @{username} (ID: {user_id})", "info")
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
@@ -2709,16 +2481,11 @@ async def list_categories(message: types.Message):
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
     categories = cursor.fetchall()
-    cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
-    p_res = cursor.fetchone()
     conn.close()
 
     if not categories:
         await message.answer(t["no_stock"])
         return
-
-    if p_res and p_res[0] == "1":
-        await message.answer("🎁 **Önemli Kampanya:** Toplu alımlarda **5 Gram Alana 1 Gram Hediye!** fırsatı geçerlidir.")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
@@ -2802,15 +2569,7 @@ async def my_orders(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for o in orders:
         o_id, title, f_price, status, date = o
-        if status == 'received':
-            st_str = "✅ Teslim Alındı"
-        elif status == 'completed':
-            st_str = "🟢 Aktif (Ödendi)"
-        elif status == 'expired':
-            st_str = "❌ Süresi Doldu"
-        else:
-            st_str = "⏳ Bekliyor"
-
+        st_str = "✅ Teslim Alındı" if status == 'received' else ("🟢 Aktif (Ödendi)" if status == 'completed' else "⏳ Bekliyor")
         text += t["order_item"].format(id=o_id, title=title, price=f_price, status=st_str, date=date)
         if status in ['completed', 'received']:
             secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
@@ -2842,8 +2601,7 @@ async def process_buy(callback: types.CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t["pay_balance"].format(price=price), callback_data=f"buybal_{drop_id}")],
-        [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")],
-        [InlineKeyboardButton(text="🎟️ Kupon Kullan", callback_data=f"usepromo_{drop_id}")]
+        [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")]
     ])
     await callback.message.edit_text(t["buy_options"].format(title=title, price=price, balance=bal), reply_markup=kb)
 
@@ -2858,7 +2616,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     drop_id = int(callback.data.split("_")[1])
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT title, price, stock, category FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
     drop = cursor.fetchone()
 
     if not drop:
@@ -2866,7 +2624,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
         conn.close()
         return
 
-    title, price, stock, category = drop
+    title, price, stock = drop
     bal = get_user_balance(user_id)
 
     if bal < price:
@@ -2875,7 +2633,6 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
         return
 
     cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
-    
     new_stock = stock - 1
     if new_stock <= 0:
         cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
@@ -2891,189 +2648,6 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     success_text = t["balance_success"].format(id=order_id, price=price, link=secure_link)
 
     await callback.message.edit_text(success_text, parse_mode="Markdown")
-    log_panel_event(f"⚡ Bakiyeden Satış: #{order_id} (WEE-{order_id}) - {title} ({price} USDT)", "success")
-
-    try:
-        await bot.send_message(ADMIN_GROUP_ID, f"⚡ **YENİ BAKİYE SATIŞI!**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🔑 Takip Kodu: `WEE-{order_id}`")
-    except Exception as e:
-        logging.error(e)
-
-@dp.callback_query(F.data.startswith("buycrypto_"))
-async def process_buy_crypto(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    drop_id = int(callback.data.split("_")[1])
-    username = callback.from_user.username
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-    drop = cursor.fetchone()
-    if not drop:
-        await callback.answer(t["sold_out"], show_alert=True)
-        conn.close()
-        return
-    title, price, stock = drop
-    final_price = price
-
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
-    order_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-
-    msg = t["order_created"].format(id=order_id, title=title) + f"🔑 Sipariş Takip Kodunuz: `WEE-{order_id}`\n💰 Total: {final_price} USDT\n\n" + t["wallet_text"].format(wallet=CRYPTO_WALLET)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
-    await callback.message.edit_text(msg, reply_markup=kb, parse_mode="Markdown")
-
-@dp.callback_query(F.data.startswith("usepromo_"))
-async def ask_promo_code(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    drop_id = int(callback.data.split("_")[1])
-    await state.update_data(drop_id=drop_id)
-    await state.set_state(PromoState.code)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data=f"buy_{drop_id}")]])
-    await callback.message.edit_text("🎟️ Lütfen indirim kuponu kodunu yazın:", reply_markup=kb)
-
-@dp.message(PromoState.code)
-async def verify_promo_code(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    data = await state.get_data()
-    drop_id = data.get("drop_id")
-    entered_code = message.text.strip().upper()
-    await state.clear()
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-    drop = cursor.fetchone()
-
-    if not drop:
-        conn.close()
-        await message.answer(t["invalid_drop"])
-        return
-
-    title, price, stock = drop
-    cursor.execute("SELECT discount, uses_left FROM coupons WHERE code = ? AND uses_left > 0", (entered_code,))
-    coupon = cursor.fetchone()
-
-    if coupon:
-        discount_val = coupon[0]
-        final_price = max(0.0, price - discount_val)
-        promo_applied = True
-        cursor.execute("UPDATE coupons SET uses_left = uses_left - 1 WHERE code = ?", (entered_code,))
-    else:
-        final_price = price
-        promo_applied = False
-
-    username = message.from_user.username
-    cursor.execute("INSERT OR REPLACE INTO users (user_id, username, language) VALUES (?, ?, ?)", (user_id, username, lang))
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'pending', ?)", (user_id, drop_id, final_price))
-    order_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-
-    msg = t["order_created"].format(id=order_id, title=title) + f"🔑 Sipariş Takip Kodunuz: `WEE-{order_id}`\n"
-    if promo_applied:
-        msg += f"💰 Normal Tutar: {price} USDT\n🎟️ Kupon İndirimi: -{coupon[0]} USDT\n💵 **Ödenecek Tutar: {final_price} USDT**\n\n"
-    else:
-        msg += f"❌ Geçersiz veya tükenmiş kupon! Tam Tutar: {final_price} USDT\n\n"
-
-    msg += t["wallet_text"].format(wallet=CRYPTO_WALLET)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["check_btn"], callback_data=f"autocheck_{order_id}")]])
-    await message.answer(msg, reply_markup=kb, parse_mode="Markdown")
-
-@dp.callback_query(F.data.startswith("autocheck_"))
-async def check_blockchain_payment(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    order_id = int(callback.data.split("_")[1])
-    await callback.answer(t["scan"], show_alert=True)
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT orders.user_id, drops.id, drops.stock, orders.status, orders.created_at, drops.title, orders.final_price, drops.category 
-        FROM orders 
-        JOIN drops ON orders.drop_id = drops.id 
-        WHERE orders.id = ?
-    """, (order_id,))
-    data = cursor.fetchone()
-    if not data:
-        await callback.answer(t["not_found"], show_alert=True)
-        conn.close()
-        return
-    user_id, drop_id, stock, status, created_at_str, title, final_price, category = data
-    if status in ['completed', 'received']:
-        await callback.answer(t["already_approved"], show_alert=True)
-        conn.close()
-        return
-    if status == 'expired':
-        await callback.answer(t["expired"], show_alert=True)
-        conn.close()
-        return
-    if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
-        cursor.execute("UPDATE orders SET status = 'expired' WHERE id = ?", (order_id,))
-        conn.commit()
-        conn.close()
-        await callback.message.edit_text(t["time_out"])
-        return
-
-    api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=10"
-    payment_verified = False
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                if response.status == 200:
-                    res_json = await response.json()
-                    for tx in res_json.get("data", []):
-                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(float(final_price) * 1000000):
-                            payment_verified = True
-                            break
-    except Exception as e:
-        logging.error(e)
-
-    if payment_verified:
-        new_stock = stock - 1
-        if new_stock <= 0:
-            cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
-        else:
-            cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
-        cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-        conn.commit()
-        conn.close()
-
-        secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-        success_text = t["success_msg"].format(id=order_id, link=secure_link)
-
-        await callback.message.edit_text(t["success_order"].format(id=order_id))
-        await bot.send_message(user_id, success_text, parse_mode="Markdown")
-        log_panel_event(f"🎉 Otomatik Satış: #{order_id} (WEE-{order_id}) - {title} ({final_price} USDT)", "success")
-
-        try:
-            await bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK BLOKZİNCİR SATIŞI ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {final_price} USDT\n🔑 Takip Kodu: `WEE-{order_id}`")
-        except Exception as e:
-            logging.error(e)
-    else:
-        conn.close()
-        await callback.answer(t["wait_trx"], show_alert=True)
 
 async def main():
     global main_loop
