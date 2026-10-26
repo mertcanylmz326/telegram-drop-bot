@@ -550,7 +550,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <!-- 1. TAB: HARİTA -->
                 <div id="tabMap" class="tab-content active">
                     <div id="promoContainer"></div>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>📌 <b>Mavi Pinler:</b> Temsili bölge stokları.</p>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pinler:</b> Satın aldığınız tam sipariş konumları.<br>🌿 <b>Kenevir Pinler:</b> Temsili bölge stokları.</p>
                     <div id="mainMap"></div>
                     <div id="activeOrdersList"></div>
                 </div>
@@ -704,12 +704,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }});
 
                         temsilidrops.forEach(td => {{
-                            const blueIcon = L.divIcon({{
+                            const weedIcon = L.divIcon({{
                                 html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">🌿</div>',
                                 iconSize: [28, 28],
-                                iconAnchor: [14, 14]]
+                                iconAnchor: [14, 14]
                             }});
-                            L.marker([td.lat, td.lon], {{icon: blueIcon}}).addTo(markersGroup)
+                            L.marker([td.lat, td.lon], {{icon: weedIcon}}).addTo(markersGroup)
                                 .bindPopup(`<b>${{td.title}}</b><br>Temsili Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT`);
                         }});
                     }}
