@@ -472,7 +472,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
-        # --- GÜÇLENDİRİLMİŞ MESAJ KONTROL API'Sİ ---
+        # --- MESAJ KONTROL API'Sİ ---
         if parsed_path.path == "/api/check-new-messages":
             if not is_logged_in:
                 self.send_response(401)
@@ -482,7 +482,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             last_id = int(query_params.get("last_id", [0])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            # Müşteriden gelen yeni mesajları anında yakala
             cursor.execute("SELECT sm.id, sm.user_id, sm.message, u.username FROM support_messages sm LEFT JOIN users u ON sm.user_id = u.user_id WHERE sm.id > ? AND sm.sender = 'user' ORDER BY sm.id ASC LIMIT 1", (last_id,))
             new_msg = cursor.fetchone()
             conn.close()
@@ -1091,13 +1090,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                 </style>
                 <script>
+                    // Tema Fonksiyonu Kesin Çözüm
                     function toggleTheme() {{
                         const html = document.documentElement;
-                        const currentTheme = html.getAttribute('data-theme');
+                        const currentTheme = html.getAttribute('data-theme') || 'dark';
                         const newTheme = currentTheme === 'light' ? 'dark' : 'light';
                         html.setAttribute('data-theme', newTheme);
                         localStorage.setItem('theme', newTheme);
                     }}
+
+                    // Bildirim İzin Fonksiyonu Kesin Çözüm
+                    function requestNotifPermission() {{
+                        if (window.Notification) {{
+                            Notification.requestPermission().then(perm => {{
+                                alert("Bildirim izni durumu: " + perm);
+                            }});
+                        }} else {{
+                            alert("Tarayıcınız bildirimleri desteklemiyor.");
+                        }}
+                    }}
+
                     window.addEventListener('DOMContentLoaded', () => {{
                         const savedTheme = localStorage.getItem('theme') || 'dark';
                         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -1126,7 +1138,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }} catch(e) {{
                                 console.error(e);
                             }}
-                        }}, 4000); // 4 saniyede bir kontrol
+                        }}, 4000);
                     }}
 
                     function playNotificationSound() {{
@@ -1135,7 +1147,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const osc = ctx.createOscillator();
                             const gain = ctx.createGain();
                             osc.type = 'sine';
-                            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 yüksek ses
+                            osc.frequency.setValueAtTime(880, ctx.currentTime);
                             gain.gain.setValueAtTime(0.2, ctx.currentTime);
                             osc.connect(gain);
                             gain.connect(ctx.destination);
@@ -1178,16 +1190,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 window.focus();
                                 window.location.href = "/admin-web?tab=support&user_id=" + userId;
                             }};
-                        }}
-                    }}
-
-                    function requestNotifPermission() {{
-                        if (window.Notification) {{
-                            Notification.requestPermission().then(perm => {{
-                                alert("Bildirim izni durumu: " + perm);
-                            }});
-                        }} else {{
-                            alert("Tarayıcınız bildirimleri desteklemiyor.");
                         }}
                     }}
 
