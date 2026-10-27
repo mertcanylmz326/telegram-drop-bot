@@ -20,7 +20,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
-ADMIN_IDS = [1012940363]  # Buraya ek admin ID'lerini de ekleyebilirsin
+ADMIN_IDS = [1012940363]  
 ADMIN_PASS = "1881"
 
 ADMIN_WEB_USERNAME = "root"
@@ -619,7 +619,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
         if parsed_path.path == "/miniapp":
-            miniapp_html = f"""
+            miniapp_template = """
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -630,7 +630,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    :root {{
+                    :root {
                         --bg-main: #090d16;
                         --card-bg: #111827;
                         --border-color: #1f2937;
@@ -638,44 +638,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --accent-green: #10b981;
                         --accent-red: #ef4444;
                         --text-muted: #9ca3af;
-                    }}
-                    body {{ background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }}
-                    .nav-tabs {{ display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }}
-                    .tab-btn {{ background: var(--card-bg); color: var(--text-muted); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; transition: 0.2s; }}
-                    .tab-btn.active {{ background: #2563eb; color: white; border-color: #3b82f6; }}
-                    .tab-content {{ display: none; }}
-                    .tab-content.active {{ display: block; }}
+                    }
+                    body { background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }
+                    .nav-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }
+                    .tab-btn { background: var(--card-bg); color: var(--text-muted); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; transition: 0.2s; }
+                    .tab-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
+                    .tab-content { display: none; }
+                    .tab-content.active { display: block; }
                     
-                    .promo-banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }}
-                    .coupon-tag {{ background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }}
+                    .promo-banner { background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }
+                    .coupon-tag { background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }
                     
-                    #mainMap {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
-                    .card {{ background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
+                    #mainMap { width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
+                    .card { background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
                     
-                    input, select {{ width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }}
-                    button {{ background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }}
-                    button:hover {{ background: #1d4ed8; }}
+                    input, select { width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }
+                    button { background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }
+                    button:hover { background: #1d4ed8; }
                     
-                    .btn-received {{ background: var(--accent-green); }}
-                    .btn-received:hover {{ background: #059669; }}
-                    .btn-close {{ background: var(--accent-red); margin-top: 15px; }}
+                    .btn-received { background: var(--accent-green); }
+                    .btn-received:hover { background: #059669; }
+                    .btn-close { background: var(--accent-red); margin-top: 15px; }
                     
-                    .nav-btn-group {{ display: flex; gap: 6px; margin-top: 8px; }}
-                    .nav-btn {{ flex: 1; background: #0ea5e9; color: white; font-size: 11px; padding: 8px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: bold; display: block; }}
-                    .nav-btn.yandex {{ background: #e11d48; }}
-                    .nav-btn.apple {{ background: #475569; }}
+                    .nav-btn-group { display: flex; gap: 6px; margin-top: 8px; }
+                    .nav-btn { flex: 1; background: #0ea5e9; color: white; font-size: 11px; padding: 8px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: bold; display: block; }
+                    .nav-btn.yandex { background: #e11d48; }
+                    .nav-btn.apple { background: #475569; }
 
-                    .skeleton {{ background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }}
-                    @keyframes shimmer {{ 0% {{ background-position: 200% 0; }} 100% {{ background-position: -200% 0; }} }}
+                    .skeleton { background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }
+                    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-                    .chat-box {{ height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }}
-                    .msg {{ margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }}
-                    .msg-user {{ background: #2563eb; margin-left: auto; color: white; }}
-                    .msg-admin {{ background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }}
+                    .chat-box { height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }
+                    .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
+                    .msg-user { background: #2563eb; margin-left: auto; color: white; }
+                    .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
 
-                    .wheel-wrapper {{ position: relative; width: 220px; height: 220px; margin: 0 auto; }}
-                    .wheel {{ width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }}
-                    .wheel-slice {{ position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }}
+                    .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+                    .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
+                    .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
                 </style>
             </head>
             <body>
@@ -795,425 +795,426 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     tg.expand();
                     
                     let userId = 0;
-                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
                         userId = tg.initDataUnsafe.user.id;
-                    }}
-                    if (!userId) {{
+                    }
+                    if (!userId) {
                         const urlParams = new URLSearchParams(window.location.search);
                         userId = urlParams.get('user_id');
-                    }}
-                    if (!userId) {{
-                        userId = 1012940363; // Yedek fallback ID
-                    }}
+                    }
+                    if (!userId) {
+                        userId = 1012940363; 
+                    }
 
-                    const baseUrl = "{RENDER_EXTERNAL_URL}";
+                    const baseUrl = "RENDER_URL_PLACEHOLDER";
 
-                    function triggerHaptic(style = 'medium') {{
-                        if (tg.HapticFeedback) {{
+                    function triggerHaptic(style = 'medium') {
+                        if (tg.HapticFeedback) {
                             tg.HapticFeedback.impactOccurred(style);
-                        }}
-                    }}
+                        }
+                    }
 
                     let map, markersGroup;
                     let globalAppData = null;
                     let isMusicPlaying = false;
 
-                    function toggleMusic() {{
+                    function toggleMusic() {
                         triggerHaptic('light');
                         const iframe = document.getElementById('ytAudio');
                         const btn = document.getElementById('musicBtn');
-                        if(!isMusicPlaying) {{
+                        if(!isMusicPlaying) {
                             iframe.src = "https://www.youtube.com/embed/wo3OCsPNevc?autoplay=1&loop=1&playlist=wo3OCsPNevc";
                             btn.innerText = "Durdur";
                             btn.style.background = "var(--accent-red)";
                             isMusicPlaying = true;
-                        }} else {{
+                        } else {
                             iframe.src = "";
                             btn.innerText = "Oynat";
                             btn.style.background = "var(--accent-green)";
                             isMusicPlaying = false;
-                        }}
-                    }}
+                        }
+                    }
 
-                    function switchTab(tabId) {{
+                    function switchTab(tabId) {
                         triggerHaptic('light');
                         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                         document.getElementById(tabId).classList.add('active');
                         event.target.classList.add('active');
 
-                        if(tabId === 'tabMap' && map) {{
-                            setTimeout(() => {{ map.invalidateSize(); }}, 200);
-                        }}
-                    }}
+                        if(tabId === 'tabMap' && map) {
+                            setTimeout(() => { map.invalidateSize(); }, 200);
+                        }
+                    }
 
-                    async function loadAppData() {{
+                    async function loadAppData() {
                         if(!userId) return;
-                        try {{
+                        try {
                             const res = await fetch(baseUrl + '/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
                             globalAppData = data;
                             
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
                             document.getElementById('refEarningsText').innerText = (data.referral_earnings || 0).toFixed(2) + " USDT";
-                            document.getElementById('refLinkInput').value = `https://t.me/${{data.bot_username || 'WeedIstanbulBot'}}?start=ref_${{userId}}`;
+                            document.getElementById('refLinkInput').value = `https://t.me/${data.bot_username || 'WeedIstanbulBot'}?start=ref_${userId}`;
                             
                             let promoHtml = "";
-                            if(data.promo_5g) {{
+                            if(data.promo_5g) {
                                 promoHtml += `<div class="promo-banner">🎁 <b>Özel Kampanya:</b> Toplu alımlarda <b>5 Gram Alana 1 Gram Hediye!</b></div>`;
-                            }}
-                            if(data.coupons && data.coupons.length > 0) {{
-                                data.coupons.forEach(c => {{
-                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${{c.code}}</span> (-${{c.discount}} USDT İndirim)</div>`;
-                                }});
-                            }}
+                            }
+                            if(data.coupons && data.coupons.length > 0) {
+                                data.coupons.forEach(c => {
+                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${c.code}</span> (-${c.discount} USDT İndirim)</div>`;
+                                });
+                            }
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
                             populateDistrictFilter(data.temsili_drops);
                             initMap(data.active_orders, data.temsili_drops);
 
                             let activeHtml = "";
-                            if(data.active_orders.length > 0) {{
-                                data.active_orders.forEach(o => {{
+                            if(data.active_orders.length > 0) {
+                                data.active_orders.forEach(o => {
                                     activeHtml += `
                                     <div class="card" style="border-left: 4px solid var(--accent-red);">
-                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${{o.id}} - ${{o.title}}</h4>
-                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${{o.description}}</p>
+                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${o.id} - ${o.title}</h4>
+                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${o.description}</p>
                                         
                                         <div class="nav-btn-group">
-                                            <a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" class="nav-btn">📍 Google Maps</a>
-                                            <a href="https://yandex.com.tr/harita/?pt=${{o.lon}},${{o.lat}}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
-                                            <a href="http://maps.apple.com/?q=${{o.lat}},${{o.lon}}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
+                                            <a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" class="nav-btn">📍 Google Maps</a>
+                                            <a href="https://yandex.com.tr/harita/?pt=${o.lon},${o.lat}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
+                                            <a href="http://maps.apple.com/?q=${o.lat},${o.lon}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
                                         </div>
 
-                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${{o.id}})">✅ Ürünü Teslim Aldım</button>
+                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
                                     </div>`;
-                                }});
-                            }} else {{
+                                });
+                            } else {
                                 activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
-                            }}
+                            }
                             document.getElementById('activeOrdersList').innerHTML = activeHtml;
 
                             let prodHtml = "";
-                            data.temsili_drops.forEach(p => {{
+                            data.temsili_drops.forEach(p => {
                                 prodHtml += `
                                 <div class="card">
-                                    <h4 style="margin:0; color:var(--accent-blue);">${{p.title}} (Semt: ${{p.category}})</h4>
-                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${{p.price}} USDT | Stok: ${{p.stock}} Adet</p>
+                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category})</h4>
+                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
                                     <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
-                                    <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
+                                    <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
                                 </div>`;
                             });
                             document.getElementById('productsList').innerHTML = prodHtml;
 
                             let pastHtml = "";
-                            if(data.past_orders.length > 0) {{
-                                data.past_orders.forEach(po => {{
+                            if(data.past_orders.length > 0) {
+                                data.past_orders.forEach(po => {
                                     let reviewBox = "";
-                                    if(po.has_reviewed) {{
-                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${{po.review_text}}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
-                                    }} else {{
+                                    if(po.has_reviewed) {
+                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${po.review_text}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
+                                    } else {
                                         reviewBox = `
                                         <div style="margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;">
-                                            <input type="text" id="reviewInput_${{po.id}}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
-                                            <button onclick="submitReview(${{po.id}})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
+                                            <input type="text" id="reviewInput_${po.id}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
+                                            <button onclick="submitReview(${po.id})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
                                         </div>`;
-                                    }}
+                                    }
 
                                     pastHtml += `
                                     <div class="card" style="opacity:0.9;">
-                                        <h4 style="margin:0;">Sipariş #${{po.id}} - ${{po.title}}</h4>
-                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
-                                        ${{reviewBox}}
+                                        <h4 style="margin:0;">Sipariş #${po.id} - ${po.title}</h4>
+                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${po.date})</p>
+                                        ${reviewBox}
                                     </div>`;
-                                }});
-                            }} else {{
+                                });
+                            } else {
                                 pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
-                            }}
+                            }
                             document.getElementById('pastOrdersList').innerHTML = pastHtml;
 
-                        }} catch(e) {{
+                        } catch(e) {
                             console.error(e);
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function spinGame(gameType) {{
+                    async function spinGame(gameType) {
                         const btn = document.getElementById('spinBtn');
                         btn.disabled = true;
                         triggerHaptic('heavy');
-                        try {{
-                            const res = await fetch(baseUrl + '/api/miniapp-spin', {{
+                        try {
+                            const res = await fetch(baseUrl + '/api/miniapp-spin', {
                                 method: 'POST',
-                                headers: {{'Content-Type': 'application/json'}},
-                                body: JSON.stringify({{user_id: userId, game_type: gameType}})
-                            }});
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: gameType})
+                            });
                             const data = await res.json();
-                            if(!data.success) {{ alert(data.message); btn.disabled = false; return; }}
+                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
                             
-                            document.getElementById('wheelEl').style.transform = `rotate(${{1440 + data.target_deg}}deg)`;
-                            setTimeout(() => {{
+                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
+                            setTimeout(() => {
                                 document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
                                 alert("🎉 Tebrikler! Kazandınız: " + data.reward);
-                            }}, 4000);
-                        }} catch(e) {{ 
+                            }, 4000);
+                        } catch(e) { 
                             alert("Bağlantı hatası oluştu."); 
                             btn.disabled = false; 
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function scratchBox(idx) {{
+                    async function scratchBox(idx) {
                         triggerHaptic('medium');
-                        try {{
-                            const res = await fetch(baseUrl + '/api/miniapp-spin', {{
+                        try {
+                            const res = await fetch(baseUrl + '/api/miniapp-spin', {
                                 method: 'POST',
-                                headers: {{'Content-Type': 'application/json'}},
-                                body: JSON.stringify({{user_id: userId, game_type: 'scratch'}})
-                            }});
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: 'scratch'})
+                            });
                             const data = await res.json();
                             if(!data.success) return alert(data.message);
 
-                            for(let i=0; i<3; i++) {{
+                            for(let i=0; i<3; i++) {
                                 const card = document.getElementById('sc' + i);
-                                if(i === idx) {{
+                                if(i === idx) {
                                     card.innerText = data.reward;
                                     card.style.background = "#059669";
                                     card.style.color = "#ffffff";
                                     card.style.border = "2px solid #10b981";
-                                }} else {{
+                                } else {
                                     card.innerText = "Boş ❌";
                                     card.style.background = "#1f2937";
                                     card.style.color = "#9ca3af";
                                     card.style.border = "2px dashed #374151";
-                                }}
-                            }}
+                                }
+                            }
                             document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
                             alert("🎉 Kazı kazandan kazandın: " + data.reward);
-                        }} catch(e) {{ 
+                        } catch(e) { 
                             alert("Bağlantı hatası oluştu."); 
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function submitReview(orderId) {{
+                    async function submitReview(orderId) {
                         const txtInput = document.getElementById('reviewInput_' + orderId);
                         const reviewText = txtInput.value.trim();
-                        if(!reviewText) {{
+                        if(!reviewText) {
                             alert("Lütfen bir yorum yazın.");
                             return;
-                        }}
+                        }
                         triggerHaptic('heavy');
-                        try {{
-                            const res = await fetch(baseUrl + '/api/miniapp-review', {{
+                        try {
+                            const res = await fetch(baseUrl + '/api/miniapp-review', {
                                 method: 'POST',
-                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
-                                body: `user_id=${{userId}}&order_id=${{orderId}}&review=${{encodeURIComponent(reviewText)}}`
-                            }});
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&order_id=${orderId}&review=${encodeURIComponent(reviewText)}`
+                            });
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("🎉 Harika! Yorumunuz kaydedildi ve hesabınıza 5$ (USDT) bakiye eklendi!");
                                 location.reload();
-                            }} else {{
+                            } else {
                                 alert("❌ Hata: " + (data.message || "İşlem başarısız."));
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("Bağlantı hatası oluştu.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    function copyRefLink() {{
+                    function copyRefLink() {
                         triggerHaptic('success');
                         const copyText = document.getElementById("refLinkInput");
                         copyText.select();
                         navigator.clipboard.writeText(copyText.value);
                         alert("✅ Davet linki panoya kopyalandı!");
-                    }}
+                    }
 
-                    function populateDistrictFilter(drops) {{
+                    function populateDistrictFilter(drops) {
                         const select = document.getElementById('districtFilter');
                         const categories = [...new Set(drops.map(d => d.category))];
-                        categories.forEach(cat => {{
+                        categories.forEach(cat => {
                             const opt = document.createElement('option');
                             opt.value = cat;
                             opt.innerText = "🏙️ " + cat + " Bölgesi";
                             select.appendChild(opt);
-                        }});
-                    }}
+                        });
+                    }
 
-                    function initMap(activeOrders, temsilidrops) {{
+                    function initMap(activeOrders, temsilidrops) {
                         if(map) return;
                         map = L.map('mainMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
                         renderMapMarkers(activeOrders, temsilidrops);
-                    }}
+                    }
 
-                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {{
+                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {
                         markersGroup.clearLayers();
 
-                        activeOrders.forEach(o => {{
-                            const redIcon = L.divIcon({{
+                        activeOrders.forEach(o => {
+                            const redIcon = L.divIcon({
                                 html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">📍</div>',
                                 iconSize: [24, 24]
                             });
-                            L.marker([o.lat, o.lon], {{icon: redIcon}}).addTo(markersGroup)
-                                .bindPopup(`<b>Sipariş #${{o.id}}</b><br>${{o.title}}<br><br><a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
+                            L.marker([o.lat, o.lon], {icon: redIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}<br><br><a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
                         });
 
-                        temsilidrops.forEach(td => {{
+                        temsilidrops.forEach(td => {
                             if(filterCat !== "ALL" && td.category !== filterCat) return;
 
-                            L.circle([td.lat, td.lon], {{
+                            L.circle([td.lat, td.lon], {
                                 color: '#38bdf8',
                                 fillColor: '#38bdf8',
                                 fillOpacity: 0.12,
                                 radius: 1100
-                            }}).addTo(markersGroup);
+                            }).addTo(markersGroup);
 
-                            const weedIcon = L.divIcon({{
+                            const weedIcon = L.divIcon({
                                 html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
                                 iconSize: [28, 28],
                                 iconAnchor: [14, 14]
                             });
-                            L.marker([td.lat, td.lon], {{icon: weedIcon}}).addTo(markersGroup)
-                                .bindPopup(`<b>${{td.title}}</b><br>Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
+                            L.marker([td.lat, td.lon], {icon: weedIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>${td.title}</b><br>Bölge: ${td.category}<br>Fiyat: ${td.price} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
                         });
-                    }}
+                    }
 
-                    function filterMapDrops() {{
+                    function filterMapDrops() {
                         const selectedCat = document.getElementById('districtFilter').value;
-                        if(globalAppData) {{
+                        if(globalAppData) {
                             renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
-                            if(selectedCat !== "ALL") {{
+                            if(selectedCat !== "ALL") {
                                 const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
-                                if(sample) {{
+                                if(sample) {
                                     map.setView([sample.lat, sample.lon], 13);
-                                }}
-                            }} else {{
+                                }
+                            } else {
                                 map.setView([41.0082, 28.9784], 11);
-                            }}
-                        }}
-                    }}
+                            }
+                        }
+                    }
 
-                    async function markReceived(orderId) {{
+                    async function markReceived(orderId) {
                         if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
                         triggerHaptic('medium');
-                        try {{
+                        try {
                             const res = await fetch(baseUrl + '/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("Ürün teslim alındı olarak kaydedildi!");
                                 location.reload();
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("İşlem başarısız.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function buyProduct(dropId, price) {{
+                    async function buyProduct(dropId, price) {
                         if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
                         triggerHaptic('heavy');
-                        try {{
-                            const res = await fetch(baseUrl + `/api/miniapp-buy?user_id=${{userId}}&drop_id=${{dropId}}`);
+                        try {
+                            const res = await fetch(baseUrl + `/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
                                 location.reload();
-                            }} else {{
+                            } else {
                                 alert("❌ Hata: " + (data.message || "Bakiyeniz yetersiz olabilir."));
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("İşlem yapılırken hata oluştu.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function createDeposit() {{
+                    async function createDeposit() {
                         const amount = document.getElementById('depAmount').value;
                         if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
                         triggerHaptic('medium');
-                        try {{
-                            const res = await fetch(baseUrl + `/api/miniapp-deposit?user_id=${{userId}}&amount=${{amount}}`);
+                        try {
+                            const res = await fetch(baseUrl + `/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 document.getElementById('depositResult').innerHTML = `
                                 <div class="card" style="border: 1px solid var(--accent-green);">
                                     <h4 style="color:var(--accent-green); margin-top:0;">Yatırım Adresi Oluşturuldu</h4>
-                                    <p style="font-size:12px;">Tutar: <b>${{amount}} USDT</b></p>
-                                    <input type="text" value="${{data.wallet}}" readonly>
-                                    <button onclick="checkDeposit(${{data.deposit_id}}, ${{amount}})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
+                                    <p style="font-size:12px;">Tutar: <b>${amount} USDT</b></p>
+                                    <input type="text" value="${data.wallet}" readonly>
+                                    <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
-                            }} else {{
+                            } else {
                                 alert("❌ Hata: Bakiye yükleme talebi oluşturulamadı.");
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("Bakiye yükleme talebi oluşturulamadı.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function checkDeposit(depId, amount) {{
+                    async function checkDeposit(depId, amount) {
                         triggerHaptic('medium');
                         alert("Blokzincir taranıyor, lütfen bekleyin...");
-                        try {{
-                            const res = await fetch(baseUrl + `/api/miniapp-check-deposit?dep_id=${{depId}}&user_id=${{userId}}&amount=${{amount}}`);
+                        try {
+                            const res = await fetch(baseUrl + `/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
-                            if(data.success) {{
+                            if(data.success) {
                                 alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
                                 location.reload();
-                            }} else {{
+                            } else {
                                 alert("⚠️ Transfer henüz algılanmadı.");
-                            }}
-                        }} catch(e) {{
+                            }
+                        } catch(e) {
                             alert("Kontrol başarısız.");
-                        }}
-                    }}
+                        }
+                    }
 
-                    async function loadChatMessages() {{
+                    async function loadChatMessages() {
                         if(!userId) return;
-                        try {{
+                        try {
                             const res = await fetch(baseUrl + '/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
-                            data.messages.forEach(m => {{
+                            data.messages.forEach(m => {
                                 const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
                                 const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
-                                chatHtml += `<div class="msg ${{cls}}"><b>${{senderName}}:</b> ${{m.message}}</div>`;
+                                chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
                             });
                             const box = document.getElementById('chatBox');
-                            if(box.innerHTML !== chatHtml) {{
+                            if(box.innerHTML !== chatHtml) {
                                 box.innerHTML = chatHtml;
                                 box.scrollTop = box.scrollHeight;
-                            }}
-                        }} catch(e) {{}}
-                    }}
+                            }
+                        } catch(e) {}
+                    }
 
-                    async function sendChatMessage() {{
+                    async function sendChatMessage() {
                         const inp = document.getElementById('chatInput');
                         const msg = inp.value.trim();
                         if(!msg) return;
                         inp.value = '';
                         triggerHaptic('light');
-                        try {{
-                            await fetch(baseUrl + '/api/miniapp-chat-send', {{
+                        try {
+                            await fetch(baseUrl + '/api/miniapp-chat-send', {
                                 method: 'POST',
-                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
-                                body: `user_id=${{userId}}&message=${{encodeURIComponent(msg)}}`
-                            }});
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&message=${encodeURIComponent(msg)}`
+                            });
                             loadChatMessages();
-                        }} catch(e) {{}}
-                    }}
+                        } catch(e) {}
+                    }
 
-                    window.onload = () => {{
+                    window.onload = () => {
                         loadAppData();
                         loadChatMessages();
                         setInterval(loadChatMessages, 3500);
-                    }};
+                    };
                 </script>
             </body>
             </html>
             """
+            final_miniapp = miniapp_template.replace("RENDER_URL_PLACEHOLDER", RENDER_EXTERNAL_URL)
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(miniapp_html.encode("utf-8"))
+            self.wfile.write(final_miniapp.encode("utf-8"))
             return
 
         if parsed_path.path == "/api/miniapp-data":
@@ -1585,83 +1586,83 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                     <script>
                         const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                             attribution: '&copy; OpenStreetMap contributors',
                             maxZoom: 19
-                        }}).addTo(map);
+                        }).addTo(map);
 
-                        const weedIcon = L.divIcon({{
+                        const weedIcon = L.divIcon({
                             className: 'custom-weed-marker',
                             html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                             iconSize: [36, 36],
                             iconAnchor: [18, 18],
                             popupAnchor: [0, -18]
-                        }});
+                        });
 
-                        const trollIcon = L.divIcon({{
+                        const trollIcon = L.divIcon({
                             className: 'custom-troll-marker',
                             html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
-                        }});
+                        });
 
-                        const markers = {{}};
+                        const markers = {};
                         {map_markers_js}
 
-                        if (navigator.geolocation) {{
-                            navigator.geolocation.watchPosition(function(position) {{
+                        if (navigator.geolocation) {
+                            navigator.geolocation.watchPosition(function(position) {
                                 const lat = position.coords.latitude;
                                 const lon = position.coords.longitude;
-                                if (window.myLocationMarker) {{
+                                if (window.myLocationMarker) {
                                     window.myLocationMarker.setLatLng([lat, lon]);
-                                }} else {{
-                                    window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
+                                } else {
+                                    window.myLocationMarker = L.marker([lat, lon], {icon: trollIcon}).addTo(map)
                                         .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                                }}
-                            }}, function(err) {{
+                                }
+                            }, function(err) {
                                 console.log("Konum alınamadı: ", err.message);
-                            }}, {{ enableHighAccuracy: true }});
-                        }}
+                            }, { enableHighAccuracy: true });
+                        }
 
-                        function searchMarkerOnMap() {{
+                        function searchMarkerOnMap() {
                             const id = document.getElementById('searchProductId').value.trim();
-                            if (markers[id]) {{
+                            if (markers[id]) {
                                 map.setView(markers[id].getLatLng(), 16);
                                 markers[id].openPopup();
-                            }} else {{
+                            } else {
                                 alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
-                            }}
-                        }}
+                            }
+                        }
 
-                        function copyText(txt) {{
+                        function copyText(txt) {
                             navigator.clipboard.writeText(txt);
                             alert("✅ Cüzdan adresi panoya kopyalandı!");
-                        }}
+                        }
 
                         const ctx = document.getElementById('revenueChart').getContext('2d');
-                        new Chart(ctx, {{
+                        new Chart(ctx, {
                             type: 'line',
-                            data: {{
+                            data: {
                                 labels: {labels_json},
-                                datasets: [{{
+                                datasets: [{
                                     label: 'Revenue (USDT)',
                                     data: {values_json},
                                     borderColor: '#38bdf8',
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                                }}]
-                            }},
-                            options: {{
+                                }]
+                            },
+                            options: {
                                 responsive: true,
-                                plugins: {{ legend: {{ display: false }} }},
-                                scales: {{
-                                    x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
-                                    y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
-                                }}
-                            }}
-                        }});
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
+                                    y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
+                                }
+                            }
+                        });
                     </script>
                     """
 
@@ -1813,14 +1814,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                     </div>
                     <style>
-                        .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
-                        .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                        .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                        @media (min-width: 900px) {{
-                            .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
-                            .chat-main-area {{ order: 1; }}
-                            .support-sidebar-area {{ order: 2; }}
-                        }}
+                        .support-container { display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }
+                        .chat-main-area { order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
+                        .support-sidebar-area { order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
+                        @media (min-width: 900px) {
+                            .support-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+                            .chat-main-area { order: 1; }
+                            .support-sidebar-area { order: 2; }
+                        }
                     </style>
                     """
                 elif tab == "broadcast":
@@ -1949,31 +1950,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
 
                     <script>
-                        async function openUserProfile(uid) {{
+                        async function openUserProfile(uid) {
                             document.getElementById('userModal').style.display = 'flex';
                             document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
-                            try {{
+                            try {
                                 const res = await fetch('/api/admin-user-detail?user_id=' + uid);
                                 const data = await res.json();
                                 let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
                                 html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
                                 html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
-                                if(data.orders.length > 0) {{
-                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
-                                }} else {{ html += '<li>Sipariş yok.</li>'; }}
+                                if(data.orders.length > 0) {
+                                    data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
+                                } else { html += '<li>Sipariş yok.</li>'; }
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
-                                if(data.deposits.length > 0) {{
-                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
-                                }} else {{ html += '<li>Yükleme yok.</li>'; }}
+                                if(data.deposits.length > 0) {
+                                    data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
+                                } else { html += '<li>Yükleme yok.</li>'; }
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
-                            }} catch(e) {{
+                            } catch(e) {
                                 document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
-                            }}
-                        }}
-                        function closeUserProfile() {{
+                            }
+                        }
+                        function closeUserProfile() {
                             document.getElementById('userModal').style.display = 'none';
-                        }}
+                        }
                     </script>
                     """
 
@@ -2319,34 +2320,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const initLat = {e_lat if e_lat else 41.0082};
                             const initLon = {e_lon if e_lon else 28.9784};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
-                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(editPickMap);
                             
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
 
-                            async function fetchEditDistrictAndFill(lat, lon) {{
-                                try {{
+                            async function fetchEditDistrictAndFill(lat, lon) {
+                                try {
                                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
                                     const data = await response.json();
-                                    if (data && data.address) {{
+                                    if (data && data.address) {
                                         const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
-                                        if (district) {{
+                                        if (district) {
                                             document.getElementById('editCategoryInput').value = district.toUpperCase();
-                                        }}
-                                    }}
-                                }} catch (e) {{}}
-                            }}
+                                        }
+                                    }
+                                } catch (e) {}
+                            }
 
-                            editPickMap.on('click', function(e) {{
+                            editPickMap.on('click', function(e) {
                                 const lat = e.latlng.lat.toFixed(6);
                                 const lon = e.latlng.lng.toFixed(6);
                                 document.getElementById('editCoordsInput').value = lat + ', ' + lon;
-                                if (editPickedMarker) {{
+                                if (editPickedMarker) {
                                     editPickedMarker.setLatLng(e.latlng);
-                                }} else {{
+                                } else {
                                     editPickedMarker = L.marker(e.latlng).addTo(editPickMap);
-                                }}
+                                }
                                 fetchEditDistrictAndFill(lat, lon);
-                            }});
+                            });
                         </script>
                         """
 
@@ -2376,7 +2377,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
 
-            dashboard_html = f"""
+            dashboard_template = """
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -2384,7 +2385,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
-                    :root {{
+                    :root {
                         --bg-color: #060911;
                         --text-color: #f8fafc;
                         --sidebar-bg: #0b111e;
@@ -2394,64 +2395,70 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --border-color: #1e293b;
                         --input-bg: #070b14;
                         --text-muted: #94a3b8;
-                    }}
-                    body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
+                    }
+                    body { background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }
                     
-                    .sidebar {{ width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }}
-                    .sidebar .brand {{ font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }}
-                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
-                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; border: 1px solid transparent; transition: all 0.2s ease; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); transform: translateX(3px); }}
-                    .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }}
-                    .logout-link:hover {{ background: #ef4444 !important; color: white !important; }}
+                    .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }
+                    .sidebar .brand { font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }
+                    .christmas-banner { background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+                    .sidebar a { background: transparent; color: var(--text-muted); padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; border: 1px solid transparent; transition: all 0.2s ease; }
+                    .sidebar a.active, .sidebar a:hover { background: var(--sidebar-hover); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); transform: translateX(3px); }
+                    .logout-link { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }
+                    .logout-link:hover { background: #ef4444 !important; color: white !important; }
 
-                    .main-content {{ flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }}
-                    .header-title {{ color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }}
+                    .main-content { flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }
+                    .header-title { color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
                     
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
-                    .card {{ background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); transition: transform 0.2s; }}
-                    .card:hover {{ border-color: rgba(56, 189, 248, 0.3); }}
-                    .card h3 {{ margin: 0 0 8px 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
-                    .card p {{ margin: 0; font-size: 24px; font-weight: 800; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.2); }}
+                    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+                    .card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); transition: transform 0.2s; }
+                    .card:hover { border-color: rgba(56, 189, 248, 0.3); }
+                    .card h3 { margin: 0 0 8px 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .card p { margin: 0; font-size: 24px; font-weight: 800; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.2); }
                     
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: var(--card-bg); padding: 22px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }}
+                    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
+                    .form-box, .table-box { background: var(--card-bg); padding: 22px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
                     
-                    input, textarea, select {{ width: 100%; padding: 11px 14px; margin: 6px 0 14px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }}
-                    input:focus, textarea:focus, select:focus {{ border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.15); }}
+                    input, textarea, select { width: 100%; padding: 11px 14px; margin: 6px 0 14px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }
+                    input:focus, textarea:focus, select:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.15); }
                     
-                    button {{ background: #2563eb; color: white; padding: 11px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }}
-                    button:hover {{ background: #1d4ed8; transform: translateY(-1px); }}
+                    button { background: #2563eb; color: white; padding: 11px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+                    button:hover { background: #1d4ed8; transform: translateY(-1px); }
                     
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
-                    th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }}
-                    th {{ color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
+                    th { color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
                     
-                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }}
-                    .edit-btn {{ background: #d97706; color: white; }}
+                    .action-btn { padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
+                    .edit-btn { background: #d97706; color: white; }
 
-                    @media(max-width: 768px) {{
-                        body {{ flex-direction: column; }}
-                        .sidebar {{ width: 100%; height: auto; padding: 15px; }}
-                        .main-content {{ padding: 15px; }}
-                    }}
+                    @media(max-width: 768px) {
+                        body { flex-direction: column; }
+                        .sidebar { width: 100%; height: auto; padding: 15px; }
+                        .main-content { padding: 15px; }
+                    }
                 </style>
             </head>
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Rol: {current_role.upper()} ({current_username})</div>
-                    {sidebar_links}
+                    <div class="christmas-banner">🎄 Rol: ROLE_PLACEHOLDER (USERNAME_PLACEHOLDER)</div>
+                    LINKS_PLACEHOLDER
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
                 <div class="main-content">
                     <div class="header-title"><span>👑 Management System</span></div>
-                    {edit_form_html}
-                    {content_html}
+                    EDITFORM_PLACEHOLDER
+                    CONTENT_PLACEHOLDER
                 </div>
             </body>
             </html>
             """
+            dashboard_html = dashboard_template.replace("ROLE_PLACEHOLDER", current_role.upper()) \
+                                             .replace("USERNAME_PLACEHOLDER", current_username) \
+                                             .replace("LINKS_PLACEHOLDER", sidebar_links) \
+                                             .replace("EDITFORM_PLACEHOLDER", edit_form_html) \
+                                             .replace("CONTENT_PLACEHOLDER", content_html)
+
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
