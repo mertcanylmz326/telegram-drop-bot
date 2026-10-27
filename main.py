@@ -553,7 +553,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (ÖDÜLLÜ ÇARK & KAZI KAZAN DAHİL) ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -669,7 +669,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .msg-user { background: #2563eb; margin-left: auto; color: white; }
                     .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
 
-                    /* ŞANS ÇARKI ÖDÜL ETİKETLERİ */
                     .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
                     .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
                     .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
@@ -715,12 +714,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz hediyeyi kap!</p>
                         
                         <div style="text-align:center; position:relative; margin:20px 0;">
-                            <!-- Çarkın Üst Ok İşareti -->
                             <div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:18px solid #f8fafc; position:absolute; top:-12px; left:calc(50% - 10px); z-index:20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));"></div>
                             
                             <div class="wheel-wrapper">
                                 <div class="wheel" id="wheelEl">
-                                    <!-- 5 Dilim (Her biri 72 derece ve üzerlerinde ödül yazılı) -->
                                     <div class="wheel-slice" style="transform: rotate(0deg) skewY(-18deg); background: #ef4444;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🌿 1g Weed</span></div>
                                     <div class="wheel-slice" style="transform: rotate(72deg) skewY(-18deg); background: #f59e0b;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🚬 1 Joint</span></div>
                                     <div class="wheel-slice" style="transform: rotate(144deg) skewY(-18deg); background: #10b981;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %5 İndirim</span></div>
@@ -937,8 +934,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         try {
                             const res = await fetch('/api/miniapp-spin', {
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&game_type=${gameType}`
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: gameType})
                             });
                             const data = await res.json();
                             if(!data.success) { alert(data.message); btn.disabled = false; return; }
@@ -959,8 +956,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         try {
                             const res = await fetch('/api/miniapp-spin', {
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&game_type=scratch`
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: 'scratch'})
                             });
                             const data = await res.json();
                             if(!data.success) return alert(data.message);
@@ -1277,197 +1274,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
-
-        # --- ŞANS ÇARKI VE KAZI KAZAN API ROTOSU ---
-        if parsed_path.path == "/api/miniapp-spin":
-            content_length = int(self.headers.get('Content-Length', 0))
-            post_data = self.rfile.read(content_length).decode('utf-8')
-            params = parse_qs(post_data)
-            uid = int(params.get("user_id", [0])[0])
-            game_type = params.get("game_type", ["wheel"])[0]
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            current_week = datetime.now().strftime("%Y-W%V")
-            
-            # Haftalık kullanım limiti kontrolü (Örn: Haftada 2 kez)
-            cursor.execute("SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
-            spin_count = cursor.fetchone()[0]
-            if spin_count >= 2:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki haklarınızı (2/2) doldurdunuz!"}).encode("utf-8"))
-                return
-
-            import random
-            rewards = [
-                {"text": "1g Weed", "deg": 36, "chance": 10},
-                {"text": "1 Joint", "deg": 108, "chance": 15},
-                {"text": "%5 İndirim", "deg": 180, "chance": 25},
-                {"text": "%3 İndirim", "deg": 252, "chance": 25},
-                {"text": "%1 İndirim", "deg": 324, "chance": 25}
-            ]
-            rand = random.randint(1, 100)
-            cum = 0
-            sel = rewards[-1]
-            for r in rewards:
-                cum += r["chance"]
-                if rand <= cum:
-                    sel = r
-                    break
-
-            cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, game_type, current_week, sel["text"]))
-            conn.commit()
-            conn.close()
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-buy":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            did = int(query_params.get("drop_id", ["0"])[0])
-            
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (did,))
-            drop = cursor.fetchone()
-            
-            if not drop:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Stok tükenmiş."}).encode("utf-8"))
-                return
-
-            title, price, stock = drop
-            bal = get_user_balance(uid)
-
-            if bal < price:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bakiyeniz yetersiz."}).encode("utf-8"))
-                return
-
-            cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
-            new_stock = stock - 1
-            if new_stock <= 0:
-                cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (did,))
-            else:
-                cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, did))
-
-            cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, did, price))
-            oid = cursor.lastrowid
-            
-            cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
-            ref_row = cursor.fetchone()
-            if ref_row and ref_row[0] > 0:
-                ref_id = ref_row[0]
-                bonus = float(price) * 0.05
-                cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
-
-            conn.commit()
-            conn.close()
-
-            log_panel_event(f"⚡ Mini App İçinden Satış: Sipariş #{oid} - {title} ({price} USDT)", "success")
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "order_id": oid}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-deposit":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            amount = float(query_params.get("amount", ["0"])[0])
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
-            dep_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "deposit_id": dep_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-check-deposit":
-            dep_id = int(query_params.get("dep_id", ["0"])[0])
-            uid = int(query_params.get("user_id", ["0"])[0])
-            target_amount = float(query_params.get("amount", ["0"])[0])
-
-            api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
-            verified = False
-            try:
-                async def verify_tx():
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(api_url) as response:
-                            if response.status == 200:
-                                res_json = await response.json()
-                                for tx in res_json.get("data", []):
-                                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                                        return True
-                    return False
-
-                verified = asyncio.run(verify_tx())
-            except Exception as e:
-                logging.error(e)
-
-            if verified:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
-                cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
-                conn.commit()
-                conn.close()
-                log_panel_event(f"📥 Mini App Bakiye Yükleme Onaylandı: Kullanıcı {uid} - {target_amount} USDT", "success")
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": verified}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-chat":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
-            msgs = [{"sender": r[0], "message": r[1], "date": r[2]} for r in cursor.fetchall()]
-            conn.close()
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-received":
-            oid = query_params.get("id", ["0"])[0]
-            try:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (oid,))
-                conn.commit()
-                conn.close()
-                log_panel_event(f"✅ Mini App üzerinden sipariş #{oid} teslim alındı olarak onaylandı.", "success")
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(b'{"success": true}')
-            except:
-                self.send_response(500)
-                self.end_headers()
             return
 
         if parsed_path.path == "/api/admin-user-detail":
@@ -2679,6 +2485,61 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         file_data = None
         file_name = None
 
+        if parsed_path.path == "/api/miniapp-spin":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length).decode('utf-8')
+                data_json = json.loads(post_body)
+                uid = int(data_json.get("user_id", 0))
+                game_type = data_json.get("game_type", "wheel")
+            except:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz veri."}).encode("utf-8"))
+                return
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            current_week = datetime.now().strftime("%Y-W%V")
+            
+            cursor.execute("SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
+            spin_count = cursor.fetchone()[0]
+            if spin_count >= 2:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki haklarınızı (2/2) doldurdunuz!"}).encode("utf-8"))
+                return
+
+            import random
+            rewards = [
+                {"text": "1g Weed", "deg": 36, "chance": 10},
+                {"text": "1 Joint", "deg": 108, "chance": 15},
+                {"text": "%5 İndirim", "deg": 180, "chance": 25},
+                {"text": "%3 İndirim", "deg": 252, "chance": 25},
+                {"text": "%1 İndirim", "deg": 324, "chance": 25}
+            ]
+            rand = random.randint(1, 100)
+            cum = 0
+            sel = rewards[-1]
+            for r in rewards:
+                cum += r["chance"]
+                if rand <= cum:
+                    sel = r
+                    break
+
+            cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, game_type, current_week, sel["text"]))
+            conn.commit()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
+            return
+
         if 'multipart/form-data' in content_type:
             boundary = content_type.split("boundary=")[1].encode()
             content_length = int(self.headers.get('Content-Length', 0))
@@ -3171,7 +3032,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
