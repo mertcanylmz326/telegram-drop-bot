@@ -797,9 +797,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     let userId = 0;
                     if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
                         userId = tg.initDataUnsafe.user.id;
-                    }} else {{
+                    }}
+                    if (!userId) {{
                         const urlParams = new URLSearchParams(window.location.search);
-                        userId = urlParams.get('user_id') || 1012940363;
+                        userId = urlParams.get('user_id');
+                    }}
+                    if (!userId) {{
+                        userId = 1012940363; // Yedek fallback ID
                     }}
 
                     const baseUrl = "{RENDER_EXTERNAL_URL}";
@@ -1137,6 +1141,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <input type="text" value="${{data.wallet}}" readonly>
                                     <button onclick="checkDeposit(${{data.deposit_id}}, ${{amount}})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
+                            }} else {{
+                                alert("❌ Hata: Bakiye yükleme talebi oluşturulamadı.");
                             }}
                         }} catch(e) {{
                             alert("Bakiye yükleme talebi oluşturulamadı.");
@@ -1360,8 +1366,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/api/miniapp-deposit":
             uid = int(query_params.get("user_id", ["0"])[0])
             amount = float(query_params.get("amount", [0])[0])
+            if not uid or amount <= 0:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz kullanıcı ID veya tutar."}).encode("utf-8"))
+                return
+            
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
+            cursor.execute("INSERT OR IGNORE INTO users (user_id, balance) VALUES (?, 5.0)", (uid,))
             cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
             dep_id = cursor.lastrowid
             conn.commit()
