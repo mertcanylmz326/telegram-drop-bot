@@ -553,7 +553,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (ÇARK & KAZI KAZAN DAHİL) ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (ÖDÜLLÜ ÇARK & KAZI KAZAN DAHİL) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -668,6 +668,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
                     .msg-user { background: #2563eb; margin-left: auto; color: white; }
                     .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
+
+                    /* ŞANS ÇARKI ÖDÜL ETİKETLERİ */
+                    .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+                    .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
+                    .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
                 </style>
             </head>
             <body>
@@ -707,12 +712,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div id="tabGames" class="tab-content">
                     <div class="card" style="border: 1px solid var(--accent-blue);">
                         <h3 style="color: var(--accent-blue); margin-top:0;">🎡 Şans Çarkı (Haftada 2 Hak)</h3>
-                        <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz ödülü kap!</p>
-                        <div class="wheel-container" style="text-align:center; position:relative; margin:15px 0;">
-                            <div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:16px solid #f8fafc; position:absolute; top:-10px; left:calc(50% - 8px); z-index:10;"></div>
-                            <div class="wheel" id="wheelEl" style="width:180px; height:180px; border-radius:50%; border:6px solid #38bdf8; margin:0 auto; transition:transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); background: conic-gradient(#ef4444 0deg 72deg, #f59e0b 72deg 144deg, #10b981 144deg 216deg, #3b82f6 216deg 288deg, #8b5cf6 288deg 360deg);"></div>
+                        <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz hediyeyi kap!</p>
+                        
+                        <div style="text-align:center; position:relative; margin:20px 0;">
+                            <!-- Çarkın Üst Ok İşareti -->
+                            <div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:18px solid #f8fafc; position:absolute; top:-12px; left:calc(50% - 10px); z-index:20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));"></div>
+                            
+                            <div class="wheel-wrapper">
+                                <div class="wheel" id="wheelEl">
+                                    <!-- 5 Dilim (Her biri 72 derece ve üzerlerinde ödül yazılı) -->
+                                    <div class="wheel-slice" style="transform: rotate(0deg) skewY(-18deg); background: #ef4444;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🌿 1g Weed</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(72deg) skewY(-18deg); background: #f59e0b;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🚬 1 Joint</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(144deg) skewY(-18deg); background: #10b981;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %5 İndirim</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(216deg) skewY(-18deg); background: #3b82f6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %3 İndirim</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(288deg) skewY(-18deg); background: #8b5cf6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %1 İndirim</span></div>
+                                </div>
+                            </div>
                         </div>
-                        <button onclick="spinGame('wheel')" id="spinBtn" style="background:var(--accent-green);">Çarkı Çevir</button>
+
+                        <button onclick="spinGame('wheel')" id="spinBtn" style="background:var(--accent-green); margin-top:10px;">Çarkı Çevir</button>
                         <div id="wheelResult" style="margin-top:10px; font-weight:bold; text-align:center; color:var(--accent-green);"></div>
                     </div>
 
@@ -720,9 +738,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <h3 style="color: #f59e0b; margin-top:0;">🎫 Kazı Kazan (Haftada 2 Hak)</h3>
                         <p style="font-size: 11px; color: var(--text-muted);">3 kutudan birini seç ve şansını dene!</p>
                         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:15px 0;">
-                            <div class="scratch-card" onclick="scratchBox(0)" id="sc0" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
-                            <div class="scratch-card" onclick="scratchBox(1)" id="sc1" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
-                            <div class="scratch-card" onclick="scratchBox(2)" id="sc2" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(0)" id="sc0" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(1)" id="sc1" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(2)" id="sc2" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
                         </div>
                         <div id="scratchResult" style="margin-top:10px; font-weight:bold; text-align:center; color:#f59e0b;"></div>
                     </div>
@@ -924,12 +942,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             });
                             const data = await res.json();
                             if(!data.success) { alert(data.message); btn.disabled = false; return; }
+                            
                             document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
                             setTimeout(() => {
                                 document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
                                 alert("🎉 Tebrikler! Kazandınız: " + data.reward);
                             }, 4000);
-                        } catch(e) { alert("Hata oluştu."); btn.disabled = false; }
+                        } catch(e) { 
+                            alert("Bağlantı hatası oluştu."); 
+                            btn.disabled = false; 
+                        }
                     }
 
                     async function scratchBox(idx) {
@@ -948,14 +970,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 if(i === idx) {
                                     card.innerText = data.reward;
                                     card.style.background = "#059669";
+                                    card.style.color = "#ffffff";
+                                    card.style.border = "2px solid #10b981";
                                 } else {
-                                    card.innerText = "Boş";
-                                    card.style.background = "#374151";
+                                    card.innerText = "Boş ❌";
+                                    card.style.background = "#1f2937";
+                                    card.style.color = "#9ca3af";
+                                    card.style.border = "2px dashed #374151";
                                 }
                             }
                             document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
                             alert("🎉 Kazı kazandan kazandın: " + data.reward);
-                        } catch(e) { alert("Hata oluştu."); }
+                        } catch(e) { 
+                            alert("Bağlantı hatası oluştu."); 
+                        }
                     }
 
                     async function submitReview(orderId) {
@@ -1251,7 +1279,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
-        # --- ÇARK & KAZI KAZAN API ROTOSU ---
+        # --- ŞANS ÇARKI VE KAZI KAZAN API ROTOSU ---
         if parsed_path.path == "/api/miniapp-spin":
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8')
@@ -1263,22 +1291,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor = conn.cursor()
             current_week = datetime.now().strftime("%Y-W%V")
             
-            cursor.execute("SELECT id FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
-            if cursor.fetchone():
+            # Haftalık kullanım limiti kontrolü (Örn: Haftada 2 kez)
+            cursor.execute("SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
+            spin_count = cursor.fetchone()[0]
+            if spin_count >= 2:
                 conn.close()
                 self.send_response(200)
                 self.send_header("Content-type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki hakkınızı kullandınız!"}).encode("utf-8"))
+                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki haklarınızı (2/2) doldurdunuz!"}).encode("utf-8"))
                 return
 
             import random
             rewards = [
-                {"text": "1 Gram Weed", "deg": 36, "chance": 5},
-                {"text": "1 Adet Joint", "deg": 108, "chance": 10},
+                {"text": "1g Weed", "deg": 36, "chance": 10},
+                {"text": "1 Joint", "deg": 108, "chance": 15},
                 {"text": "%5 İndirim", "deg": 180, "chance": 25},
-                {"text": "%3 İndirim", "deg": 252, "chance": 30},
-                {"text": "%1 İndirim", "deg": 324, "chance": 30}
+                {"text": "%3 İndirim", "deg": 252, "chance": 25},
+                {"text": "%1 İndirim", "deg": 324, "chance": 25}
             ]
             rand = random.randint(1, 100)
             cum = 0
@@ -3258,7 +3288,7 @@ async def cmd_start(message: types.Message):
         conn.commit()
         if referrer_id > 0:
             try:
-                await bot.send_message(referrer_id, f"🎉 **Yeni Referans!** Davetinizle yeni bir kullanıcı botumuza katıldı.")
+                await bot.send_message(referrer_id, f"🎉 **Yeni Referans!** Davet ettiğiniz kullanıcı botumuza katıldı.")
             except:
                 pass
     conn.close()
