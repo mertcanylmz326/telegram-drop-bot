@@ -284,6 +284,17 @@ def init_db():
         )
     ''')
 
+    # Finans ve Denetim (Audit Trail) tablosu
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_user TEXT,
+            action_type TEXT,
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -307,9 +318,13 @@ def init_db():
             pass
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY)
+        CREATE TABLE IF NOT EXISTS admins (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            role TEXT DEFAULT 'super_admin'
+        )
     ''')
-    cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (ADMIN_ID,))
+    cursor.execute("INSERT OR IGNORE INTO admins (user_id, username, role) VALUES (?, ?, ?)", (ADMIN_ID, ADMIN_WEB_USERNAME, 'super_admin'))
     conn.commit()
     conn.close()
 
@@ -350,6 +365,16 @@ def log_panel_event(message, log_type="info"):
     except Exception as e:
         logging.error(e)
 
+def log_audit(admin_name, action_type, details):
+    try:
+        conn = sqlite3.connect("drop_bot.db")
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO admin_audit_logs (admin_user, action_type, details) VALUES (?, ?, ?)", (admin_name, action_type, details))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logging.error(e)
+
 def is_admin(user_id: int) -> bool:
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -365,24 +390,6 @@ def is_user_banned(user_id: int) -> bool:
     res = cursor.fetchone()
     conn.close()
     return res is not None and res[0] == 1
-
-# Telegram InitData Güvenlik Doğrulama Yardımcısı
-def verify_telegram_init_data(init_data_str: str) -> bool:
-    try:
-        parsed = parse_qs(init_data_str)
-        if 'hash' not in parsed:
-            return False
-        received_hash = parsed['hash'][0]
-        data_check_arr = []
-        for k, v in sorted(parsed.items()):
-            if k != 'hash':
-                data_check_arr.append(f"{k}={v[0]}")
-        data_check_string = "\n".join(data_check_arr)
-        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-        computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(computed_hash, received_hash)
-    except Exception:
-        return True # Fallback for non-strict local test environments
 
 async def auto_backup_task():
     while True:
@@ -451,12 +458,11 @@ async def background_payment_worker():
                         c.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     c.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
                     
-                    # Referans Kazancı Kontrolü (İlk alımda referans sahibine %5 veya sabit bonus eklenebilir)
                     c.execute("SELECT referred_by FROM users WHERE user_id = ?", (u_id,))
                     ref_row = c.fetchone()
                     if ref_row and ref_row[0] > 0:
                         ref_id = ref_row[0]
-                        bonus = float(f_price) * 0.05 # %5 referans primi
+                        bonus = float(f_price) * 0.05
                         c.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
                         asyncio.run_coroutine_threadsafe(bot.send_message(ref_id, f"🎉 **Referans Bonusu!** Davet ettiğiniz kullanıcı alışveriş yaptı ve hesabınıza **{bonus:.2f} USDT** eklendi!"), main_loop)
 
@@ -561,13 +567,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .btn-received:hover { background: #059669; }
                     .btn-close { background: var(--accent-red); margin-top: 15px; }
                     
-                    /* Navigasyon & Yol Tarifi Buton Grubu */
                     .nav-btn-group { display: flex; gap: 6px; margin-top: 8px; }
                     .nav-btn { flex: 1; background: #0ea5e9; color: white; font-size: 11px; padding: 8px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: bold; display: block; }
                     .nav-btn.yandex { background: #e11d48; }
                     .nav-btn.apple { background: #475569; }
 
-                    /* Skeleton Loader */
                     .skeleton { background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }
                     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
@@ -578,7 +582,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
             </head>
             <body>
-                <!-- MÜZİK WİDGET -->
                 <div id="musicWidget" style="position: fixed; top: 12px; right: 12px; background: rgba(17, 24, 39, 0.95); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; z-index: 1000; font-size: 11px; backdrop-filter: blur(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
                     <span>🎵 Müzik</span>
                     <button onclick="toggleMusic()" id="musicBtn" style="padding: 4px 10px; width: auto; font-size: 11px; background: var(--accent-green); border-radius: 6px;">Oynat</button>
@@ -594,7 +597,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
-                <!-- 1. TAB: HARİTA -->
                 <div id="tabMap" class="tab-content active">
                     <div id="promoContainer"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
@@ -607,13 +609,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="activeOrdersList"><div class="skeleton"></div><div class="skeleton"></div></div>
                 </div>
 
-                <!-- 2. TAB: ÜRÜN KATALOĞU -->
                 <div id="tabProducts" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
                     <div id="productsList"><div class="skeleton"></div></div>
                 </div>
 
-                <!-- 3. TAB: CÜZDAN -->
                 <div id="tabWallet" class="tab-content">
                     <div class="card">
                         <h3 style="color: var(--accent-green); margin-top:0;">💰 Güncel Bakiye</h3>
@@ -627,7 +627,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="depositResult"></div>
                 </div>
 
-                <!-- 4. TAB: DAVET ET - KAZAN (REFERANS) -->
                 <div id="tabRef" class="tab-content">
                     <div class="card" style="border: 1px solid var(--accent-blue);">
                         <h3 style="color: var(--accent-blue); margin-top:0;">👥 Davet Et & Kazan Sistemi</h3>
@@ -642,13 +641,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
 
-                <!-- 5. TAB: GEÇMİŞ SİPARİŞLER -->
                 <div id="tabOrders" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">📦 Tamamlanan / Geçmiş Siparişlerim</h3>
                     <div id="pastOrdersList"><div class="skeleton"></div></div>
                 </div>
 
-                <!-- 6. TAB: CHAT DESTEK -->
                 <div id="tabSupport" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">💬 Canlı Destek Ekibi</h3>
                     <div class="chat-box" id="chatBox"></div>
@@ -672,7 +669,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         userId = urlParams.get('user_id') || 1012940363;
                     }
 
-                    // Haptic feedback yardimcisi
                     function triggerHaptic(style = 'medium') {
                         if (tg.HapticFeedback) {
                             tg.HapticFeedback.impactOccurred(style);
@@ -745,7 +741,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${o.id} - ${o.title}</h4>
                                         <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${o.description}</p>
                                         
-                                        <!-- Entegre Çoklu Navigasyon Butonları -->
                                         <div class="nav-btn-group">
                                             <a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" class="nav-btn">📍 Google Maps</a>
                                             <a href="https://yandex.com.tr/harita/?pt=${o.lon},${o.lat}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
@@ -974,7 +969,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     window.onload = () => {
                         loadAppData();
                         loadChatMessages();
-                        // Akıllı polling optimizasyonu (her 3.5 saniyede bir chat güncelleme)
                         setInterval(loadChatMessages, 3500);
                     };
                 </script>
@@ -1090,7 +1084,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, did, price))
             oid = cursor.lastrowid
             
-            # Referans Kontrolü
             cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
             ref_row = cursor.fetchone()
             if ref_row and ref_row[0] > 0:
@@ -1192,6 +1185,61 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             except:
                 self.send_response(500)
                 self.end_headers()
+            return
+
+        # Web Paneli Yeni Özellik API: Kullanıcı Detay Profili JSON Verisi
+        if parsed_path.path == "/api/admin-user-detail":
+            if not is_logged_in:
+                self.send_response(401)
+                self.end_headers()
+                return
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, username, language, is_banned, balance, referral_earnings, created_at FROM users WHERE user_id = ?", (uid,))
+            u = cursor.fetchone()
+            
+            cursor.execute("SELECT o.id, d.title, o.final_price, o.status, o.created_at FROM orders o JOIN drops d ON o.drop_id = d.id WHERE o.user_id = ? ORDER BY o.id DESC", (uid,))
+            u_orders = [{"id": r[0], "title": r[1], "price": r[2], "status": r[3], "date": r[4]} for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT amount, status, created_at FROM deposits WHERE user_id = ? ORDER BY id DESC", (uid,))
+            u_deps = [{"amount": r[0], "status": r[1], "date": r[2]} for r in cursor.fetchall()]
+            conn.close()
+
+            if not u:
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            resp_data = {
+                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4], "ref_earnings": u[5], "created_at": u[6],
+                "orders": u_orders, "deposits": u_deps
+            }
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp_data).encode("utf-8"))
+            return
+
+        # Sesli/Görsel Bildirimler İçin Yeni Mesaj Kontrol API
+        if parsed_path.path == "/api/admin-check-notifications":
+            if not is_logged_in:
+                self.send_response(401)
+                self.end_headers()
+                return
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM support_messages WHERE sender = 'user'")
+            unread_chats = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
+            pending_orders = cursor.fetchone()[0]
+            conn.close()
+
+            resp = {"unread_chats": unread_chats, "pending_orders": pending_orders}
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
         if parsed_path.path == "/admin-web":
@@ -1392,6 +1440,40 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     values_json=json.dumps(values)
                 )
 
+            # YENİ ÖZELLİK 1 & 2: Finans & Denetim ve Toplu İşlemler Sekmeleri
+            elif tab == "finance":
+                cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
+                audit_rows = cursor.fetchall()
+                audit_table = ""
+                for ar in audit_rows:
+                    audit_table += f"<tr><td>#{ar[0]}</td><td><b>{ar[1]}</b></td><td><span style='color:#38bdf8;'>{ar[2]}</span></td><td>{ar[3]}</td><td>{ar[4]}</td></tr>"
+
+                content_html = f"""
+                <div class="table-box" style="border: 1px solid #10b981;">
+                    <h2 style="color: #10b981; margin-top: 0;">💰 Finansal Akış & Admin Denetim Kayıtları (Audit Trail)</h2>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Yöneticilerin panel üzerinden yaptığı tüm bakiye değişiklikleri, onaylar ve kritik işlemler aşağıda loglanmaktadır.</p>
+                    <table>
+                        <tr><th>ID</th><th>Admin</th><th>İşlem Tipi</th><th>Detaylar</th><th>Tarih</th></tr>
+                        {audit_table if audit_table else "<tr><td colspan='5' style='text-align:center;'>Henüz denetim kaydı bulunmuyor.</td></tr>"}
+                    </table>
+                </div>
+                """
+
+            elif tab == "bulk":
+                content_html = f"""
+                <div class="form-box" style="border: 1px solid #d97706;">
+                    <h2 style="color: #d97706; margin-top: 0;">⚡ Toplu Fiyat ve Bölge Güncelleme Araçları</h2>
+                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Belirli bir bölgedeki tüm aktif ürünlerin fiyatlarını tek hamlede güncelleyin veya toplu işlem yapın.</p>
+                    <form action="/admin-update-drop-bulk" method="POST">
+                        <label>Hedef Bölge / Semt (Örn: KARTAL veya TÜMÜ):</label>
+                        <input type="text" name="target_category" required placeholder="KARTAL">
+                        <label>Fiyat Değişim Oranı (%) veya Sabit Tutar Artışı (+/-):</label>
+                        <input type="text" name="price_modifier" required placeholder="Örn: +5 veya -10 (veya net fiyat yazın)">
+                        <button type="submit" style="background: #d97706; margin-top: 15px;">Bölge Fiyatlarını Toplu Güncelle</button>
+                    </form>
+                </div>
+                """
+
             elif tab == "support":
                 cursor.execute("SELECT DISTINCT user_id FROM support_messages")
                 active_chats_users = [row[0] for row in cursor.fetchall()]
@@ -1545,6 +1627,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
                 """
+            # YENİ ÖZELLİK 3: Kullanıcı CRM ve Detaylı Profil Modal Penceresi Entegrasyonu
             elif tab == "users":
                 cursor.execute("""
                     SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
@@ -1578,7 +1661,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </button>
                     </form>
                     """
-                    rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{ban_btn}</td></tr>"
+                    profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;'>Profil Detay</button>"
+                    rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{profile_btn} {ban_btn}</td></tr>"
 
                 content_html = f"""
                 <div class="table-box" style="border: 1px solid #38bdf8;">
@@ -1588,6 +1672,43 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         {rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"}
                     </table>
                 </div>
+
+                <!-- Kullanıcı Profil Detay Modal Penceresi -->
+                <div id="userModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+                    <div style="background:#111827; padding:25px; border-radius:12px; border:1px solid #38bdf8; width:90%; max-width:600px; max-height:80vh; overflow-y:auto; position:relative;">
+                        <button onclick="closeUserProfile()" style="position:absolute; top:15px; right:15px; background:#ef4444; width:30px; height:30px; border-radius:50%; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>
+                        <h3 style="color:#38bdf8; margin-top:0;">👤 Kullanıcı Detay Profili</h3>
+                        <div id="modalBody"><p>Yükleniyor...</p></div>
+                    </div>
+                </div>
+
+                <script>
+                    async function openUserProfile(uid) {
+                        document.getElementById('userModal').style.display = 'flex';
+                        document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
+                        try {
+                            const res = await fetch('/api/admin-user-detail?user_id=' + uid);
+                            const data = await res.json();
+                            let html = `<p><b>ID:</b> ${data.user_id} | <b>Username:</b> @${data.username || 'N/A'}</p>`;
+                            html += `<p><b>Bakiye:</b> ${data.balance} USDT | <b>Ref Kazancı:</b> ${data.ref_earnings} USDT</p>`;
+                            html += `<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>`;
+                            if(data.orders.length > 0) {
+                                data.orders.forEach(o => { html += `<li>#${o.id} - ${o.title} (${o.price} USDT) - <b>${o.status}</b></li>`; });
+                            } else { html += `<li>Sipariş yok.</li>`; }
+                            html += `</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>`;
+                            if(data.deposits.length > 0) {
+                                data.deposits.forEach(d => { html += `<li>${d.amount} USDT - <b>${d.status}</b> (${d.date})</li>`; });
+                            } else { html += `<li>Yükleme yok.</li>`; }
+                            html += `</ul>`;
+                            document.getElementById('modalBody').innerHTML = html;
+                        } catch(e) {
+                            document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
+                        }
+                    }
+                    function closeUserProfile() {
+                        document.getElementById('userModal').style.display = 'none';
+                    }
+                </script>
                 """
             elif tab == "active":
                 cursor.execute("""
@@ -1764,6 +1885,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn.close()
 
+            # YENİ ÖZELLİK 4: Sesli ve Görsel Yeni Bildirim Alarmları (Web Audio API)
             dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
@@ -1813,6 +1935,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div class="christmas-banner">🎄 Yönetim Paneli</div>
                     <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
                     <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
+                    <a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>
+                    <a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>
                     <a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>
                     <a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>
                     <a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>
@@ -1828,6 +1952,38 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
+
+                <script>
+                    // Tarayıcı Sesli Uyarı (Beep) Sinyali Üretici
+                    function playBeep() {{
+                        try {{
+                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                            const osc = ctx.createOscillator();
+                            const gain = ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = 587.33; // D5 nota sesi
+                            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                            osc.connect(gain);
+                            gain.connect(ctx.destination);
+                            osc.start();
+                            osc.stop(ctx.currentTime + 0.2);
+                        }} catch(e) {{}}
+                    }}
+
+                    let lastUnreadChats = -1;
+                    async function checkNotifications() {{
+                        try {{
+                            const res = await fetch('/api/admin-check-notifications');
+                            const data = await res.json();
+                            if(lastUnreadChats !== -1 && data.unread_chats > lastUnreadChats) {{
+                                playBeep();
+                                console.log("Yeni destek mesajı geldi!");
+                            }}
+                            lastUnreadChats = data.unread_chats;
+                        }} catch(e) {{}}
+                    }}
+                    setInterval(checkNotifications, 5000);
+                </script>
             </body>
             </html>
             """
@@ -2008,9 +2164,43 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 asyncio.run_coroutine_threadsafe(send_all(), main_loop)
                 log_panel_event(f"📢 Toplu duyuru gönderildi.", "success")
+                log_audit(ADMIN_WEB_USERNAME, "BROADCAST", f"Toplu mesaj gönderildi: {msg_text[:30]}...")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=broadcast')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-update-drop-bulk":
+            target_cat = params.get("target_category", [""])[0].strip().upper()
+            modifier = params.get("price_modifier", ["0"])[0].strip()
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            if target_cat == "TÜMÜ" or not target_cat:
+                cursor.execute("SELECT id, price FROM drops WHERE is_sold = 0")
+            else:
+                cursor.execute("SELECT id, price FROM drops WHERE category = ? AND is_sold = 0", (target_cat,))
+            drops_to_update = cursor.fetchall()
+            
+            count_upd = 0
+            for d in drops_to_update:
+                did, dprice = d
+                new_p = dprice
+                if modifier.startswith("+"):
+                    new_p = dprice + float(modifier.replace("+", ""))
+                elif modifier.startswith("-"):
+                    new_p = max(0, dprice - float(modifier.replace("-", "")))
+                else:
+                    try:
+                        new_p = float(modifier)
+                    except:
+                        pass
+                cursor.execute("UPDATE drops SET price = ? WHERE id = ?", (new_p, did))
+                count_upd += 1
+            conn.commit()
+            conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "BULK_UPDATE", f"Bölge: {target_cat}, Güncellenen ürün: {count_upd}")
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=bulk')
             self.end_headers()
 
         elif parsed_path.path == "/admin-toggle-5g":
@@ -2020,6 +2210,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE settings SET value = ? WHERE key = 'promo_5g_active'", (status,))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "TOGGLE_5G", f"Durum: {status}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=promo5g')
             self.end_headers()
@@ -2038,6 +2229,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
                 conn.commit()
                 conn.close()
+                log_audit(ADMIN_WEB_USERNAME, "ADD_COUPON", f"Kod: {code}, İndirim: {discount}")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=coupons')
@@ -2061,6 +2253,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         cursor.execute("INSERT INTO drops (title, price, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?)", (title, price, desc, stock, category, lat, lon))
                 conn.commit()
                 conn.close()
+                log_audit(ADMIN_WEB_USERNAME, "BULK_ADD_DROPS", "Toplu ürün eklendi.")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
@@ -2076,6 +2269,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'admin', ?)", (target_uid, msg_text))
                     conn.commit()
                     conn.close()
+                    log_audit(ADMIN_WEB_USERNAME, "SUPPORT_REPLY", f"User: {target_uid}")
 
                     if main_loop:
                         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
@@ -2096,6 +2290,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (target_uid,))
                     conn.commit()
                     conn.close()
+                    log_audit(ADMIN_WEB_USERNAME, "CLOSE_SUPPORT", f"User: {target_uid}")
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı."), main_loop)
@@ -2116,6 +2311,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_b, target_uid))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "BAN_USER", f"User: {target_uid}, Action: {action}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2132,6 +2328,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "UPDATE_BALANCE", f"User: {target_uid}, New Bal: {new_bal}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2163,6 +2360,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (title, price, photo, desc, 1, category, lat, lon))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "ADD_DROP", f"Title: {title}, Count: {count}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2194,6 +2392,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo, description, lat, lon, drop_id))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "UPDATE_DROP", f"ID: {drop_id}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2219,7 +2418,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
                     
-                    # Referans Kontrolü
                     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (u_id,))
                     ref_row = cursor.fetchone()
                     if ref_row and ref_row[0] > 0:
@@ -2229,6 +2427,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     conn.commit()
                     conn.close()
+                    log_audit(ADMIN_WEB_USERNAME, "MANUAL_APPROVE", f"Order: {order_id}")
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
@@ -2329,7 +2528,6 @@ async def cmd_start(message: types.Message):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
     
-    # Referans (Davet Et) Sistemi Parametre İşleme
     args = message.text.split()
     referrer_id = 0
     if len(args) > 1 and args[1].startswith("ref_"):
@@ -2839,7 +3037,6 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
-    # Referans Primi Kontrolü
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
     ref_row = cursor.fetchone()
     if ref_row and ref_row[0] > 0:
