@@ -1326,7 +1326,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             content_html = ""
 
-            # YETKİSİZ ERİŞİM ENGELİ (Destek sayfasına atmayacak, Hata basacak)
             if tab in ["home", "passive", "active", "pending"] and not (current_role in ["super_admin", "stock_manager"] or current_username == "root" or can_manage_drops == 1 or can_view_exact_loc == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur!</h3>"
             
@@ -1397,38 +1396,38 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     wallet_section_html = ""
                     if can_view_wallets == 1:
                         wallet_section_html = f"""
-                        <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
+                        <div class="form-box" style="margin-bottom: 30px; border: 1px solid rgba(56, 189, 248, 0.3);">
                             <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
-                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 15px;">
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border-left: 4px solid #3b82f6; border: 1px solid rgba(255,255,255,0.03);">
                                     <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
                                         📥 1. Giriş Hesabı (Bot)
-                                        <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                        <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:4px 10px; font-size:10px; border-radius:6px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                                     </h4>
-                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
+                                    <p style="font-size: 13px; font-weight: bold; color: #10b981; margin: 6px 0;">💵 Bakiye: {w1_bal} USDT</p>
                                     <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
                                 </div>
-                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border-left: 4px solid #d97706; border: 1px solid rgba(255,255,255,0.03);">
                                     <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
-                                        🔄 2. Çıkış / Ara Hesap (Bitay)
-                                        <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                        🔄 2. Çıkış / Ara Hesap
+                                        <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:4px 10px; font-size:10px; border-radius:6px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                                     </h4>
-                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
+                                    <p style="font-size: 13px; font-weight: bold; color: #10b981; margin: 6px 0;">💵 Bakiye: {w2_bal} USDT</p>
                                     <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
                                 </div>
-                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border-left: 4px solid #10b981; border: 1px solid rgba(255,255,255,0.03);">
                                     <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
                                         💰 3. Ana Birikim / Kasa
-                                        <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                        <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:4px 10px; font-size:10px; border-radius:6px; cursor:pointer; color:white; width:auto;">Kopyala</button>
                                     </h4>
-                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
+                                    <p style="font-size: 13px; font-weight: bold; color: #10b981; margin: 6px 0;">💵 Bakiye: {w3_bal} USDT</p>
                                     <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
                                 </div>
                             </div>
                         </div>
                         """
 
-                    exact_badge = "<span style='font-size: 11px; background: #10b981; padding: 4px 8px; border-radius: 6px; color: white;'>🟢 Tam Konum İzni Açık</span>" if can_view_exact_loc == 1 else "<span style='font-size: 11px; background: #d97706; padding: 4px 8px; border-radius: 6px; color: white;'>🔒 Sadece Temsili Bölge Görünümü (Müşteri Modu)</span>"
+                    exact_badge = "<span style='font-size: 11px; background: rgba(16, 185, 129, 0.2); border:1px solid #10b981; padding: 4px 10px; border-radius: 6px; color: #10b981; font-weight:600;'>🟢 Tam Konum İzni Açık</span>" if can_view_exact_loc == 1 else "<span style='font-size: 11px; background: rgba(217, 119, 6, 0.2); border:1px solid #d97706; padding: 4px 10px; border-radius: 6px; color: #d97706; font-weight:600;'>🔒 Müşteri Görünümü</span>"
 
                     home_template = """
                     <div class="stats-grid">
@@ -1437,13 +1436,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                     </div>
 
-                    <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                            🗺️ İstanbul Aktif Konum Haritası {exact_badge}
+                    <div class="form-box" style="margin-bottom: 30px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                        <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between;">
+                            <span>🗺️ İstanbul Aktif Konum Haritası</span> {exact_badge}
                         </h2>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); padding: 10px; font-size: 14px;">
-                            <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 8px; border: none; color: white; cursor: pointer;">🔍 Haritada Bul</button>
+                            <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); padding: 12px; font-size: 14px;">
+                            <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 10px; border: none; color: white; cursor: pointer; transition:0.2s;">🔍 Haritada Bul</button>
                         </div>
                         <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
@@ -1518,6 +1517,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }}
                         }}
 
+                        function copyText(txt) {{
+                            navigator.clipboard.writeText(txt);
+                            alert("✅ Cüzdan adresi panoya kopyalandı!");
+                        }}
+
                         const ctx = document.getElementById('revenueChart').getContext('2d');
                         new Chart(ctx, {{
                             type: 'line',
@@ -1530,7 +1534,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                                }}]
+                               }}]
                             }},
                             options: {{
                                 responsive: true,
@@ -2060,7 +2064,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-                    <div class="form-box" style="margin:0; border: 1px solid #38bdf8; max-width: 650px;">
+                    <div class="form-box" style="margin:0; border: 1px solid rgba(56, 189, 248, 0.4); max-width: 650px;">
                         <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Galeriden Fotoğraflı)</h2>
                         <form action="/admin-add" method="POST" enctype="multipart/form-data" id="addForm">
                             <label>Ürün Başlığı:</label>
@@ -2072,7 +2076,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             
                             <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin:</label>
                             <p style="font-size:11px; color:var(--text-muted); margin-top:2px; margin-bottom:8px;">Harita üzerine tıkladığınızda koordinat otomatik doldurulacaktır.</p>
-                            <div id="selectMap" style="width: 100%; height: 220px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
+                            <div id="selectMap" style="width: 100%; height: 220px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
 
                             <label>Koordinat (Örn: 40.8885, 29.1856):</label>
                             <input type="text" id="coordsInput" name="coords" required placeholder="40.8885, 29.1856">
@@ -2133,7 +2137,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="number" name="stock" value="{e_stock}" required>
                                 
                                 <label style="color: #38bdf8; font-weight: bold;">📍 Konumu Haritadan Seçin:</label>
-                                <div id="editSelectMap" style="width: 100%; height: 220px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
+                                <div id="editSelectMap" style="width: 100%; height: 220px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
 
                                 <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
                                 <input type="text" id="editCoordsInput" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
@@ -2203,38 +2207,59 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
                     :root {{
-                        --bg-color: #090d16;
+                        --bg-color: #060911;
                         --text-color: #f8fafc;
-                        --sidebar-bg: #111827;
-                        --sidebar-hover: #1e293b;
-                        --card-bg: #111827;
-                        --card-bg-inner: #090d16;
-                        --border-color: #1f2937;
-                        --input-bg: #090d16;
-                        --text-muted: #6b7280;
+                        --sidebar-bg: #0b111e;
+                        --sidebar-hover: #131d31;
+                        --card-bg: #0f172a;
+                        --card-bg-inner: #070b14;
+                        --border-color: #1e293b;
+                        --input-bg: #070b14;
+                        --text-muted: #94a3b8;
                     }}
                     body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
-                    .sidebar {{ width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 25px 18px; box-sizing: border-box; flex-shrink: 0; }}
-                    .sidebar .brand {{ font-size: 20px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 20px; }}
-                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 8px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 20px; }}
-                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 12px 16px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 14px; margin-bottom: 6px; display: block; border: 1px solid transparent; }}
-                    .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: var(--border-color); }}
-                    .logout-link {{ background: #ef4444 !important; color: white !important; margin-top: auto; text-align: center; }}
-                    .main-content {{ flex: 1; padding: 35px; box-sizing: border-box; overflow-y: auto; max-width: 1200px; }}
-                    .header-title {{ color: var(--text-color); font-size: 26px; font-weight: 700; margin-top: 0; margin-bottom: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }}
-                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }}
-                    .card {{ background: var(--card-bg); padding: 22px; border-radius: 14px; border: 1px solid var(--border-color); text-align: center; }}
-                    .card h3 {{ margin: 0 0 10px 0; color: var(--text-muted); font-size: 13px; font-weight: 700; }}
-                    .card p {{ margin: 0; font-size: 26px; font-weight: 800; color: #38bdf8; }}
-                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }}
-                    .form-box, .table-box {{ background: var(--card-bg); padding: 25px; border-radius: 14px; border: 1px solid var(--border-color); margin-bottom: 30px; }}
-                    input, textarea {{ width: 100%; padding: 12px; margin: 8px 0 16px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); box-sizing: border-box; font-size: 14px; }}
-                    button {{ background: #2563eb; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 14px; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }}
-                    th {{ color: var(--text-muted); font-weight: 700; font-size: 12px; text-transform: uppercase; }}
-                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; }}
+                    
+                    /* --- MOBİL UYUMLU ŞIK SOL MENÜ --- */
+                    .sidebar {{ width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }}
+                    .sidebar .brand {{ font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }}
+                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
+                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; border: 1px solid transparent; transition: all 0.2s ease; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); transform: translateX(3px); }}
+                    .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }}
+                    .logout-link:hover {{ background: #ef4444 !important; color: white !important; }}
+
+                    /* --- ANA İÇERİK & PREMIUM KARTLAR --- */
+                    .main-content {{ flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }}
+                    .header-title {{ color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }}
+                    
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
+                    .card {{ background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); transition: transform 0.2s; }}
+                    .card:hover {{ border-color: rgba(56, 189, 248, 0.3); }}
+                    .card h3 {{ margin: 0 0 8px 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    .card p {{ margin: 0; font-size: 24px; font-weight: 800; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.2); }}
+                    
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }}
+                    .form-box, .table-box {{ background: var(--card-bg); padding: 22px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }}
+                    
+                    input, textarea, select {{ width: 100%; padding: 11px 14px; margin: 6px 0 14px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }}
+                    input:focus, textarea:focus, select:focus {{ border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.15); }}
+                    
+                    button {{ background: #2563eb; color: white; padding: 11px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }}
+                    button:hover {{ background: #1d4ed8; transform: translateY(-1px); }}
+                    
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+                    th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }}
+                    th {{ color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    
+                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
+
+                    /* Küçük ekranlar için esnek esneme */
+                    @media(max-width: 768px) {{
+                        body {{ flex-direction: column; }}
+                        .sidebar {{ width: 100%; height: auto; padding: 15px; }}
+                        .main-content {{ padding: 15px; }}
+                    }}
                 </style>
             </head>
             <body>
