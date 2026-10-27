@@ -20,8 +20,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
-ADMIN_ID = 1012940363
-ADMIN_GROUP_ID = -1004474292737  
+ADMIN_IDS = [1012940363]  # Buraya ek admin ID'lerini de ekleyebilirsin
 ADMIN_PASS = "1881"
 
 ADMIN_WEB_USERNAME = "root"
@@ -417,7 +416,7 @@ def log_audit(admin_name, action_type, details):
         logging.error(e)
 
 def is_admin(user_id: int) -> bool:
-    if user_id == ADMIN_ID:
+    if user_id in ADMIN_IDS:
         return True
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -440,7 +439,7 @@ async def auto_backup_task():
         try:
             if os.path.exists("drop_bot.db"):
                 file = FSInputFile("drop_bot.db")
-                await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
+                await bot.send_document(ADMIN_IDS[0], file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
             logging.error(e)
@@ -518,7 +517,7 @@ async def background_payment_worker():
 
                     log_panel_event(f"🎉 Otomatik Arka Plan Satışı: #{o_id} - {title} ({f_price} USDT)", "success")
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
-                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_IDS[0], f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
 
             for dep in pending_deposits:
                 dep_id, u_id, amount, created_at_str = dep
@@ -548,13 +547,18 @@ async def background_payment_worker():
                     u_lang = get_user_lang(u_id)
                     log_panel_event(f"📥 Otomatik Bakiye Yüklendi: Kullanıcı {u_id} - {amount} USDT", "success")
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, LANG[u_lang]["deposit_success"].format(amount=amount, balance=new_bal)), main_loop)
-                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{u_id}`\n💵 Miktar: **{amount} USDT**"), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_IDS[0], f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{u_id}`\n💵 Miktar: **{amount} USDT**"), main_loop)
 
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.end_headers()
+
     def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
@@ -615,7 +619,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
         if parsed_path.path == "/miniapp":
-            miniapp_html = """
+            miniapp_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -626,7 +630,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                 <style>
-                    :root {
+                    :root {{
                         --bg-main: #090d16;
                         --card-bg: #111827;
                         --border-color: #1f2937;
@@ -634,44 +638,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --accent-green: #10b981;
                         --accent-red: #ef4444;
                         --text-muted: #9ca3af;
-                    }
-                    body { background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }
-                    .nav-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }
-                    .tab-btn { background: var(--card-bg); color: var(--text-muted); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; transition: 0.2s; }
-                    .tab-btn.active { background: #2563eb; color: white; border-color: #3b82f6; }
-                    .tab-content { display: none; }
-                    .tab-content.active { display: block; }
+                    }}
+                    body {{ background-color: var(--bg-main); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 12px; box-sizing: border-box; }}
+                    .nav-tabs {{ display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 4px; border-bottom: 1px solid var(--border-color); }}
+                    .tab-btn {{ background: var(--card-bg); color: var(--text-muted); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 11px; font-weight: bold; cursor: pointer; white-space: nowrap; flex: 1; text-align: center; transition: 0.2s; }}
+                    .tab-btn.active {{ background: #2563eb; color: white; border-color: #3b82f6; }}
+                    .tab-content {{ display: none; }}
+                    .tab-content.active {{ display: block; }}
                     
-                    .promo-banner { background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }
-                    .coupon-tag { background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }
+                    .promo-banner {{ background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }}
+                    .coupon-tag {{ background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }}
                     
-                    #mainMap { width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
-                    .card { background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+                    #mainMap {{ width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }}
+                    .card {{ background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
                     
-                    input, select { width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }
-                    button { background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }
-                    button:hover { background: #1d4ed8; }
+                    input, select {{ width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }}
+                    button {{ background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }}
+                    button:hover {{ background: #1d4ed8; }}
                     
-                    .btn-received { background: var(--accent-green); }
-                    .btn-received:hover { background: #059669; }
-                    .btn-close { background: var(--accent-red); margin-top: 15px; }
+                    .btn-received {{ background: var(--accent-green); }}
+                    .btn-received:hover {{ background: #059669; }}
+                    .btn-close {{ background: var(--accent-red); margin-top: 15px; }}
                     
-                    .nav-btn-group { display: flex; gap: 6px; margin-top: 8px; }
-                    .nav-btn { flex: 1; background: #0ea5e9; color: white; font-size: 11px; padding: 8px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: bold; display: block; }
-                    .nav-btn.yandex { background: #e11d48; }
-                    .nav-btn.apple { background: #475569; }
+                    .nav-btn-group {{ display: flex; gap: 6px; margin-top: 8px; }}
+                    .nav-btn {{ flex: 1; background: #0ea5e9; color: white; font-size: 11px; padding: 8px; border-radius: 6px; text-decoration: none; text-align: center; font-weight: bold; display: block; }}
+                    .nav-btn.yandex {{ background: #e11d48; }}
+                    .nav-btn.apple {{ background: #475569; }}
 
-                    .skeleton { background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }
-                    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+                    .skeleton {{ background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }}
+                    @keyframes shimmer {{ 0% {{ background-position: 200% 0; }} 100% {{ background-position: -200% 0; }} }}
 
-                    .chat-box { height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }
-                    .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
-                    .msg-user { background: #2563eb; margin-left: auto; color: white; }
-                    .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
+                    .chat-box {{ height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }}
+                    .msg {{ margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }}
+                    .msg-user {{ background: #2563eb; margin-left: auto; color: white; }}
+                    .msg-admin {{ background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }}
 
-                    .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
-                    .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
-                    .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+                    .wheel-wrapper {{ position: relative; width: 220px; height: 220px; margin: 0 auto; }}
+                    .wheel {{ width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }}
+                    .wheel-slice {{ position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }}
                 </style>
             </head>
             <body>
@@ -798,402 +802,404 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         userId = urlParams.get('user_id') || 1012940363;
                     }
 
-                    function triggerHaptic(style = 'medium') {
-                        if (tg.HapticFeedback) {
+                    const baseUrl = "{RENDER_EXTERNAL_URL}";
+
+                    function triggerHaptic(style = 'medium') {{
+                        if (tg.HapticFeedback) {{
                             tg.HapticFeedback.impactOccurred(style);
-                        }
-                    }
+                        }}
+                    }}
 
                     let map, markersGroup;
                     let globalAppData = null;
                     let isMusicPlaying = false;
 
-                    function toggleMusic() {
+                    function toggleMusic() {{
                         triggerHaptic('light');
                         const iframe = document.getElementById('ytAudio');
                         const btn = document.getElementById('musicBtn');
-                        if(!isMusicPlaying) {
+                        if(!isMusicPlaying) {{
                             iframe.src = "https://www.youtube.com/embed/wo3OCsPNevc?autoplay=1&loop=1&playlist=wo3OCsPNevc";
                             btn.innerText = "Durdur";
                             btn.style.background = "var(--accent-red)";
                             isMusicPlaying = true;
-                        } else {
+                        }} else {{
                             iframe.src = "";
                             btn.innerText = "Oynat";
                             btn.style.background = "var(--accent-green)";
                             isMusicPlaying = false;
-                        }
-                    }
+                        }}
+                    }}
 
-                    function switchTab(tabId) {
+                    function switchTab(tabId) {{
                         triggerHaptic('light');
                         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                         document.getElementById(tabId).classList.add('active');
                         event.target.classList.add('active');
 
-                        if(tabId === 'tabMap' && map) {
-                            setTimeout(() => { map.invalidateSize(); }, 200);
-                        }
-                    }
+                        if(tabId === 'tabMap' && map) {{
+                            setTimeout(() => {{ map.invalidateSize(); }}, 200);
+                        }}
+                    }}
 
-                    async function loadAppData() {
+                    async function loadAppData() {{
                         if(!userId) return;
-                        try {
-                            const res = await fetch('/api/miniapp-data?user_id=' + userId);
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
                             globalAppData = data;
                             
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
                             document.getElementById('refEarningsText').innerText = (data.referral_earnings || 0).toFixed(2) + " USDT";
-                            document.getElementById('refLinkInput').value = `https://t.me/${data.bot_username || 'WeedIstanbulBot'}?start=ref_${userId}`;
+                            document.getElementById('refLinkInput').value = `https://t.me/${{data.bot_username || 'WeedIstanbulBot'}}?start=ref_${{userId}}`;
                             
                             let promoHtml = "";
-                            if(data.promo_5g) {
+                            if(data.promo_5g) {{
                                 promoHtml += `<div class="promo-banner">🎁 <b>Özel Kampanya:</b> Toplu alımlarda <b>5 Gram Alana 1 Gram Hediye!</b></div>`;
-                            }
-                            if(data.coupons && data.coupons.length > 0) {
-                                data.coupons.forEach(c => {
-                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${c.code}</span> (-${c.discount} USDT İndirim)</div>`;
-                                });
-                            }
+                            }}
+                            if(data.coupons && data.coupons.length > 0) {{
+                                data.coupons.forEach(c => {{
+                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${{c.code}}</span> (-${{c.discount}} USDT İndirim)</div>`;
+                                }});
+                            }}
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
                             populateDistrictFilter(data.temsili_drops);
                             initMap(data.active_orders, data.temsili_drops);
 
                             let activeHtml = "";
-                            if(data.active_orders.length > 0) {
-                                data.active_orders.forEach(o => {
+                            if(data.active_orders.length > 0) {{
+                                data.active_orders.forEach(o => {{
                                     activeHtml += `
                                     <div class="card" style="border-left: 4px solid var(--accent-red);">
-                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${o.id} - ${o.title}</h4>
-                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${o.description}</p>
+                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${{o.id}} - ${{o.title}}</h4>
+                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${{o.description}}</p>
                                         
                                         <div class="nav-btn-group">
-                                            <a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" class="nav-btn">📍 Google Maps</a>
-                                            <a href="https://yandex.com.tr/harita/?pt=${o.lon},${o.lat}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
-                                            <a href="http://maps.apple.com/?q=${o.lat},${o.lon}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
+                                            <a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" class="nav-btn">📍 Google Maps</a>
+                                            <a href="https://yandex.com.tr/harita/?pt=${{o.lon}},${{o.lat}}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
+                                            <a href="http://maps.apple.com/?q=${{o.lat}},${{o.lon}}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
                                         </div>
 
-                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
+                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${{o.id}})">✅ Ürünü Teslim Aldım</button>
                                     </div>`;
-                                });
-                            } else {
+                                }});
+                            }} else {{
                                 activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
-                            }
+                            }}
                             document.getElementById('activeOrdersList').innerHTML = activeHtml;
 
                             let prodHtml = "";
-                            data.temsili_drops.forEach(p => {
+                            data.temsili_drops.forEach(p => {{
                                 prodHtml += `
                                 <div class="card">
-                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category})</h4>
-                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
+                                    <h4 style="margin:0; color:var(--accent-blue);">${{p.title}} (Semt: ${{p.category}})</h4>
+                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${{p.price}} USDT | Stok: ${{p.stock}} Adet</p>
                                     <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
-                                    <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
+                                    <button onclick="buyProduct(${{p.id}}, ${{p.price}})">⚡ Bakiyeden Satın Al (${{p.price}} USDT)</button>
                                 </div>`;
                             });
                             document.getElementById('productsList').innerHTML = prodHtml;
 
                             let pastHtml = "";
-                            if(data.past_orders.length > 0) {
-                                data.past_orders.forEach(po => {
+                            if(data.past_orders.length > 0) {{
+                                data.past_orders.forEach(po => {{
                                     let reviewBox = "";
-                                    if(po.has_reviewed) {
-                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${po.review_text}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
-                                    } else {
+                                    if(po.has_reviewed) {{
+                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${{po.review_text}}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
+                                    }} else {{
                                         reviewBox = `
                                         <div style="margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;">
-                                            <input type="text" id="reviewInput_${po.id}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
-                                            <button onclick="submitReview(${po.id})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
+                                            <input type="text" id="reviewInput_${{po.id}}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
+                                            <button onclick="submitReview(${{po.id}})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
                                         </div>`;
-                                    }
+                                    }}
 
                                     pastHtml += `
                                     <div class="card" style="opacity:0.9;">
-                                        <h4 style="margin:0;">Sipariş #${po.id} - ${po.title}</h4>
-                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${po.date})</p>
-                                        ${reviewBox}
+                                        <h4 style="margin:0;">Sipariş #${{po.id}} - ${{po.title}}</h4>
+                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
+                                        ${{reviewBox}}
                                     </div>`;
-                                });
-                            } else {
+                                }});
+                            }} else {{
                                 pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
-                            }
+                            }}
                             document.getElementById('pastOrdersList').innerHTML = pastHtml;
 
-                        } catch(e) {
+                        }} catch(e) {{
                             console.error(e);
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function spinGame(gameType) {
+                    async function spinGame(gameType) {{
                         const btn = document.getElementById('spinBtn');
                         btn.disabled = true;
                         triggerHaptic('heavy');
-                        try {
-                            const res = await fetch('/api/miniapp-spin', {
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-spin', {{
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({user_id: userId, game_type: gameType})
-                            });
+                                headers: {{'Content-Type': 'application/json'}},
+                                body: JSON.stringify({{user_id: userId, game_type: gameType}})
+                            }});
                             const data = await res.json();
-                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
+                            if(!data.success) {{ alert(data.message); btn.disabled = false; return; }}
                             
-                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
-                            setTimeout(() => {
+                            document.getElementById('wheelEl').style.transform = `rotate(${{1440 + data.target_deg}}deg)`;
+                            setTimeout(() => {{
                                 document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
                                 alert("🎉 Tebrikler! Kazandınız: " + data.reward);
-                            }, 4000);
-                        } catch(e) { 
+                            }}, 4000);
+                        }} catch(e) {{ 
                             alert("Bağlantı hatası oluştu."); 
                             btn.disabled = false; 
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function scratchBox(idx) {
+                    async function scratchBox(idx) {{
                         triggerHaptic('medium');
-                        try {
-                            const res = await fetch('/api/miniapp-spin', {
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-spin', {{
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({user_id: userId, game_type: 'scratch'})
-                            });
+                                headers: {{'Content-Type': 'application/json'}},
+                                body: JSON.stringify({{user_id: userId, game_type: 'scratch'}})
+                            }});
                             const data = await res.json();
                             if(!data.success) return alert(data.message);
 
-                            for(let i=0; i<3; i++) {
+                            for(let i=0; i<3; i++) {{
                                 const card = document.getElementById('sc' + i);
-                                if(i === idx) {
+                                if(i === idx) {{
                                     card.innerText = data.reward;
                                     card.style.background = "#059669";
                                     card.style.color = "#ffffff";
                                     card.style.border = "2px solid #10b981";
-                                } else {
+                                }} else {{
                                     card.innerText = "Boş ❌";
                                     card.style.background = "#1f2937";
                                     card.style.color = "#9ca3af";
                                     card.style.border = "2px dashed #374151";
-                                }
-                            }
+                                }}
+                            }}
                             document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
                             alert("🎉 Kazı kazandan kazandın: " + data.reward);
-                        } catch(e) { 
+                        }} catch(e) {{ 
                             alert("Bağlantı hatası oluştu."); 
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function submitReview(orderId) {
+                    async function submitReview(orderId) {{
                         const txtInput = document.getElementById('reviewInput_' + orderId);
                         const reviewText = txtInput.value.trim();
-                        if(!reviewText) {
+                        if(!reviewText) {{
                             alert("Lütfen bir yorum yazın.");
                             return;
-                        }
+                        }}
                         triggerHaptic('heavy');
-                        try {
-                            const res = await fetch('/api/miniapp-review', {
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-review', {{
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&order_id=${orderId}&review=${encodeURIComponent(reviewText)}`
-                            });
+                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                                body: `user_id=${{userId}}&order_id=${{orderId}}&review=${{encodeURIComponent(reviewText)}}`
+                            }});
                             const data = await res.json();
-                            if(data.success) {
+                            if(data.success) {{
                                 alert("🎉 Harika! Yorumunuz kaydedildi ve hesabınıza 5$ (USDT) bakiye eklendi!");
                                 location.reload();
-                            } else {
+                            }} else {{
                                 alert("❌ Hata: " + (data.message || "İşlem başarısız."));
-                            }
-                        } catch(e) {
+                            }}
+                        }} catch(e) {{
                             alert("Bağlantı hatası oluştu.");
-                        }
-                    }
+                        }}
+                    }}
 
-                    function copyRefLink() {
+                    function copyRefLink() {{
                         triggerHaptic('success');
                         const copyText = document.getElementById("refLinkInput");
                         copyText.select();
                         navigator.clipboard.writeText(copyText.value);
                         alert("✅ Davet linki panoya kopyalandı!");
-                    }
+                    }}
 
-                    function populateDistrictFilter(drops) {
+                    function populateDistrictFilter(drops) {{
                         const select = document.getElementById('districtFilter');
                         const categories = [...new Set(drops.map(d => d.category))];
-                        categories.forEach(cat => {
+                        categories.forEach(cat => {{
                             const opt = document.createElement('option');
                             opt.value = cat;
                             opt.innerText = "🏙️ " + cat + " Bölgesi";
                             select.appendChild(opt);
                         });
-                    }
+                    }}
 
-                    function initMap(activeOrders, temsilidrops) {
+                    function initMap(activeOrders, temsilidrops) {{
                         if(map) return;
                         map = L.map('mainMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
                         renderMapMarkers(activeOrders, temsilidrops);
-                    }
+                    }}
 
-                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {
+                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {{
                         markersGroup.clearLayers();
 
-                        activeOrders.forEach(o => {
-                            const redIcon = L.divIcon({
+                        activeOrders.forEach(o => {{
+                            const redIcon = L.divIcon({{
                                 html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">📍</div>',
                                 iconSize: [24, 24]
                             });
-                            L.marker([o.lat, o.lon], {icon: redIcon}).addTo(markersGroup)
-                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}<br><br><a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
+                            L.marker([o.lat, o.lon], {{icon: redIcon}}).addTo(markersGroup)
+                                .bindPopup(`<b>Sipariş #${{o.id}}</b><br>${{o.title}}<br><br><a href="https://www.google.com/maps?q=${{o.lat}},${{o.lon}}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
                         });
 
-                        temsilidrops.forEach(td => {
+                        temsilidrops.forEach(td => {{
                             if(filterCat !== "ALL" && td.category !== filterCat) return;
 
-                            L.circle([td.lat, td.lon], {
+                            L.circle([td.lat, td.lon], {{
                                 color: '#38bdf8',
                                 fillColor: '#38bdf8',
                                 fillOpacity: 0.12,
                                 radius: 1100
-                            }).addTo(markersGroup);
+                            }}).addTo(markersGroup);
 
-                            const weedIcon = L.divIcon({
+                            const weedIcon = L.divIcon({{
                                 html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
                                 iconSize: [28, 28],
                                 iconAnchor: [14, 14]
                             });
-                            L.marker([td.lat, td.lon], {icon: weedIcon}).addTo(markersGroup)
-                                .bindPopup(`<b>${td.title}</b><br>Bölge: ${td.category}<br>Fiyat: ${td.price} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
+                            L.marker([td.lat, td.lon], {{icon: weedIcon}}).addTo(markersGroup)
+                                .bindPopup(`<b>${{td.title}}</b><br>Bölge: ${{td.category}}<br>Fiyat: ${{td.price}} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
                         });
-                    }
+                    }}
 
-                    function filterMapDrops() {
+                    function filterMapDrops() {{
                         const selectedCat = document.getElementById('districtFilter').value;
-                        if(globalAppData) {
+                        if(globalAppData) {{
                             renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
-                            if(selectedCat !== "ALL") {
+                            if(selectedCat !== "ALL") {{
                                 const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
-                                if(sample) {
+                                if(sample) {{
                                     map.setView([sample.lat, sample.lon], 13);
-                                }
-                            } else {
+                                }}
+                            }} else {{
                                 map.setView([41.0082, 28.9784], 11);
-                            }
-                        }
-                    }
+                            }}
+                        }}
+                    }}
 
-                    async function markReceived(orderId) {
+                    async function markReceived(orderId) {{
                         if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
                         triggerHaptic('medium');
-                        try {
-                            const res = await fetch('/api/miniapp-received?id=' + orderId);
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
-                            if(data.success) {
+                            if(data.success) {{
                                 alert("Ürün teslim alındı olarak kaydedildi!");
                                 location.reload();
-                            }
-                        } catch(e) {
+                            }}
+                        }} catch(e) {{
                             alert("İşlem başarısız.");
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function buyProduct(dropId, price) {
+                    async function buyProduct(dropId, price) {{
                         if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
                         triggerHaptic('heavy');
-                        try {
-                            const res = await fetch(`/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
+                        try {{
+                            const res = await fetch(baseUrl + `/api/miniapp-buy?user_id=${{userId}}&drop_id=${{dropId}}`);
                             const data = await res.json();
-                            if(data.success) {
+                            if(data.success) {{
                                 alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
                                 location.reload();
-                            } else {
+                            }} else {{
                                 alert("❌ Hata: " + (data.message || "Bakiyeniz yetersiz olabilir."));
-                            }
-                        } catch(e) {
+                            }}
+                        }} catch(e) {{
                             alert("İşlem yapılırken hata oluştu.");
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function createDeposit() {
+                    async function createDeposit() {{
                         const amount = document.getElementById('depAmount').value;
                         if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
                         triggerHaptic('medium');
-                        try {
-                            const res = await fetch(`/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
+                        try {{
+                            const res = await fetch(baseUrl + `/api/miniapp-deposit?user_id=${{userId}}&amount=${{amount}}`);
                             const data = await res.json();
-                            if(data.success) {
+                            if(data.success) {{
                                 document.getElementById('depositResult').innerHTML = `
                                 <div class="card" style="border: 1px solid var(--accent-green);">
                                     <h4 style="color:var(--accent-green); margin-top:0;">Yatırım Adresi Oluşturuldu</h4>
-                                    <p style="font-size:12px;">Tutar: <b>${amount} USDT</b></p>
-                                    <input type="text" value="${data.wallet}" readonly>
-                                    <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
+                                    <p style="font-size:12px;">Tutar: <b>${{amount}} USDT</b></p>
+                                    <input type="text" value="${{data.wallet}}" readonly>
+                                    <button onclick="checkDeposit(${{data.deposit_id}}, ${{amount}})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
-                            }
-                        } catch(e) {
+                            }}
+                        }} catch(e) {{
                             alert("Bakiye yükleme talebi oluşturulamadı.");
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function checkDeposit(depId, amount) {
+                    async function checkDeposit(depId, amount) {{
                         triggerHaptic('medium');
                         alert("Blokzincir taranıyor, lütfen bekleyin...");
-                        try {
-                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
+                        try {{
+                            const res = await fetch(baseUrl + `/api/miniapp-check-deposit?dep_id=${{depId}}&user_id=${{userId}}&amount=${{amount}}`);
                             const data = await res.json();
-                            if(data.success) {
+                            if(data.success) {{
                                 alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
                                 location.reload();
-                            } else {
+                            }} else {{
                                 alert("⚠️ Transfer henüz algılanmadı.");
-                            }
-                        } catch(e) {
+                            }}
+                        }} catch(e) {{
                             alert("Kontrol başarısız.");
-                        }
-                    }
+                        }}
+                    }}
 
-                    async function loadChatMessages() {
+                    async function loadChatMessages() {{
                         if(!userId) return;
-                        try {
-                            const res = await fetch('/api/miniapp-chat?user_id=' + userId);
+                        try {{
+                            const res = await fetch(baseUrl + '/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
-                            data.messages.forEach(m => {
+                            data.messages.forEach(m => {{
                                 const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
                                 const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
-                                chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
+                                chatHtml += `<div class="msg ${{cls}}"><b>${{senderName}}:</b> ${{m.message}}</div>`;
                             });
                             const box = document.getElementById('chatBox');
-                            if(box.innerHTML !== chatHtml) {
+                            if(box.innerHTML !== chatHtml) {{
                                 box.innerHTML = chatHtml;
                                 box.scrollTop = box.scrollHeight;
-                            }
-                        } catch(e) {}
-                    }
+                            }}
+                        }} catch(e) {{}}
+                    }}
 
-                    async function sendChatMessage() {
+                    async function sendChatMessage() {{
                         const inp = document.getElementById('chatInput');
                         const msg = inp.value.trim();
                         if(!msg) return;
                         inp.value = '';
                         triggerHaptic('light');
-                        try {
-                            await fetch('/api/miniapp-chat-send', {
+                        try {{
+                            await fetch(baseUrl + '/api/miniapp-chat-send', {{
                                 method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&message=${encodeURIComponent(msg)}`
-                            });
+                                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                                body: `user_id=${{userId}}&message=${{encodeURIComponent(msg)}}`
+                            }});
                             loadChatMessages();
-                        } catch(e) {}
-                    }
+                        }} catch(e) {{}}
+                    }}
 
-                    window.onload = () => {
+                    window.onload = () => {{
                         loadAppData();
                         loadChatMessages();
                         setInterval(loadChatMessages, 3500);
-                    };
+                    }};
                 </script>
             </body>
             </html>
@@ -1276,57 +1282,131 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
-        if parsed_path.path == "/api/admin-user-detail":
-            if not is_logged_in:
-                self.send_response(401)
-                self.end_headers()
-                return
+        if parsed_path.path == "/api/miniapp-chat":
             uid = int(query_params.get("user_id", ["0"])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT user_id, username, language, is_banned, balance, referral_earnings, created_at FROM users WHERE user_id = ?", (uid,))
-            u = cursor.fetchone()
-            
-            cursor.execute("SELECT o.id, d.title, o.final_price, o.status, o.created_at FROM orders o JOIN drops d ON o.drop_id = d.id WHERE o.user_id = ? ORDER BY o.id DESC", (uid,))
-            u_orders = [{"id": r[0], "title": r[1], "price": r[2], "status": r[3], "date": r[4]} for r in cursor.fetchall()]
-            
-            cursor.execute("SELECT amount, status, created_at FROM deposits WHERE user_id = ? ORDER BY id DESC", (uid,))
-            u_deps = [{"amount": r[0], "status": r[1], "date": r[2]} for r in cursor.fetchall()]
+            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
+            rows = cursor.fetchall()
             conn.close()
-
-            if not u:
-                self.send_response(404)
-                self.end_headers()
-                return
-
-            resp_data = {
-                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4] or 0.0, "ref_earnings": u[5] or 0.0, "created_at": u[6],
-                "orders": u_orders, "deposits": u_deps
-            }
+            msgs = [{"sender": r[0], "message": r[1], "time": r[2]} for r in rows]
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps(resp_data).encode("utf-8"))
+            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
             return
 
-        if parsed_path.path == "/api/admin-check-notifications":
-            if not is_logged_in:
-                self.send_response(401)
-                self.end_headers()
-                return
+        if parsed_path.path == "/api/miniapp-buy":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            d_id = int(query_params.get("drop_id", ["0"])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM support_messages WHERE sender = 'user'")
-            unread_chats = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
-            pending_orders = cursor.fetchone()[0]
-            conn.close()
+            cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (d_id,))
+            drop = cursor.fetchone()
+            if not drop:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Ürün tükenmiş."}).encode("utf-8"))
+                return
+            title, price, stock = drop
+            bal = get_user_balance(uid)
+            if bal < price:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Yetersiz bakiye."}).encode("utf-8"))
+                return
 
-            resp = {"unread_chats": unread_chats, "pending_orders": pending_orders}
+            cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
+            new_stock = stock - 1
+            if new_stock <= 0:
+                cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (d_id,))
+            else:
+                cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
+            cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, d_id, price))
+            order_id = cursor.lastrowid
+            
+            cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
+            ref_row = cursor.fetchone()
+            if ref_row and ref_row[0] > 0:
+                ref_id = ref_row[0]
+                bonus = float(price) * 0.05
+                cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
+
+            conn.commit()
+            conn.close()
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            self.wfile.write(json.dumps({"success": True, "order_id": order_id}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-received":
+            oid = int(query_params.get("id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (oid,))
+            conn.commit()
+            conn.close()
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-deposit":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            amount = float(query_params.get("amount", [0])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
+            dep_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "deposit_id": dep_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-check-deposit":
+            dep_id = int(query_params.get("dep_id", ["0"])[0])
+            uid = int(query_params.get("user_id", ["0"])[0])
+            amount = float(query_params.get("amount", [0])[0])
+            
+            api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
+            verified = False
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(api_url) as response:
+                        if response.status == 200:
+                            res_json = await response.json()
+                            for tx in res_json.get("data", []):
+                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(amount * 1000000):
+                                    verified = True
+                                    break
+            except:
+                pass
+
+            if verified:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
+                cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, uid))
+                conn.commit()
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            else:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
             return
 
         if parsed_path.path == "/admin-web":
@@ -3032,7 +3112,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
