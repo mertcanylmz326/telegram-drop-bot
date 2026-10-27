@@ -1481,20 +1481,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {map_markers_js}
 
                     // Canlı Konum (🧌 Simge) Takibi
-                    if (navigator.geolocation) {
-                        navigator.geolocation.watchPosition(function(position) {
+                    if (navigator.geolocation) {{
+                        navigator.geolocation.watchPosition(function(position) {{
                             const lat = position.coords.latitude;
                             const lon = position.coords.longitude;
-                            if (window.myLocationMarker) {
+                            if (window.myLocationMarker) {{
                                 window.myLocationMarker.setLatLng([lat, lon]);
-                            } else {
+                            }} else {{
                                 window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
                                     .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                            }
-                        }, function(err) {
+                            }}
+                        }}, function(err) {{
                             console.log("Konum alınamadı: ", err.message);
-                        }, {{ enableHighAccuracy: true }});
-                    }
+                        }}, {{ enableHighAccuracy: true }});
+                    }}
 
                     function searchMarkerOnMap() {{
                         const id = document.getElementById('searchProductId').value.trim();
@@ -2380,7 +2380,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed_path = urlparse(self.path)
         
-        # Multipart file upload desteği için özel parsing
         content_type = self.headers.get('Content-Type', '')
         params = {}
         file_data = None
