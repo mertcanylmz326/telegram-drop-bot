@@ -187,8 +187,6 @@ def init_db():
             pass
 
     cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops) VALUES (?, ?, 'super_admin', 1, 1, 1, 1)", (ADMIN_WEB_USERNAME, hash_pass(ADMIN_WEB_PASSWORD)))
-    
-    # Root kullanıcısının yetkilerini her zaman garantiye alalım
     cursor.execute("UPDATE admins SET can_view_exact_loc = 1, can_view_wallets = 1, can_view_crm = 1, can_manage_drops = 1 WHERE username = 'root' OR role = 'super_admin'")
     
     conn.commit()
@@ -562,7 +560,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if perm_row:
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = perm_row
             
-            # Root veya super_admin ise tüm yetkileri garanti aç
             if current_role == "super_admin" or current_username == "root":
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = 1, 1, 1, 1
 
@@ -1316,12 +1313,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             tab = query_params.get("tab", ["home"])[0]
 
-            # Yetki kontrolleri ve yönlendirmeler
-            if current_role == "support" and tab not in ["support", "home", "add", "passive"]:
-                tab = "support"
-            elif current_role == "stock_manager" and tab not in ["home", "passive", "add", "active", "pending"]:
-                tab = "passive"
-
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM drops")
@@ -1334,226 +1325,238 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             total_revenue = rev_res if rev_res is not None else 0.0
 
             content_html = ""
-            if tab == "home":
-                cursor.execute("SELECT id, title, price, stock, category, lat, lon FROM drops WHERE is_sold = 0 AND stock > 0")
-                active_drops_for_map = cursor.fetchall()
-                
-                map_markers_js = ""
-                for ad in active_drops_for_map:
-                    d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
+
+            # YETKİSİZ ERİŞİM ENGELİ (Destek sayfasına atmayacak, Hata basacak)
+            if tab in ["home", "passive", "active", "pending"] and not (current_role in ["super_admin", "stock_manager"] or current_username == "root" or can_manage_drops == 1 or can_view_exact_loc == 1):
+                content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur!</h3>"
+            
+            elif tab in ["add", "edit"] and not (current_role == "super_admin" or current_username == "root" or can_manage_drops == 1):
+                content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (Drop Ekleme/Düzenleme) erişim yetkiniz yoktur!</h3>"
+            
+            elif tab == "users" and not (current_role == "super_admin" or current_username == "root" or can_view_crm == 1):
+                content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (CRM) erişim yetkiniz yoktur!</h3>"
+
+            elif tab in ["finance", "token", "bulk", "broadcast", "promo5g", "coupons", "admins"] and not (current_role == "super_admin" or current_username == "root"):
+                content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur! (Yalnızca Süper Admin)</h3>"
+
+            else:
+                if tab == "home":
+                    cursor.execute("SELECT id, title, price, stock, category, lat, lon FROM drops WHERE is_sold = 0 AND stock > 0")
+                    active_drops_for_map = cursor.fetchall()
                     
-                    if can_view_exact_loc == 1:
-                        lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
-                        lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
-                        map_markers_js += f"""
-                        markers[{d_id}] = L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
-                            .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
-                        """
-                    else:
-                        coord = get_district_coord(d_cat)
-                        map_markers_js += f"""
-                        L.circle([{coord[0]}, {coord[1]}], {{
-                            color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, radius: 1200
-                        }}).addTo(map).bindPopup("<b>Bölge: {d_cat}</b><br>Ürün: {d_title}<br>Stok: {d_stock} Adet<br><span style='color:orange;'>⚠️ Tam konum yetkiniz bulunmamaktadır.</span>");
+                    map_markers_js = ""
+                    for ad in active_drops_for_map:
+                        d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
+                        
+                        if can_view_exact_loc == 1:
+                            lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
+                            lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
+                            map_markers_js += f"""
+                            markers[{d_id}] = L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
+                                .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
+                            """
+                        else:
+                            coord = get_district_coord(d_cat)
+                            map_markers_js += f"""
+                            L.circle([{coord[0]}, {coord[1]}], {{
+                                color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, radius: 1200
+                            }}).addTo(map).bindPopup("<b>Bölge: {d_cat}</b><br>Ürün: {d_title}<br>Stok: {d_stock} Adet<br><span style='color:orange;'>⚠️ Tam konum yetkiniz bulunmamaktadır.</span>");
+                            """
+
+                    cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
+                    logs = cursor.fetchall()
+                    logs_html = ""
+                    for l in logs:
+                        msg, l_type, l_date = l
+                        badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#3b82f6")
+                        logs_html += f"""
+                        <div style="background: var(--card-bg-inner); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
+                            <span style="color: var(--text-muted); font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
+                            {msg}
+                        </div>
                         """
 
-                cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
-                logs = cursor.fetchall()
-                logs_html = ""
-                for l in logs:
-                    msg, l_type, l_date = l
-                    badge_color = "#ef4444" if l_type == "warning" else ("#10b981" if l_type == "success" else "#3b82f6")
-                    logs_html += f"""
-                    <div style="background: var(--card-bg-inner); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid {badge_color}; font-size: 13px;">
-                        <span style="color: var(--text-muted); font-size: 11px; display: block; margin-bottom: 2px;">{l_date}</span>
-                        {msg}
+                    cursor.execute("""
+                        SELECT DATE(created_at) as cday, SUM(final_price) 
+                        FROM orders WHERE status IN ('completed', 'received') 
+                        GROUP BY cday ORDER BY cday ASC LIMIT 7
+                    """)
+                    chart_rows = cursor.fetchall()
+                    labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
+                    values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
+
+                    w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
+                    if can_view_wallets == 1:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                        w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                        w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                        loop.close()
+
+                    wallet_section_html = ""
+                    if can_view_wallets == 1:
+                        wallet_section_html = f"""
+                        <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
+                            <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                                    <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+                                        📥 1. Giriş Hesabı (Bot)
+                                        <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                    </h4>
+                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
+                                    <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
+                                </div>
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
+                                    <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
+                                        🔄 2. Çıkış / Ara Hesap (Bitay)
+                                        <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                    </h4>
+                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
+                                    <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
+                                </div>
+                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                                    <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
+                                        💰 3. Ana Birikim / Kasa
+                                        <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                    </h4>
+                                    <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
+                                    <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                                </div>
+                            </div>
+                        </div>
+                        """
+
+                    exact_badge = "<span style='font-size: 11px; background: #10b981; padding: 4px 8px; border-radius: 6px; color: white;'>🟢 Tam Konum İzni Açık</span>" if can_view_exact_loc == 1 else "<span style='font-size: 11px; background: #d97706; padding: 4px 8px; border-radius: 6px; color: white;'>🔒 Sadece Temsili Bölge Görünümü (Müşteri Modu)</span>"
+
+                    home_template = """
+                    <div class="stats-grid">
+                        <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
+                        <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
+                        <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                     </div>
-                    """
 
-                cursor.execute("""
-                    SELECT DATE(created_at) as cday, SUM(final_price) 
-                    FROM orders WHERE status IN ('completed', 'received') 
-                    GROUP BY cday ORDER BY cday ASC LIMIT 7
-                """)
-                chart_rows = cursor.fetchall()
-                labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
-                values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
-
-                w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
-                if can_view_wallets == 1:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                    w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                    w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                    loop.close()
-
-                wallet_section_html = ""
-                if can_view_wallets == 1:
-                    wallet_section_html = f"""
                     <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
-                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                                <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
-                                    📥 1. Giriş Hesabı (Bot)
-                                    <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                                </h4>
-                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
-                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
-                            </div>
-                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
-                                <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
-                                    🔄 2. Çıkış / Ara Hesap (Bitay)
-                                    <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                                </h4>
-                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
-                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
-                            </div>
-                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-                                <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
-                                    💰 3. Ana Birikim / Kasa
-                                    <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                                </h4>
-                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
-                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                        <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            🗺️ İstanbul Aktif Konum Haritası {exact_badge}
+                        </h2>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); padding: 10px; font-size: 14px;">
+                            <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 8px; border: none; color: white; cursor: pointer;">🔍 Haritada Bul</button>
+                        </div>
+                        <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                    </div>
+
+                    {wallet_section_html}
+
+                    <div class="grid-2">
+                        <div class="table-box">
+                            <h2>📊 Weekly Revenue Trend</h2>
+                            <canvas id="revenueChart" style="max-height: 250px;"></canvas>
+                        </div>
+
+                        <div class="table-box">
+                            <h2>🔔 Live Logs & Alerts</h2>
+                            <div style="max-height: 250px; overflow-y: auto;">
+                                {logs_html}
                             </div>
                         </div>
                     </div>
+
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+                    <script>
+                        const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                            attribution: '&copy; OpenStreetMap contributors',
+                            maxZoom: 19
+                        }}).addTo(map);
+
+                        const weedIcon = L.divIcon({{
+                            className: 'custom-weed-marker',
+                            html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
+                            iconSize: [36, 36],
+                            iconAnchor: [18, 18],
+                            popupAnchor: [0, -18]
+                        }});
+
+                        const trollIcon = L.divIcon({{
+                            className: 'custom-troll-marker',
+                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
+                            iconSize: [38, 38],
+                            iconAnchor: [19, 19],
+                            popupAnchor: [0, -19]
+                        }});
+
+                        const markers = {{}};
+                        {map_markers_js}
+
+                        if (navigator.geolocation) {{
+                            navigator.geolocation.watchPosition(function(position) {{
+                                const lat = position.coords.latitude;
+                                const lon = position.coords.longitude;
+                                if (window.myLocationMarker) {{
+                                    window.myLocationMarker.setLatLng([lat, lon]);
+                                }} else {{
+                                    window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
+                                        .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
+                                }}
+                            }}, function(err) {{
+                                console.log("Konum alınamadı: ", err.message);
+                            }}, {{ enableHighAccuracy: true }});
+                        }}
+
+                        function searchMarkerOnMap() {{
+                            const id = document.getElementById('searchProductId').value.trim();
+                            if (markers[id]) {{
+                                map.setView(markers[id].getLatLng(), 16);
+                                markers[id].openPopup();
+                            }} else {{
+                                alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
+                            }}
+                        }}
+
+                        const ctx = document.getElementById('revenueChart').getContext('2d');
+                        new Chart(ctx, {{
+                            type: 'line',
+                            data: {{
+                                labels: {labels_json},
+                                datasets: [{{
+                                    label: 'Revenue (USDT)',
+                                    data: {values_json},
+                                    borderColor: '#38bdf8',
+                                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                    fill: true,
+                                    tension: 0.3
+                                }}]
+                            }},
+                            options: {{
+                                responsive: true,
+                                plugins: {{ legend: {{ display: false }} }},
+                                scales: {{
+                                    x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
+                                    y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
+                                }}
+                            }}
+                        }});
+                    </script>
                     """
 
-                exact_badge = "<span style='font-size: 11px; background: #10b981; padding: 4px 8px; border-radius: 6px; color: white;'>🟢 Tam Konum İzni Açık</span>" if can_view_exact_loc == 1 else "<span style='font-size: 11px; background: #d97706; padding: 4px 8px; border-radius: 6px; color: white;'>🔒 Sadece Temsili Bölge Görünümü (Müşteri Modu)</span>"
+                    content_html = home_template.format(
+                        total_revenue=total_revenue,
+                        total_active_stock=total_active_stock,
+                        total_drops=total_drops,
+                        exact_badge=exact_badge,
+                        wallet_section_html=wallet_section_html,
+                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
+                        map_markers_js=map_markers_js,
+                        labels_json=json.dumps(labels),
+                        values_json=json.dumps(values)
+                    )
 
-                home_template = """
-                <div class="stats-grid">
-                    <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
-                    <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
-                    <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
-                </div>
-
-                <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        🗺️ İstanbul Aktif Konum Haritası {exact_badge}
-                    </h2>
-                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                        <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); padding: 10px; font-size: 14px;">
-                        <button type="button" onclick="searchMarkerOnMap()" style="width: auto; background: #10b981; padding: 10px 20px; font-weight: bold; border-radius: 8px; border: none; color: white; cursor: pointer;">🔍 Haritada Bul</button>
-                    </div>
-                    <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
-                </div>
-
-                {wallet_section_html}
-
-                <div class="grid-2">
-                    <div class="table-box">
-                        <h2>📊 Weekly Revenue Trend</h2>
-                        <canvas id="revenueChart" style="max-height: 250px;"></canvas>
-                    </div>
-
-                    <div class="table-box">
-                        <h2>🔔 Live Logs & Alerts</h2>
-                        <div style="max-height: 250px; overflow-y: auto;">
-                            {logs_html}
-                        </div>
-                    </div>
-                </div>
-
-                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-                <script>
-                    const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                    L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-                        attribution: '&copy; OpenStreetMap contributors',
-                        maxZoom: 19
-                    }}).addTo(map);
-
-                    const weedIcon = L.divIcon({{
-                        className: 'custom-weed-marker',
-                        html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
-                        iconSize: [36, 36],
-                        iconAnchor: [18, 18],
-                        popupAnchor: [0, -18]
-                    }});
-
-                    const trollIcon = L.divIcon({{
-                        className: 'custom-troll-marker',
-                        html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
-                        iconSize: [38, 38],
-                        iconAnchor: [19, 19],
-                        popupAnchor: [0, -19]
-                    }});
-
-                    const markers = {{}};
-                    {map_markers_js}
-
-                    if (navigator.geolocation) {{
-                        navigator.geolocation.watchPosition(function(position) {{
-                            const lat = position.coords.latitude;
-                            const lon = position.coords.longitude;
-                            if (window.myLocationMarker) {{
-                                window.myLocationMarker.setLatLng([lat, lon]);
-                            }} else {{
-                                window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
-                                    .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                            }}
-                        }}, function(err) {{
-                            console.log("Konum alınamadı: ", err.message);
-                        }}, {{ enableHighAccuracy: true }});
-                    }}
-
-                    function searchMarkerOnMap() {{
-                        const id = document.getElementById('searchProductId').value.trim();
-                        if (markers[id]) {{
-                            map.setView(markers[id].getLatLng(), 16);
-                            markers[id].openPopup();
-                        }} else {{
-                            alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
-                        }}
-                    }}
-
-                    const ctx = document.getElementById('revenueChart').getContext('2d');
-                    new Chart(ctx, {{
-                        type: 'line',
-                        data: {{
-                            labels: {labels_json},
-                            datasets: [{{
-                                label: 'Revenue (USDT)',
-                                data: {values_json},
-                                borderColor: '#38bdf8',
-                                backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                                fill: true,
-                                tension: 0.3
-                            }}]
-                        }},
-                        options: {{
-                            responsive: true,
-                            plugins: {{ legend: {{ display: false }} }},
-                            scales: {{
-                                x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
-                                y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
-                            }}
-                        }}
-                    }});
-                </script>
-                """
-
-                content_html = home_template.format(
-                    total_revenue=total_revenue,
-                    total_active_stock=total_active_stock,
-                    total_drops=total_drops,
-                    exact_badge=exact_badge,
-                    wallet_section_html=wallet_section_html,
-                    logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
-                    map_markers_js=map_markers_js,
-                    labels_json=json.dumps(labels),
-                    values_json=json.dumps(values)
-                )
-
-            elif tab == "finance":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "finance":
                     cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
                     audit_rows = cursor.fetchall()
                     audit_table = ""
@@ -1571,10 +1574,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-            elif tab == "token":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "token":
                     cursor.execute("SELECT value FROM settings WHERE key = 'bot_token'")
                     t_res = cursor.fetchone()
                     current_db_token = t_res[0] if t_res else DEFAULT_BOT_TOKEN
@@ -1598,10 +1598,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-            elif tab == "bulk":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "bulk":
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #d97706;">
                         <h2 style="color: #d97706; margin-top: 0;">⚡ Toplu Fiyat ve Bölge Güncelleme Araçları</h2>
@@ -1615,100 +1612,97 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-            elif tab == "support":
-                cursor.execute("SELECT DISTINCT user_id FROM support_messages")
-                active_chats_users = [row[0] for row in cursor.fetchall()]
-                
-                selected_user_id = query_params.get("user_id", [str(active_chats_users[0]) if active_chats_users else "0"])[0]
-                try:
-                    selected_user_id = int(selected_user_id)
-                except:
-                    selected_user_id = 0
+                elif tab == "support":
+                    cursor.execute("SELECT DISTINCT user_id FROM support_messages")
+                    active_chats_users = [row[0] for row in cursor.fetchall()]
+                    
+                    selected_user_id = query_params.get("user_id", [str(active_chats_users[0]) if active_chats_users else "0"])[0]
+                    try:
+                        selected_user_id = int(selected_user_id)
+                    except:
+                        selected_user_id = 0
 
-                chat_list_html = ""
-                for uid in active_chats_users:
-                    cursor.execute("SELECT username FROM users WHERE user_id = ?", (uid,))
-                    u_row = cursor.fetchone()
-                    uname = f"@{u_row[0]}" if u_row and u_row[0] else f"User {uid}"
-                    active_style = "background: var(--sidebar-hover); border-color: #38bdf8;" if uid == selected_user_id else "background: var(--card-bg-inner);"
-                    chat_list_html += f"""
-                    <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: var(--text-color); margin-bottom: 6px; border: 1px solid var(--border-color); {active_style}">
-                        <div style="font-weight: bold; color: #38bdf8; font-size: 13px;">{uname}</div>
-                        <div style="font-size: 11px; color: var(--text-muted);">ID: {uid}</div>
-                    </a>
-                    """
-
-                messages_html = ""
-                if selected_user_id:
-                    cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (selected_user_id,))
-                    msgs = cursor.fetchall()
-                    for m in msgs:
-                        sender, msg_text, m_date = m
-                        is_admin_msg = sender == "admin"
-                        bg_color = "#2563eb" if is_admin_msg else "var(--card-bg-inner)"
-                        align = "margin-left: auto;" if is_admin_msg else "margin-right: auto;"
-                        sender_label = "👑 Yönetici (Sen)" if is_admin_msg else "👤 Müşteri"
-                        messages_html += f"""
-                        <div style="max-width: 80%; background: {bg_color}; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; {align} border: 1px solid var(--border-color);">
-                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; display:flex; justify-content: space-between; gap: 10px;">
-                                <span>{sender_label}</span>
-                                <span>{m_date}</span>
-                            </div>
-                            <div style="font-size: 13px; word-break: break-word;">{msg_text}</div>
-                        </div>
+                    chat_list_html = ""
+                    for uid in active_chats_users:
+                        cursor.execute("SELECT username FROM users WHERE user_id = ?", (uid,))
+                        u_row = cursor.fetchone()
+                        uname = f"@{u_row[0]}" if u_row and u_row[0] else f"User {uid}"
+                        active_style = "background: var(--sidebar-hover); border-color: #38bdf8;" if uid == selected_user_id else "background: var(--card-bg-inner);"
+                        chat_list_html += f"""
+                        <a href="/admin-web?tab=support&user_id={uid}" style="display: block; padding: 10px 14px; border-radius: 8px; text-decoration: none; color: var(--text-color); margin-bottom: 6px; border: 1px solid var(--border-color); {active_style}">
+                            <div style="font-weight: bold; color: #38bdf8; font-size: 13px;">{uname}</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">ID: {uid}</div>
+                        </a>
                         """
 
-                chat_box_html = ""
-                if selected_user_id:
-                    chat_box_html = f"""
-                    <div style="display: flex; flex-direction: column; height: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                            <h3 style="margin: 0; color: #38bdf8; font-size: 15px;">💬 Aktif Sohbet (ID: {selected_user_id})</h3>
-                            <form action="/admin-close-support" method="POST" style="margin:0;">
+                    messages_html = ""
+                    if selected_user_id:
+                        cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (selected_user_id,))
+                        msgs = cursor.fetchall()
+                        for m in msgs:
+                            sender, msg_text, m_date = m
+                            is_admin_msg = sender == "admin"
+                            bg_color = "#2563eb" if is_admin_msg else "var(--card-bg-inner)"
+                            align = "margin-left: auto;" if is_admin_msg else "margin-right: auto;"
+                            sender_label = "👑 Yönetici (Sen)" if is_admin_msg else "👤 Müşteri"
+                            messages_html += f"""
+                            <div style="max-width: 80%; background: {bg_color}; padding: 10px 14px; border-radius: 10px; margin-bottom: 10px; {align} border: 1px solid var(--border-color);">
+                                <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 4px; display:flex; justify-content: space-between; gap: 10px;">
+                                    <span>{sender_label}</span>
+                                    <span>{m_date}</span>
+                                </div>
+                                <div style="font-size: 13px; word-break: break-word;">{msg_text}</div>
+                            </div>
+                            """
+
+                    chat_box_html = ""
+                    if selected_user_id:
+                        chat_box_html = f"""
+                        <div style="display: flex; flex-direction: column; height: 100%;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                <h3 style="margin: 0; color: #38bdf8; font-size: 15px;">💬 Aktif Sohbet (ID: {selected_user_id})</h3>
+                                <form action="/admin-close-support" method="POST" style="margin:0;">
+                                    <input type="hidden" name="user_id" value="{selected_user_id}">
+                                    <button type="submit" style="background: #ef4444; padding: 6px 12px; font-size: 11px; width: auto; border-radius: 6px;">🔒 Sohbeti Bitir & Temizle</button>
+                                </form>
+                            </div>
+                            <div style="flex: 1; overflow-y: auto; max-height: 350px; padding-right: 5px; margin-bottom: 12px;">
+                                {messages_html if messages_html else "<p style='text-align:center; color:var(--text-muted);'>Henüz mesaj yok.</p>"}
+                            </div>
+                            <form action="/admin-send-support" method="POST" style="display: flex; gap: 8px; margin: 0;">
                                 <input type="hidden" name="user_id" value="{selected_user_id}">
-                                <button type="submit" style="background: #ef4444; padding: 6px 12px; font-size: 11px; width: auto; border-radius: 6px;">🔒 Sohbeti Bitir & Temizle</button>
+                                <input type="text" name="message" required placeholder="Müşteriye yanıt yazın..." style="margin:0; flex: 1; padding: 10px; font-size: 13px;">
+                                <button type="submit" style="width: auto; background: #10b981; padding: 0 18px; font-size: 13px;">Gönder</button>
                             </form>
                         </div>
-                        <div style="flex: 1; overflow-y: auto; max-height: 350px; padding-right: 5px; margin-bottom: 12px;">
-                            {messages_html if messages_html else "<p style='text-align:center; color:var(--text-muted);'>Henüz mesaj yok.</p>"}
-                        </div>
-                        <form action="/admin-send-support" method="POST" style="display: flex; gap: 8px; margin: 0;">
-                            <input type="hidden" name="user_id" value="{selected_user_id}">
-                            <input type="text" name="message" required placeholder="Müşteriye yanıt yazın..." style="margin:0; flex: 1; padding: 10px; font-size: 13px;">
-                            <button type="submit" style="width: auto; background: #10b981; padding: 0 18px; font-size: 13px;">Gönder</button>
-                        </form>
-                    </div>
-                    """
-                else:
-                    chat_box_html = "<p style='text-align:center; color:var(--text-muted); padding: 30px;'>Lütfen listeden bir sohbet seçin.</p>"
+                        """
+                    else:
+                        chat_box_html = "<p style='text-align:center; color:var(--text-muted); padding: 30px;'>Lütfen listeden bir sohbet seçin.</p>"
 
-                content_html = f"""
-                <div class="support-container">
-                    <div class="chat-main-area">
-                        {chat_box_html}
-                    </div>
-                    <div class="support-sidebar-area">
-                        <h3 style="margin-top: 0; color: var(--text-color); font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px;">👥 Destek Talepleri</h3>
-                        <div style="max-height: 350px; overflow-y: auto;">
-                            {chat_list_html if chat_list_html else "<p style='color:var(--text-muted); font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
+                    content_html = f"""
+                    <div class="support-container">
+                        <div class="chat-main-area">
+                            {chat_box_html}
+                        </div>
+                        <div class="support-sidebar-area">
+                            <h3 style="margin-top: 0; color: var(--text-color); font-size: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 10px;">👥 Destek Talepleri</h3>
+                            <div style="max-height: 350px; overflow-y: auto;">
+                                {chat_list_html if chat_list_html else "<p style='color:var(--text-muted); font-size: 13px;'>Aktif müşteri sohbeti bulunmuyor.</p>"}
+                            </div>
                         </div>
                     </div>
-                </div>
-                <style>
-                    .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
-                    .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                    .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
-                    @media (min-width: 900px) {{
-                        .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
-                        .chat-main-area {{ order: 1; }}
-                        .support-sidebar-area {{ order: 2; }}
-                    }}
-                </style>
-                """
-            elif tab == "broadcast":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                    <style>
+                        .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
+                        .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                        .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                        @media (min-width: 900px) {{
+                            .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
+                            .chat-main-area {{ order: 1; }}
+                            .support-sidebar-area {{ order: 2; }}
+                        }}
+                    </style>
+                    """
+                elif tab == "broadcast":
                     content_html = """
                     <div class="form-box" style="border: 1px solid #38bdf8;">
                         <h2 style="color: #38bdf8; margin-top: 0;">📢 Toplu Duyuru & Kampanya Merkezi (Broadcast)</h2>
@@ -1719,10 +1713,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </form>
                     </div>
                     """
-            elif tab == "promo5g":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "promo5g":
                     cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
                     s_res = cursor.fetchone()
                     is_5g_active = s_res and s_res[0] == "1"
@@ -1740,10 +1731,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </form>
                     </div>
                     """
-            elif tab == "coupons":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "coupons":
                     cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
                     c_rows = cursor.fetchall()
                     c_table = ""
@@ -1776,10 +1764,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                     </div>
                     """
-            elif tab == "users":
-                if current_role != "super_admin" and current_username != "root" and can_view_crm == 0:
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "users":
                     cursor.execute("""
                         SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
                                COUNT(o.id) as total_orders, 
@@ -1863,10 +1848,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </script>
                     """.format(rows_placeholder=table_rows_html)
 
-            elif tab == "admins":
-                if current_role != "super_admin" and current_username != "root":
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "admins":
                     edit_staff_id = query_params.get("edit_id", ["0"])[0]
                     edit_staff_data = None
                     
@@ -1982,102 +1964,102 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-            elif tab == "active":
-                cursor.execute("""
-                    SELECT orders.id, users.username, drops.title, orders.final_price, orders.status, orders.created_at 
-                    FROM orders 
-                    JOIN drops ON orders.drop_id = drops.id 
-                    LEFT JOIN users ON orders.user_id = users.user_id
-                    WHERE orders.status IN ('completed', 'received')
-                    ORDER BY orders.id DESC
-                """)
-                orders = cursor.fetchall()
-                rows = ""
-                for o in orders:
-                    o_id, uname, title, f_price, status, date = o
-                    username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    status_badge = "🟢 Teslim Alındı" if status == 'received' else "🔵 Ödendi / Bekliyor"
-                    rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>{status_badge}</td><td>{date}</td></tr>"
-                
-                content_html = f"""
-                <div class="table-box">
-                    <h2>🟢 Aktif / Tamamlanan & Teslim Alınan Satışlar</h2>
-                    <table>
-                        <tr><th>Sipariş Kodu</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
-                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
-                    </table>
-                </div>
-                """
-            elif tab == "pending":
-                cursor.execute("""
-                    SELECT orders.id, users.username, drops.title, orders.final_price, orders.created_at 
-                    FROM orders 
-                    JOIN drops ON orders.drop_id = drops.id 
-                    LEFT JOIN users ON orders.user_id = users.user_id
-                    WHERE orders.status = 'pending'
-                    ORDER BY orders.id DESC
-                """)
-                pending_orders = cursor.fetchall()
-                rows = ""
-                for o in pending_orders:
-                    o_id, uname, title, f_price, date = o
-                    username_str = f"@{uname}" if uname else "Bulunmuyor"
-                    rows += f"""
-                    <tr>
-                        <td>#{o_id}</td>
-                        <td>{username_str}</td>
-                        <td>{title}</td>
-                        <td>{f_price} USDT</td>
-                        <td>{date}</td>
-                        <td>
-                            <form action="/admin-approve" method="POST" style="margin:0;">
-                                <input type="hidden" name="order_id" value="{o_id}">
-                                <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto;">Zorla Onayla</button>
-                            </form>
-                        </td>
-                    </tr>
+                elif tab == "active":
+                    cursor.execute("""
+                        SELECT orders.id, users.username, drops.title, orders.final_price, orders.status, orders.created_at 
+                        FROM orders 
+                        JOIN drops ON orders.drop_id = drops.id 
+                        LEFT JOIN users ON orders.user_id = users.user_id
+                        WHERE orders.status IN ('completed', 'received')
+                        ORDER BY orders.id DESC
+                    """)
+                    orders = cursor.fetchall()
+                    rows = ""
+                    for o in orders:
+                        o_id, uname, title, f_price, status, date = o
+                        username_str = f"@{uname}" if uname else "Bulunmuyor"
+                        status_badge = "🟢 Teslim Alındı" if status == 'received' else "🔵 Ödendi / Bekliyor"
+                        rows += f"<tr><td>#{o_id} (WEE-{o_id})</td><td>{username_str}</td><td>{title}</td><td>{f_price} USDT</td><td>{status_badge}</td><td>{date}</td></tr>"
+                    
+                    content_html = f"""
+                    <div class="table-box">
+                        <h2>🟢 Aktif / Tamamlanan & Teslim Alınan Satışlar</h2>
+                        <table>
+                            <tr><th>Sipariş Kodu</th><th>Kullanıcı Adı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr>
+                            {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Henüz tamamlanan sipariş yok.</td></tr>"}
+                        </table>
+                    </div>
                     """
-                content_html = f"""
-                <div class="table-box">
-                    <h2>⏳ Bekleyen Siparişler (Manuel Onay)</h2>
-                    <table>
-                        <tr><th>ID</th><th>Kullanıcı</th><th>Ürün</th><th>Tutar</th><th>Tarih</th><th>İşlem</th></tr>
-                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Bekleyen sipariş bulunmuyor.</td></tr>"}
-                    </table>
-                </div>
-                """
-            elif tab == "passive":
-                cursor.execute("SELECT id, title, price, stock, category, description, lat, lon FROM drops WHERE is_sold = 0")
-                drops = cursor.fetchall()
-                rows = ""
-                for d in drops:
-                    d_id, title, price, stock, cat, desc, lat, lon = d
-                    rows += f"""
-                    <tr>
-                        <td>#{d_id}</td>
-                        <td>{title}</td>
-                        <td>{cat or 'Genel'}</td>
-                        <td>{price} USDT</td>
-                        <td>{stock} Adet</td>
-                        <td>
-                            <a href="/admin-edit?id={d_id}" class="action-btn edit-btn">Düzenle</a>
-                        </td>
-                    </tr>
+                elif tab == "pending":
+                    cursor.execute("""
+                        SELECT orders.id, users.username, drops.title, orders.final_price, orders.created_at 
+                        FROM orders 
+                        JOIN drops ON orders.drop_id = drops.id 
+                        LEFT JOIN users ON orders.user_id = users.user_id
+                        WHERE orders.status = 'pending'
+                        ORDER BY orders.id DESC
+                    """)
+                    pending_orders = cursor.fetchall()
+                    rows = ""
+                    for o in pending_orders:
+                        o_id, uname, title, f_price, date = o
+                        username_str = f"@{uname}" if uname else "Bulunmuyor"
+                        rows += f"""
+                        <tr>
+                            <td>#{o_id}</td>
+                            <td>{username_str}</td>
+                            <td>{title}</td>
+                            <td>{f_price} USDT</td>
+                            <td>{date}</td>
+                            <td>
+                                <form action="/admin-approve" method="POST" style="margin:0;">
+                                    <input type="hidden" name="order_id" value="{o_id}">
+                                    <button type="submit" style="background:#10b981; padding:6px 12px; font-size:12px; width:auto;">Zorla Onayla</button>
+                                </form>
+                            </td>
+                        </tr>
+                        """
+                    content_html = f"""
+                    <div class="table-box">
+                        <h2>⏳ Bekleyen Siparişler (Manuel Onay)</h2>
+                        <table>
+                            <tr><th>ID</th><th>Kullanıcı</th><th>Ürün</th><th>Tutar</th><th>Tarih</th><th>İşlem</th></tr>
+                            {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Bekleyen sipariş bulunmuyor.</td></tr>"}
+                        </table>
+                    </div>
                     """
-                content_html = f"""
-                <div class="table-box">
-                    <h2>📦 Pasif / Stoktaki Ürünler</h2>
-                    <table>
-                        <tr><th>Ürün No (ID)</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
-                        {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
-                    </table>
-                </div>
-                """
-            elif tab == "add":
-                if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya (Drop Atma) erişim yetkiniz yok!</h3>"
-                else:
+                elif tab == "passive":
+                    cursor.execute("SELECT id, title, price, stock, category, description, lat, lon FROM drops WHERE is_sold = 0")
+                    drops = cursor.fetchall()
+                    rows = ""
+                    for d in drops:
+                        d_id, title, price, stock, cat, desc, lat, lon = d
+                        rows += f"""
+                        <tr>
+                            <td>#{d_id}</td>
+                            <td>{title}</td>
+                            <td>{cat or 'Genel'}</td>
+                            <td>{price} USDT</td>
+                            <td>{stock} Adet</td>
+                            <td>
+                                <a href="/admin-edit?id={d_id}" class="action-btn edit-btn">Düzenle</a>
+                            </td>
+                        </tr>
+                        """
+                    content_html = f"""
+                    <div class="table-box">
+                        <h2>📦 Pasif / Stoktaki Ürünler</h2>
+                        <table>
+                            <tr><th>Ürün No (ID)</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
+                            {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
+                        </table>
+                    </div>
+                    """
+                elif tab == "add":
                     content_html = """
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
                     <div class="form-box" style="margin:0; border: 1px solid #38bdf8; max-width: 650px;">
                         <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Galeriden Fotoğraflı)</h2>
                         <form action="/admin-add" method="POST" enctype="multipart/form-data" id="addForm">
@@ -2087,8 +2069,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="text" name="category" required placeholder="Kartal">
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" required placeholder="65">
+                            
+                            <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin:</label>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; margin-bottom:8px;">Harita üzerine tıkladığınızda koordinat otomatik doldurulacaktır.</p>
+                            <div id="selectMap" style="width: 100%; height: 220px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
+
                             <label>Koordinat (Örn: 40.8885, 29.1856):</label>
-                            <input type="text" name="coords" required placeholder="40.8885, 29.1856">
+                            <input type="text" id="coordsInput" name="coords" required placeholder="40.8885, 29.1856">
+                            
                             <label>Fotoğraf Seç (Galeriden veya Bilgisayardan):</label>
                             <input type="file" name="photo_file" accept="image/*" required style="background:var(--bg-color); padding:10px; border:1px dashed #38bdf8; border-radius:8px; cursor:pointer; margin-bottom:15px;">
                             <label>Açıklama / İpucu Notu:</label>
@@ -2096,6 +2084,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <button type="submit" style="margin-top: 20px; background:#10b981;">Stoğa Drop Ekle</button>
                         </form>
                     </div>
+
+                    <script>
+                        const pickMap = L.map('selectMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pickMap);
+                        let pickedMarker = null;
+
+                        pickMap.on('click', function(e) {
+                            const lat = e.latlng.lat.toFixed(6);
+                            const lon = e.latlng.lng.toFixed(6);
+                            document.getElementById('coordsInput').value = lat + ', ' + lon;
+
+                            if (pickedMarker) {
+                                pickedMarker.setLatLng(e.latlng);
+                            } else {
+                                pickedMarker = L.marker(e.latlng).addTo(pickMap);
+                            }
+                        });
+                    </script>
                     """
 
             edit_form_html = ""
@@ -2110,6 +2116,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
                         combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
                         edit_form_html = f"""
+                        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
                         <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
                             <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
                             <form action="/admin-update" method="POST" enctype="multipart/form-data">
@@ -2122,8 +2131,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="number" step="0.1" name="price" value="{e_price}" required>
                                 <label>Stok Adedi:</label>
                                 <input type="number" name="stock" value="{e_stock}" required>
+                                
+                                <label style="color: #38bdf8; font-weight: bold;">📍 Konumu Haritadan Seçin:</label>
+                                <div id="editSelectMap" style="width: 100%; height: 220px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
+
                                 <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
-                                <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
+                                <input type="text" id="editCoordsInput" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
+                                
                                 <label>Yeni Fotoğraf:</label>
                                 <input type="file" name="photo_file" accept="image/*" style="margin-bottom:15px;">
                                 <label>Açıklama:</label>
@@ -2131,11 +2145,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
                             </form>
                         </div>
+
+                        <script>
+                            const initLat = {e_lat if e_lat else 41.0082};
+                            const initLon = {e_lon if e_lon else 28.9784};
+                            const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
+                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
+                            
+                            let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
+
+                            editPickMap.on('click', function(e) {{
+                                const lat = e.latlng.lat.toFixed(6);
+                                const lon = e.latlng.lng.toFixed(6);
+                                document.getElementById('editCoordsInput').value = lat + ', ' + lon;
+                                if (editPickedMarker) {{
+                                    editPickedMarker.setLatLng(e.latlng);
+                                }} else {{
+                                    editPickedMarker = L.marker(e.latlng).addTo(editPickMap);
+                                }}
+                            }});
+                        </script>
                         """
 
             conn.close()
 
-            # --- SOL MENÜ YETKİ KONTROLÜ (DÜZELTİLDİ) ---
+            # --- DİNAMİK SOL MENÜ (Yetkiye göre filtreleme) ---
             sidebar_links = ""
             sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
@@ -3058,25 +3092,25 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     deposit_id, target_amount = int(parts[1]), float(parts[2])
 
-    await callback.answer(t["scan"], show_alert=True)
+    await callback.answer("Blokzincir taranıyor, lütfen bekleyin...", show_alert=True)
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT status, created_at FROM deposits WHERE id = ? AND user_id = ?", (deposit_id, user_id))
     dep = cursor.fetchone()
     if not dep:
-        await callback.answer(t["not_found"], show_alert=True)
+        await callback.answer("Kayıt bulunamadı.", show_alert=True)
         conn.close()
         return
     status, created_at_str = dep
     if status == 'completed':
-        await callback.answer(t["already_approved"], show_alert=True)
+        await callback.answer("Bu işlem zaten onaylanmış.", show_alert=True)
         conn.close()
         return
     if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
         cursor.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
         conn.commit()
         conn.close()
-        await callback.message.edit_text(t["time_out"])
+        await callback.message.edit_text("⏱️ Süre doldu.")
         return
 
     api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
@@ -3103,7 +3137,7 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
     else:
         conn.close()
-        await callback.answer(t["wait_tx"], show_alert=True)
+        await callback.answer("Transfer henüz algılanmadı, lütfen birkaç saniye sonra tekrar deneyin.", show_alert=True)
 
 @dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
 async def faq_menu(message: types.Message):
