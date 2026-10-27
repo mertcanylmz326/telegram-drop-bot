@@ -2,6 +2,7 @@ import asyncio
 import sqlite3
 import logging
 import os
+import sys
 import threading
 import aiohttp
 import json
@@ -16,13 +17,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
+DEFAULT_BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
 
-ADMIN_WEB_USERNAME = "*root*"
-ADMIN_WEB_PASSWORD = "*toor*"
+ADMIN_WEB_USERNAME = "root"
+ADMIN_WEB_PASSWORD = "toor"
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
@@ -35,6 +36,167 @@ if not RENDER_EXTERNAL_URL:
     RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
+
+# --- VERİTABANI KURULUMU & DİNAMİK TOKEN OKUMA ---
+def init_db():
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL;")
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS drops (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            price REAL,
+            photo_ids TEXT,
+            description TEXT,
+            stock INTEGER DEFAULT 1,
+            is_sold INTEGER DEFAULT 0,
+            category TEXT DEFAULT 'Genel',
+            lat REAL DEFAULT 0.0,
+            lon REAL DEFAULT 0.0
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            drop_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            final_price REAL DEFAULT 0.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deposits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            amount REAL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS panel_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message TEXT,
+            log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            is_banned INTEGER DEFAULT 0,
+            language TEXT DEFAULT 'tr',
+            balance REAL DEFAULT 0.0,
+            referred_by INTEGER DEFAULT 0,
+            referral_earnings REAL DEFAULT 0.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sender TEXT,
+            message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS coupons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE,
+            discount REAL,
+            uses_left INTEGER DEFAULT 100,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_user TEXT,
+            action_type TEXT,
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('promo_5g_active', '1')")
+    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('bot_token', ?)", (DEFAULT_BOT_TOKEN,))
+    
+    for col, def_val in [
+        ("is_banned", "INTEGER DEFAULT 0"), 
+        ("language", "TEXT DEFAULT 'tr'"), 
+        ("balance", "REAL DEFAULT 0.0"),
+        ("lat", "REAL DEFAULT 0.0"),
+        ("lon", "REAL DEFAULT 0.0"),
+        ("referred_by", "INTEGER DEFAULT 0"),
+        ("referral_earnings", "REAL DEFAULT 0.0")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
+        except:
+            pass
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            role TEXT DEFAULT 'support',
+            can_view_exact_loc INTEGER DEFAULT 0,
+            can_view_wallets INTEGER DEFAULT 0,
+            can_view_crm INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    for col, def_val in [
+        ("can_view_exact_loc", "INTEGER DEFAULT 0"),
+        ("can_view_wallets", "INTEGER DEFAULT 0"),
+        ("can_view_crm", "INTEGER DEFAULT 0")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE admins ADD COLUMN {col} {def_val}")
+        except:
+            pass
+
+    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) VALUES (?, ?, 'super_admin', 1, 1, 1)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD))
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_active_token() -> str:
+    try:
+        conn = sqlite3.connect("drop_bot.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM settings WHERE key = 'bot_token'")
+        res = cursor.fetchone()
+        conn.close()
+        if res and res[0]:
+            return res[0]
+    except:
+        pass
+    return DEFAULT_BOT_TOKEN
+
+BOT_TOKEN = get_active_token()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
@@ -198,152 +360,6 @@ LANG = {
         "banned": "❌ Your access has been restricted."
     }
 }
-
-# --- VERİTABANI KURULUMU ---
-def init_db():
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL;")
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS drops (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            price REAL,
-            photo_ids TEXT,
-            description TEXT,
-            stock INTEGER DEFAULT 1,
-            is_sold INTEGER DEFAULT 0,
-            category TEXT DEFAULT 'Genel',
-            lat REAL DEFAULT 0.0,
-            lon REAL DEFAULT 0.0
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            drop_id INTEGER,
-            status TEXT DEFAULT 'pending',
-            final_price REAL DEFAULT 0.0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS deposits (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            amount REAL,
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS panel_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message TEXT,
-            log_type TEXT DEFAULT 'info',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            is_banned INTEGER DEFAULT 0,
-            language TEXT DEFAULT 'tr',
-            balance REAL DEFAULT 0.0,
-            referred_by INTEGER DEFAULT 0,
-            referral_earnings REAL DEFAULT 0.0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS support_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            sender TEXT,
-            message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS coupons (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE,
-            discount REAL,
-            uses_left INTEGER DEFAULT 100,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS admin_audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            admin_user TEXT,
-            action_type TEXT,
-            details TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        )
-    ''')
-    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('promo_5g_active', '1')")
-    
-    for col, def_val in [
-        ("is_banned", "INTEGER DEFAULT 0"), 
-        ("language", "TEXT DEFAULT 'tr'"), 
-        ("balance", "REAL DEFAULT 0.0"),
-        ("lat", "REAL DEFAULT 0.0"),
-        ("lon", "REAL DEFAULT 0.0"),
-        ("referred_by", "INTEGER DEFAULT 0"),
-        ("referral_earnings", "REAL DEFAULT 0.0")
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
-        except:
-            pass
-
-    # --- ADMINS TABLOSU & GRANULAR İZİNLER ---
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS admins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password TEXT,
-            role TEXT DEFAULT 'support',
-            can_view_exact_loc INTEGER DEFAULT 0,
-            can_view_wallets INTEGER DEFAULT 0,
-            can_view_crm INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    for col, def_val in [
-        ("can_view_exact_loc", "INTEGER DEFAULT 0"),
-        ("can_view_wallets", "INTEGER DEFAULT 0"),
-        ("can_view_crm", "INTEGER DEFAULT 0")
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE admins ADD COLUMN {col} {def_val}")
-        except:
-            pass
-
-    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) VALUES (?, ?, 'super_admin', 1, 1, 1)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD))
-    conn.commit()
-    conn.close()
-
-init_db()
 
 def get_user_lang(user_id: int) -> str:
     conn = sqlite3.connect("drop_bot.db")
@@ -543,7 +559,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if "admin_username=" in cookie:
                 current_username = cookie.split("=")[1].strip()
 
-        # Personel özel izinleri çek
         can_view_exact_loc = 0
         can_view_wallets = 0
         can_view_crm = 0
@@ -1519,6 +1534,36 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
+            elif tab == "token":
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("SELECT value FROM settings WHERE key = 'bot_token'")
+                    t_res = cursor.fetchone()
+                    current_db_token = t_res[0] if t_res else DEFAULT_BOT_TOKEN
+                    masked_token = current_db_token[:6] + "..." + current_db_token[-6:] if len(current_db_token) > 12 else "****************"
+
+                    content_html = f"""
+                    <div class="form-box" style="border: 1px solid #38bdf8; max-width: 600px;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">🔑 Bot Token Yönetimi</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+                            BotFather'dan yeni bir token aldıysanız aşağıya yapıştırabilir veya mevcut token'ınızı güncelleyebilirsiniz. Kaydettiğiniz an bot otomatik olarak yeni token ile yeniden başlatılacaktır.
+                        </p>
+                        <div style="background: var(--card-bg-inner); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border-color);">
+                            <span style="font-size: 12px; color: var(--text-muted);">Aktif Token (Maskelenmiş):</span><br>
+                            <code style="font-size: 14px; color: #10b981; font-weight: bold;">{masked_token}</code>
+                        </div>
+                        <form action="/admin-update-token" method="POST">
+                            <label>Yeni Bot Token (BotFather'dan alın):</label>
+                            <input type="text" name="new_token" required placeholder="Örn: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+                            <button type="submit" style="background: #10b981; margin-top: 15px;">💾 Token'ı Kaydet & Botu Yeniden Başlat</button>
+                        </form>
+                        <div style="margin-top: 20px; font-size: 12px; color: var(--text-muted);">
+                            💡 <b>İpucu:</b> Yeni bot oluşturmak veya token yenilemek için <a href="https://t.me/BotFather" target="_blank" style="color: #38bdf8;">@BotFather</a> adresini ziyaret edebilirsiniz.
+                        </div>
+                    </div>
+                    """
+
             elif tab == "bulk":
                 if current_role != "super_admin":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
@@ -2085,6 +2130,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             if current_role == "super_admin":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
+                sidebar_links += f'<a href="/admin-web?tab=token" class="{"active" if tab == "token" else ""}">🔑 Token Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>'
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
@@ -2349,6 +2395,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         if 'admin_auth=true' not in cookies_str:
             self.send_html_error("Yetkisiz Erişim!")
             return
+
+        if parsed_path.path == "/admin-update-token":
+            new_token = params.get("new_token", [""])[0].strip()
+            if new_token:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE settings SET value = ? WHERE key = 'bot_token'", (new_token,))
+                conn.commit()
+                conn.close()
+                log_audit(ADMIN_WEB_USERNAME, "UPDATE_BOT_TOKEN", "Bot token güncellendi ve sistem yeniden başlatılıyor.")
+                
+                self.send_response(303)
+                self.send_header('Location', '/admin-web?tab=token')
+                self.end_headers()
+                
+                # Sistemi tamamen yeniden başlat (Yeni token ile ayağa kalkması için)
+                def restart_app():
+                    time.sleep(1)
+                    os.execv(sys.executable, [sys.executable] + sys.argv)
+                threading.Thread(target=restart_app, daemon=True).start()
+                return
 
         if parsed_path.path == "/admin-add-staff":
             u_name = params.get("username", [""])[0].strip()
