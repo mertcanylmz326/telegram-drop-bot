@@ -926,7 +926,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
                                         ${{reviewBox}}
                                     </div>`;
-                                });
+                                }});
                             }} else {{
                                 pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
                             }}
