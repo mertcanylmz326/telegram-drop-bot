@@ -283,7 +283,7 @@ LANG = {
         "no_cat_stock": "Bu bölgede aktif ürün kalmadı.",
         "my_orders_title": "📦 **Sipariş Geçmişiniz:**",
         "no_orders": "📦 Henüz bir sipariş geçmişiniz bulunmuyor.",
-        "order_item": "• **Sipariş #{id}** (Kod: `WEE-{id}`) | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
+        "order_item": "• **Sipariş #{id}** (Code: `WEE-{id}`) | {title} - {price} USDT\n  Durum: {status} ({date})\n\n",
         "open_loc": "🔗 Sipariş #{id} Konumunu Aç",
         "sold_out": "⚠️ Bu ürün tükenmiş.",
         "track_prompt": "🔍 Lütfen sorgulamak istediğiniz **Sipariş Kodunu** yazın (Örn: WEE-5 veya sadece 5):",
@@ -2135,6 +2135,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn.close()
 
+            # --- SOL MENÜ YETKİ KONTROLÜ (DÜZELTİLDİ) ---
             sidebar_links = ""
             sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
@@ -2144,8 +2145,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>'
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
 
-            if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1 or current_role == "support":
+            if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1:
                 sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Galeriden)</a>'
+
+            if current_role == "super_admin" or current_username == "root" or can_view_crm == 1:
+                sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
 
             if current_role == "super_admin" or current_username == "root":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
@@ -2154,7 +2158,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
-                sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
 
             dashboard_html = f"""
