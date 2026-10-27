@@ -926,7 +926,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${{po.date}})</p>
                                         ${{reviewBox}}
                                     </div>`;
-                                }});
+                                });
                             }} else {{
                                 pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
                             }}
@@ -2470,7 +2470,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
