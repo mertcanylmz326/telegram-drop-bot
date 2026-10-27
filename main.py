@@ -187,6 +187,10 @@ def init_db():
             pass
 
     cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops) VALUES (?, ?, 'super_admin', 1, 1, 1, 1)", (ADMIN_WEB_USERNAME, hash_pass(ADMIN_WEB_PASSWORD)))
+    
+    # Root kullanıcısının yetkilerini her zaman garantiye alalım
+    cursor.execute("UPDATE admins SET can_view_exact_loc = 1, can_view_wallets = 1, can_view_crm = 1, can_manage_drops = 1 WHERE username = 'root' OR role = 'super_admin'")
+    
     conn.commit()
     conn.close()
 
@@ -212,7 +216,7 @@ main_loop = None
 
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
-    "KADIKÖY": [40.9901, 29.0254],
+    "KADİKÖY": [40.9901, 29.0254],
     "ÜSKÜDAR": [41.0256, 29.0153],
     "ŞİŞLİ": [41.0615, 28.9877],
     "BEYOĞLU": [41.0369, 28.9776],
@@ -557,7 +561,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.close()
             if perm_row:
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = perm_row
-            if current_role == "super_admin":
+            
+            # Root veya super_admin ise tüm yetkileri garanti aç
+            if current_role == "super_admin" or current_username == "root":
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = 1, 1, 1, 1
 
         if parsed_path.path == "/":
@@ -1310,7 +1316,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             tab = query_params.get("tab", ["home"])[0]
 
-            if current_role == "support" and tab not in ["support", "home"]:
+            # Yetki kontrolleri ve yönlendirmeler
+            if current_role == "support" and tab not in ["support", "home", "add", "passive"]:
                 tab = "support"
             elif current_role == "stock_manager" and tab not in ["home", "passive", "add", "active", "pending"]:
                 tab = "passive"
@@ -1480,7 +1487,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     const markers = {{}};
                     {map_markers_js}
 
-                    // Canlı Konum (🧌 Simge) Takibi
                     if (navigator.geolocation) {{
                         navigator.geolocation.watchPosition(function(position) {{
                             const lat = position.coords.latitude;
@@ -1545,7 +1551,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 )
 
             elif tab == "finance":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
@@ -1566,7 +1572,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     """
 
             elif tab == "token":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("SELECT value FROM settings WHERE key = 'bot_token'")
@@ -1589,25 +1595,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <input type="text" name="new_token" required placeholder="Örn: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
                             <button type="submit" style="background: #10b981; margin-top: 15px;">💾 Token'ı Kaydet & Botu Yeniden Başlat</button>
                         </form>
-                        <div style="margin-top: 20px; font-size: 12px; color: var(--text-muted);">
-                            💡 <b>İpucu:</b> Yeni bot oluşturmak veya token yenilemek için <a href="https://t.me/BotFather" target="_blank" style="color: #38bdf8;">@BotFather</a> adresini ziyaret edebilirsiniz.
-                        </div>
                     </div>
                     """
 
             elif tab == "bulk":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #d97706;">
                         <h2 style="color: #d97706; margin-top: 0;">⚡ Toplu Fiyat ve Bölge Güncelleme Araçları</h2>
-                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Belirli bir bölgedeki tüm aktif ürünlerin fiyatlarını tek hamlede güncelleyin veya toplu işlem yapın.</p>
                         <form action="/admin-update-drop-bulk" method="POST">
                             <label>Hedef Bölge / Semt (Örn: KARTAL veya TÜMÜ):</label>
                             <input type="text" name="target_category" required placeholder="KARTAL">
                             <label>Fiyat Değişim Oranı (%) veya Sabit Tutar Artışı (+/-):</label>
-                            <input type="text" name="price_modifier" required placeholder="Örn: +5 veya -10 (veya net fiyat yazın)">
+                            <input type="text" name="price_modifier" required placeholder="Örn: +5 veya -10">
                             <button type="submit" style="background: #d97706; margin-top: 15px;">Bölge Fiyatlarını Toplu Güncelle</button>
                         </form>
                     </div>
@@ -1704,22 +1706,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
                 """
             elif tab == "broadcast":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     content_html = """
                     <div class="form-box" style="border: 1px solid #38bdf8;">
                         <h2 style="color: #38bdf8; margin-top: 0;">📢 Toplu Duyuru & Kampanya Merkezi (Broadcast)</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Botu kullanan tüm kullanıcılara anında duyuru, kampanya veya indirim mesajı fırlatın.</p>
                         <form action="/admin-broadcast" method="POST">
                             <label>Duyuru Mesajı (Markdown destekler):</label>
-                            <textarea name="message" rows="6" required placeholder="🔥 Büyük indirim başladı! Tüm ürünlerde geçerli kupon kodunuz: ..."></textarea>
+                            <textarea name="message" rows="6" required placeholder="🔥 Büyük indirim başladı!"></textarea>
                             <button type="submit" style="background: #2563eb; margin-top: 15px;">🚀 Tüm Kullanıcılara Gönder</button>
                         </form>
                     </div>
                     """
             elif tab == "promo5g":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
@@ -1740,7 +1741,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
             elif tab == "coupons":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
@@ -1753,7 +1754,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     content_html = f"""
                     <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
                         <div class="form-box" style="margin:0; border: 1px solid #10b981;">
-                            <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur & Bot Duyurusu</h2>
+                            <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur</h2>
                             <form action="/admin-add-coupon" method="POST">
                                 <label>Kupon Kodu:</label>
                                 <input type="text" name="code" required placeholder="Örn: YAZ2026">
@@ -1761,7 +1762,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="number" step="0.1" name="discount" required placeholder="10.0">
                                 <label>Kullanım Limiti:</label>
                                 <input type="number" name="uses" value="100" required>
-                                <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet & Botu Ateşle</button>
+                                <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet</button>
                             </form>
                         </div>
                         <div class="table-box" style="margin:0;">
@@ -1776,7 +1777,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
             elif tab == "users":
-                if current_role != "super_admin" and can_view_crm == 0:
+                if current_role != "super_admin" and current_username != "root" and can_view_crm == 0:
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("""
@@ -1863,7 +1864,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     """.format(rows_placeholder=table_rows_html)
 
             elif tab == "admins":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and current_username != "root":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     edit_staff_id = query_params.get("edit_id", ["0"])[0]
@@ -2073,8 +2074,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "add":
-                if current_role != "super_admin" and can_manage_drops == 0:
-                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya (Drop Atma) erişim yetkiniz yok! Lütfen süper adminden 'Drop Personeli' izni isteyin.</h3>"
+                if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya (Drop Atma) erişim yetkiniz yok!</h3>"
                 else:
                     content_html = """
                     <div class="form-box" style="margin:0; border: 1px solid #38bdf8; max-width: 650px;">
@@ -2099,7 +2100,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             edit_form_html = ""
             if tab == "edit":
-                if current_role != "super_admin" and can_manage_drops == 0:
+                if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
                     edit_form_html = "<h3 style='color:red;'>⚠️ Yetkiniz yok!</h3>"
                 else:
                     edit_id = query_params.get("id", ["0"])[0]
@@ -2123,7 +2124,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="number" name="stock" value="{e_stock}" required>
                                 <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
                                 <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
-                                <label>Yeni Fotoğraf (Değiştirmek istemiyorsanız boş bırakın):</label>
+                                <label>Yeni Fotoğraf:</label>
                                 <input type="file" name="photo_file" accept="image/*" style="margin-bottom:15px;">
                                 <label>Açıklama:</label>
                                 <textarea name="description" rows="3" required>{e_desc}</textarea>
@@ -2135,27 +2136,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.close()
 
             sidebar_links = ""
-            if current_role == "support" or can_view_crm == 1 or can_view_wallets == 1 or can_view_exact_loc == 1 or current_role == "super_admin":
-                sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
+            sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
-            if current_role in ["super_admin", "stock_manager"] or can_manage_drops == 1 or can_view_exact_loc == 1:
+            if current_role in ["super_admin", "stock_manager"] or current_username == "root" or can_manage_drops == 1 or can_view_exact_loc == 1:
                 sidebar_links += f'<a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>'
                 sidebar_links += f'<a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>'
                 sidebar_links += f'<a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>'
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
 
-            if current_role == "super_admin" or can_manage_drops == 1:
+            if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1 or current_role == "support":
                 sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Galeriden)</a>'
 
-            if current_role == "super_admin":
+            if current_role == "super_admin" or current_username == "root":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
                 sidebar_links += f'<a href="/admin-web?tab=token" class="{"active" if tab == "token" else ""}">🔑 Token Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>'
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
-                if can_view_crm == 1 or current_role == "super_admin":
-                    sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
+                sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
 
             dashboard_html = f"""
@@ -2213,48 +2212,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
-
-                <script>
-                    function playBeep() {{
-                        try {{
-                            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                            const osc = ctx.createOscillator();
-                            const gain = ctx.createGain();
-                            osc.type = 'sine';
-                            osc.frequency.value = 587.33;
-                            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                            osc.connect(gain);
-                            gain.connect(ctx.destination);
-                            osc.start();
-                            osc.stop(ctx.currentTime + 0.2);
-                        }} catch(e) {{}}
-                    }}
-
-                    // Chrome Masaüstü Bildirimleri
-                    if (Notification.permission !== "granted") {{
-                        Notification.requestPermission();
-                    }}
-
-                    function showDesktopNotification(title, body) {{
-                        if (Notification.permission === "granted") {{
-                            new Notification(title, {{ body: body, icon: 'https://cdn-icons-png.flaticon.com/512/2921/2921822.png' }});
-                        }}
-                    }}
-
-                    let lastUnreadChats = -1;
-                    async function checkNotifications() {{
-                        try {{
-                            const res = await fetch('/api/admin-check-notifications');
-                            const data = await res.json();
-                            if(lastUnreadChats !== -1 && data.unread_chats > lastUnreadChats) {{
-                                playBeep();
-                                showDesktopNotification("💬 Yeni Müşteri Mesajı!", "Müşteri canlı destekten yeni bir mesaj gönderdi.");
-                            }}
-                            lastUnreadChats = data.unread_chats;
-                        }} catch(e) {{}}
-                    }}
-                    setInterval(checkNotifications, 5000);
-                </script>
             </body>
             </html>
             """
@@ -3216,12 +3173,10 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
     await message.answer(t["support_sent"], reply_markup=kb)
 
-# --- ŞİFRE KORUMALI /ADMIN KOMUTU (1881) ---
 @dp.message(Command("admin"))
 async def cmd_admin_start(message: types.Message, state: FSMContext):
     if message.chat.type != "private":
         return
-    
     if is_admin(message.from_user.id):
         await state.set_state(AdminAuth.waiting_password)
         await message.answer("🔒 Lütfen Yönetici Şifresini Giriniz:")
