@@ -795,12 +795,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     tg.expand();
                     
                     let userId = 0;
-                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {{
                         userId = tg.initDataUnsafe.user.id;
-                    } else {
+                    }} else {{
                         const urlParams = new URLSearchParams(window.location.search);
                         userId = urlParams.get('user_id') || 1012940363;
-                    }
+                    }}
 
                     const baseUrl = "{RENDER_EXTERNAL_URL}";
 
@@ -1031,7 +1031,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             opt.value = cat;
                             opt.innerText = "🏙️ " + cat + " Bölgesi";
                             select.appendChild(opt);
-                        });
+                        }});
                     }}
 
                     function initMap(activeOrders, temsilidrops) {{
