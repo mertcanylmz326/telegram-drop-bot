@@ -6,6 +6,7 @@ import sys
 import threading
 import aiohttp
 import json
+import hashlib
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -36,6 +37,12 @@ if not RENDER_EXTERNAL_URL:
     RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
+
+UPLOAD_DIR = "static/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def hash_pass(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # --- VERİTABANI KURULUMU & DİNAMİK TOKEN OKUMA ---
 def init_db():
@@ -94,7 +101,7 @@ def init_db():
             username TEXT,
             is_banned INTEGER DEFAULT 0,
             language TEXT DEFAULT 'tr',
-            balance REAL DEFAULT 0.0,
+            balance REAL DEFAULT 5.0,
             referred_by INTEGER DEFAULT 0,
             referral_earnings REAL DEFAULT 0.0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -143,7 +150,7 @@ def init_db():
     for col, def_val in [
         ("is_banned", "INTEGER DEFAULT 0"), 
         ("language", "TEXT DEFAULT 'tr'"), 
-        ("balance", "REAL DEFAULT 0.0"),
+        ("balance", "REAL DEFAULT 5.0"),
         ("lat", "REAL DEFAULT 0.0"),
         ("lon", "REAL DEFAULT 0.0"),
         ("referred_by", "INTEGER DEFAULT 0"),
@@ -163,6 +170,7 @@ def init_db():
             can_view_exact_loc INTEGER DEFAULT 0,
             can_view_wallets INTEGER DEFAULT 0,
             can_view_crm INTEGER DEFAULT 0,
+            can_manage_drops INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -170,14 +178,15 @@ def init_db():
     for col, def_val in [
         ("can_view_exact_loc", "INTEGER DEFAULT 0"),
         ("can_view_wallets", "INTEGER DEFAULT 0"),
-        ("can_view_crm", "INTEGER DEFAULT 0")
+        ("can_view_crm", "INTEGER DEFAULT 0"),
+        ("can_manage_drops", "INTEGER DEFAULT 0")
     ]:
         try:
             cursor.execute(f"ALTER TABLE admins ADD COLUMN {col} {def_val}")
         except:
             pass
 
-    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) VALUES (?, ?, 'super_admin', 1, 1, 1)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD))
+    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops) VALUES (?, ?, 'super_admin', 1, 1, 1, 1)", (ADMIN_WEB_USERNAME, hash_pass(ADMIN_WEB_PASSWORD)))
     conn.commit()
     conn.close()
 
@@ -201,7 +210,6 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 main_loop = None
 
-# --- İSTANBUL İLÇE KOORDİNATLARI (TEMSİLİ MERKEZLER) ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
     "KADIKÖY": [40.9901, 29.0254],
@@ -253,10 +261,9 @@ async def fetch_wallet_balance(wallet_address):
         logging.error(f"Wallet balance fetch error: {e}")
         return 0.0
 
-# --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
-        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Lütfen dil seçiniz:",
+        "welcome": "👋 Merhaba! Güvenli otomatik teslimat botuna hoş geldiniz. Kayıt olduğunuz için hesabınıza **5$ (USDT) Hoş Geldin Bonusu** eklendi! Lütfen dil seçiniz:",
         "lang_set": "✅ Dil Türkçe olarak ayarlandı.",
         "btn_products": "🛍️ Ürünler / Droplar",
         "btn_orders": "📦 Geçmiş Siparişlerim",
@@ -290,25 +297,14 @@ LANG = {
         "insufficient_balance": "❌ Bakiyeniz yetersiz! Lütfen cüzdanınıza bakiye yükleyin veya doğrudan ödeme yapın.",
         "balance_success": "🎉 Siparişiniz başarıyla onaylandı! {price} USDT bakiyenizden düşüldü.\n\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n👉 [Güvenli Konum Sayfasını Aç]({link})",
         "cancel": "❌ İptal",
-        "invalid_drop": "⚠️ Ürün artık mevcut değil.",
-        "order_created": "✅ Sipariş Oluşturuldu! (Sipariş No: #{id})\n\n📌 Ürün: {title}\n",
-        "wallet_text": "🔒 Giriş Cüzdan Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Ödemeyi yapınca sistem otomatik onaylayacaktır.",
-        "check_btn": "🔄 Ödemeyi Otomatik Kontrol Et",
-        "scan": "Blokzincir taranıyor...",
-        "not_found": "İşlem veya sipariş bulunamadı.",
-        "already_approved": "Zaten onaylanmış.",
-        "expired": "Süresi dolmuş.",
-        "time_out": "⏰ Süre aşımı nedeniyle iptal edildi.",
-        "success_order": "✅ Sipariş #{id} onaylandı. Takip Kodunuz: `WEE-{id}`",
         "success_msg": "🎉 Ödemeniz onaylandı!\n🔑 Sipariş Takip Kodunuz: `WEE-{id}`\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
-        "wait_tx": "⚠️ Henüz transfer yansımadı, blokzincir bekleniyor...",
         "support_ask": "📞 Canlı destek hattına bağlandınız. Lütfen mesajınızı yazın:\n\n*(Sohbeti sonlandırmak için aşağıdaki butonu kullanabilirsiniz)*",
         "support_sent": "✅ Mesajınız canlı destek ekibimize iletildi. Yanıt bekleniyor...",
         "support_closed": "🔒 Canlı destek oturumu sonlandırıldı.",
         "banned": "❌ Erişiminiz engellenmiştir."
     },
     "en": {
-        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. Please select your language:",
+        "welcome": "👋 Hello! Welcome to the secure automated delivery bot. **$5 (USDT) Welcome Bonus** has been added to your account! Please select your language:",
         "lang_set": "✅ Language set to English.",
         "btn_products": "🛍️ Products / Drops",
         "btn_orders": "📦 My Orders",
@@ -342,18 +338,7 @@ LANG = {
         "insufficient_balance": "❌ Insufficient balance! Please deposit funds or pay directly.",
         "balance_success": "🎉 Order successfully approved! {price} USDT deducted from your balance.\n🔑 Order Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
         "cancel": "❌ Cancel",
-        "invalid_drop": "⚠️ Product is no longer available.",
-        "order_created": "✅ Order Created! (Order No: #{id})\n\n📌 Product: {title}\n",
-        "wallet_text": "🔒 Entry Wallet Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. System will auto-approve.",
-        "check_btn": "🔄 Auto-Check Payment",
-        "scan": "Scanning blockchain...",
-        "not_found": "Transaction or order not found.",
-        "already_approved": "Already approved.",
-        "expired": "Expired.",
-        "time_out": "⏰ Canceled due to timeout.",
-        "success_order": "✅ Order #{id} approved. Tracking Code: `WEE-{id}`",
         "success_msg": "🎉 Your payment is approved!\n🔑 Tracking Code: `WEE-{id}`\n\n👉 [Open Secure Location Page]({link})",
-        "wait_tx": "⚠️ Transfer not reflected yet, checking blockchain...",
         "support_ask": "📞 Connected to live support. Type your message below:\n\n*(You can use the button below to end the chat)*",
         "support_sent": "✅ Your message has been sent to our live support team. Waiting for response...",
         "support_closed": "🔒 Live support session has been ended.",
@@ -562,17 +547,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         can_view_exact_loc = 0
         can_view_wallets = 0
         can_view_crm = 0
+        can_manage_drops = 0
 
         if is_logged_in and current_username:
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT can_view_exact_loc, can_view_wallets, can_view_crm FROM admins WHERE username = ?", (current_username,))
+            cursor.execute("SELECT can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops FROM admins WHERE username = ?", (current_username,))
             perm_row = cursor.fetchone()
             conn.close()
             if perm_row:
-                can_view_exact_loc, can_view_wallets, can_view_crm = perm_row
+                can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = perm_row
             if current_role == "super_admin":
-                can_view_exact_loc, can_view_wallets, can_view_crm = 1, 1, 1
+                can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = 1, 1, 1, 1
 
         if parsed_path.path == "/":
             self.send_response(200)
@@ -580,6 +566,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
+
+        if parsed_path.path.startswith("/static/uploads/"):
+            file_path = parsed_path.path.lstrip("/")
+            if os.path.exists(file_path):
+                self.send_response(200)
+                if file_path.endswith(".png"):
+                    self.send_header("Content-type", "image/png")
+                elif file_path.endswith((".jpg", ".jpeg")):
+                    self.send_header("Content-type", "image/jpeg")
+                elif file_path.endswith(".webp"):
+                    self.send_header("Content-type", "image/webp")
+                else:
+                    self.send_header("Content-type", "application/octet-stream")
+                self.end_headers()
+                with open(file_path, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
 
         if parsed_path.path == "/miniapp":
             miniapp_html = """
@@ -1462,8 +1469,32 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         popupAnchor: [0, -18]
                     }});
 
+                    const trollIcon = L.divIcon({{
+                        className: 'custom-troll-marker',
+                        html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
+                        iconSize: [38, 38],
+                        iconAnchor: [19, 19],
+                        popupAnchor: [0, -19]
+                    }});
+
                     const markers = {{}};
                     {map_markers_js}
+
+                    // Canlı Konum (🧌 Simge) Takibi
+                    if (navigator.geolocation) {
+                        navigator.geolocation.watchPosition(function(position) {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            if (window.myLocationMarker) {
+                                window.myLocationMarker.setLatLng([lat, lon]);
+                            } else {
+                                window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
+                                    .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
+                            }
+                        }, function(err) {
+                            console.log("Konum alınamadı: ", err.message);
+                        }, {{ enableHighAccuracy: true }});
+                    }
 
                     function searchMarkerOnMap() {{
                         const id = document.getElementById('searchProductId').value.trim();
@@ -1839,18 +1870,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     edit_staff_data = None
                     
                     if edit_staff_id != "0":
-                        cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm FROM admins WHERE id = ?", (edit_staff_id,))
+                        cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops FROM admins WHERE id = ?", (edit_staff_id,))
                         edit_staff_data = cursor.fetchone()
 
-                    cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm, created_at FROM admins")
+                    cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops, created_at FROM admins")
                     all_staff = cursor.fetchall()
                     
                     staff_rows = ""
                     for st in all_staff:
-                        s_id, s_user, s_role, s_loc, s_wal, s_crm, s_date = st
+                        s_id, s_user, s_role, s_loc, s_wal, s_crm, s_drop, s_date = st
                         loc_badge = "🟢 Açık" if s_loc == 1 else "🔴 Kapalı"
                         wal_badge = "🟢 Açık" if s_wal == 1 else "🔴 Kapalı"
                         crm_badge = "🟢 Açık" if s_crm == 1 else "🔴 Kapalı"
+                        drop_badge = "🟢 Açık" if s_drop == 1 else "🔴 Kapalı"
                         
                         actions = "👑 Root"
                         if s_user != 'root':
@@ -1872,13 +1904,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <td>{loc_badge}</td>
                             <td>{wal_badge}</td>
                             <td>{crm_badge}</td>
+                            <td>{drop_badge}</td>
                             <td>{s_date}</td>
                             <td>{actions}</td>
                         </tr>
                         """
 
                     if edit_staff_data:
-                        es_id, es_user, es_role, es_loc, es_wal, es_crm = edit_staff_data
+                        es_id, es_user, es_role, es_loc, es_wal, es_crm, es_drop = edit_staff_data
                         form_title = f"✏️ Personel Yetkilerini Düzenle ({es_user})"
                         form_action = "/admin-update-staff"
                         hidden_id = f'<input type="hidden" name="id" value="{es_id}">'
@@ -1887,7 +1920,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         btn_text = "Yetkileri Güncelle"
                         cancel_btn = '<a href="/admin-web?tab=admins" style="display:block; text-align:center; background:#475569; color:white; padding:10px; border-radius:8px; text-decoration:none; margin-top:8px; font-weight:bold;">İptal</a>'
                     else:
-                        es_role, es_loc, es_wal, es_crm = "support", 0, 0, 0
+                        es_role, es_loc, es_wal, es_crm, es_drop = "support", 0, 0, 0, 0
                         form_title = "➕ Yeni Personel Ekle & Yetkileri Seç"
                         form_action = "/admin-add-staff"
                         hidden_id = ""
@@ -1922,9 +1955,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         <input type="checkbox" name="can_view_wallets" value="1" {'checked' if es_wal==1 else ''} style="width: auto; margin:0;">
                                         <span>🏦 <b>Cüzdan İzni:</b> Kasa / Cüzdan Bakiyelerini Görebilsin</span>
                                     </label>
-                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px;">
                                         <input type="checkbox" name="can_view_crm" value="1" {'checked' if es_crm==1 else ''} style="width: auto; margin:0;">
                                         <span>👥 <b>CRM İzni:</b> Müşteri CRM listesine erişebilsin</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                        <input type="checkbox" name="can_manage_drops" value="1" {'checked' if es_drop==1 else ''} style="width: auto; margin:0;">
+                                        <span>📦 <b>Drop Personeli:</b> Yeni drop (ürün) atabilsin ve yönetebilsin</span>
                                     </label>
                                 </div>
 
@@ -1936,8 +1973,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <h2 style="margin-top: 0;">📋 Mevcut Personeller & İzinleri</h2>
                             <div style="overflow-x: auto;">
                                 <table>
-                                    <tr><th>ID</th><th>Kullanıcı</th><th>Rol</th><th>Tam Konum</th><th>Cüzdan</th><th>CRM</th><th>Tarih</th><th>İşlem</th></tr>
-                                    {staff_rows if staff_rows else "<tr><td colspan='8' style='text-align:center;'>Başka personel bulunmuyor.</td></tr>"}
+                                    <tr><th>ID</th><th>Kullanıcı</th><th>Rol</th><th>Konum</th><th>Cüzdan</th><th>CRM</th><th>Drop</th><th>Tarih</th><th>İşlem</th></tr>
+                                    {staff_rows if staff_rows else "<tr><td colspan='9' style='text-align:center;'>Başka personel bulunmuyor.</td></tr>"}
                                 </table>
                             </div>
                         </div>
@@ -2036,97 +2073,79 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
                 """
             elif tab == "add":
-                content_html = """
-                <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-box" style="margin:0;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Ürün Ekle</h2>
-                        <form action="/admin-add" method="POST" id="addForm">
+                if current_role != "super_admin" and can_manage_drops == 0:
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya (Drop Atma) erişim yetkiniz yok! Lütfen süper adminden 'Drop Personeli' izni isteyin.</h3>"
+                else:
+                    content_html = """
+                    <div class="form-box" style="margin:0; border: 1px solid #38bdf8; max-width: 650px;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Galeriden Fotoğraflı)</h2>
+                        <form action="/admin-add" method="POST" enctype="multipart/form-data" id="addForm">
                             <label>Ürün Başlığı:</label>
                             <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
                             <label>Semt / İlçe:</label>
                             <input type="text" name="category" required placeholder="Kartal">
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" required placeholder="65">
-                            <label>Stok Adedi:</label>
-                            <input type="number" name="count" id="countInput" value="1" min="1" max="30" required onchange="generateFields()">
-                            <div id="dynamicFields"></div>
-                            <button type="submit" style="margin-top: 20px;">Stoğa Ekle</button>
-                        </form>
-                    </div>
-                    <div class="form-box" style="margin:0; border: 1px solid #10b981;">
-                        <h2 style="color: #10b981; margin-top: 0;">📂 Excel / CSV ile Toplu Ürün Yükleme</h2>
-                        <form action="/admin-bulk-add" method="POST">
-                            <label>Toplu Veri (Her satır bir ürün):</label>
-                            <textarea name="bulk_data" rows="8" required placeholder="Amnesia, Kartal, 65, 1, 40.8885, 29.1856, https://..., Açıklama..."></textarea>
-                            <button type="submit" style="background: #10b981; margin-top: 15px;">📥 Toplu Yüklemeyi Başlat</button>
-                        </form>
-                    </div>
-                </div>
-                <script>
-                    function generateFields() {
-                        const count = document.getElementById('countInput').value;
-                        const container = document.getElementById('dynamicFields');
-                        container.innerHTML = '';
-                        for (let i = 1; i <= count; i++) {
-                            container.innerHTML += `
-                                <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color);">
-                                    <h4 style="color: #38bdf8; margin-top: 0;">📍 Ürün / Konum #${i} Detayları</h4>
-                                    <label style="color: #38bdf8; font-size: 13px;">Koordinat (Örn: 40.8885, 29.1856):</label>
-                                    <input type="text" name="coords_${i}" placeholder="40.8885, 29.1856" style="margin:4px 0 10px 0; padding:10px; font-size:14px;" required>
-                                    <label>Fotoğraf URL'si:</label>
-                                    <input type="text" name="photo_${i}" placeholder="https://...">
-                                    <label>Açıklama / İpucu Notu:</label>
-                                    <textarea name="description_${i}" rows="2" required placeholder="Saksının içinde..."></textarea>
-                                </div>
-                            `;
-                        }
-                    }
-                    window.onload = generateFields;
-                </script>
-                """
-
-            edit_form_html = ""
-            if tab == "edit":
-                edit_id = query_params.get("id", ["0"])[0]
-                cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
-                drop_data = cursor.fetchone()
-                if drop_data:
-                    e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
-                    combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
-                    edit_form_html = f"""
-                    <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
-                        <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
-                        <form action="/admin-update" method="POST">
-                            <input type="hidden" name="id" value="{edit_id}">
-                            <label>Ürün Başlığı:</label>
-                            <input type="text" name="title" value="{e_title}" required>
-                            <label>Semt / İlçe:</label>
-                            <input type="text" name="category" value="{e_cat or 'Genel'}" required>
-                            <label>Fiyat (USDT):</label>
-                            <input type="number" step="0.1" name="price" value="{e_price}" required>
-                            <label>Stok Adedi:</label>
-                            <input type="number" name="stock" value="{e_stock}" required>
-                            <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
-                            <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
-                            <label>Fotoğraf URL'si:</label>
-                            <input type="text" name="photo" value="{e_photo}">
-                            <label>Açıklama:</label>
-                            <textarea name="description" rows="3" required>{e_desc}</textarea>
-                            <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
+                            <label>Koordinat (Örn: 40.8885, 29.1856):</label>
+                            <input type="text" name="coords" required placeholder="40.8885, 29.1856">
+                            <label>Fotoğraf Seç (Galeriden veya Bilgisayardan):</label>
+                            <input type="file" name="photo_file" accept="image/*" required style="background:var(--bg-color); padding:10px; border:1px dashed #38bdf8; border-radius:8px; cursor:pointer; margin-bottom:15px;">
+                            <label>Açıklama / İpucu Notu:</label>
+                            <textarea name="description" rows="3" required placeholder="Saksının arkasında..."></textarea>
+                            <button type="submit" style="margin-top: 20px; background:#10b981;">Stoğa Drop Ekle</button>
                         </form>
                     </div>
                     """
 
+            edit_form_html = ""
+            if tab == "edit":
+                if current_role != "super_admin" and can_manage_drops == 0:
+                    edit_form_html = "<h3 style='color:red;'>⚠️ Yetkiniz yok!</h3>"
+                else:
+                    edit_id = query_params.get("id", ["0"])[0]
+                    cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
+                    drop_data = cursor.fetchone()
+                    if drop_data:
+                        e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
+                        combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
+                        edit_form_html = f"""
+                        <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
+                            <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
+                            <form action="/admin-update" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="id" value="{edit_id}">
+                                <label>Ürün Başlığı:</label>
+                                <input type="text" name="title" value="{e_title}" required>
+                                <label>Semt / İlçe:</label>
+                                <input type="text" name="category" value="{e_cat or 'Genel'}" required>
+                                <label>Fiyat (USDT):</label>
+                                <input type="number" step="0.1" name="price" value="{e_price}" required>
+                                <label>Stok Adedi:</label>
+                                <input type="number" name="stock" value="{e_stock}" required>
+                                <label style="color: #38bdf8; font-size: 13px;">Koordinat:</label>
+                                <input type="text" name="coords" value="{combined_coord}" placeholder="40.8885, 29.1856" required>
+                                <label>Yeni Fotoğraf (Değiştirmek istemiyorsanız boş bırakın):</label>
+                                <input type="file" name="photo_file" accept="image/*" style="margin-bottom:15px;">
+                                <label>Açıklama:</label>
+                                <textarea name="description" rows="3" required>{e_desc}</textarea>
+                                <button type="submit" style="background: #10b981; margin-top: 15px;">Güncellemeyi Kaydet</button>
+                            </form>
+                        </div>
+                        """
+
             conn.close()
 
-            sidebar_links = f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
+            sidebar_links = ""
+            if current_role == "support" or can_view_crm == 1 or can_view_wallets == 1 or can_view_exact_loc == 1 or current_role == "super_admin":
+                sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
-            if current_role in ["super_admin", "stock_manager"]:
+            if current_role in ["super_admin", "stock_manager"] or can_manage_drops == 1 or can_view_exact_loc == 1:
                 sidebar_links += f'<a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>'
                 sidebar_links += f'<a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>'
-                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop / Excel</a>'
                 sidebar_links += f'<a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>'
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
+
+            if current_role == "super_admin" or can_manage_drops == 1:
+                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Galeriden)</a>'
 
             if current_role == "super_admin":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
@@ -2211,6 +2230,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }} catch(e) {{}}
                     }}
 
+                    // Chrome Masaüstü Bildirimleri
+                    if (Notification.permission !== "granted") {{
+                        Notification.requestPermission();
+                    }}
+
+                    function showDesktopNotification(title, body) {{
+                        if (Notification.permission === "granted") {{
+                            new Notification(title, {{ body: body, icon: 'https://cdn-icons-png.flaticon.com/512/2921/2921822.png' }});
+                        }}
+                    }}
+
                     let lastUnreadChats = -1;
                     async function checkNotifications() {{
                         try {{
@@ -2218,6 +2248,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const data = await res.json();
                             if(lastUnreadChats !== -1 && data.unread_chats > lastUnreadChats) {{
                                 playBeep();
+                                showDesktopNotification("💬 Yeni Müşteri Mesajı!", "Müşteri canlı destekten yeni bir mesaj gönderdi.");
                             }}
                             lastUnreadChats = data.unread_chats;
                         }} catch(e) {{}}
@@ -2348,9 +2379,35 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length).decode('utf-8')
-        params = parse_qs(post_data)
+        
+        # Multipart file upload desteği için özel parsing
+        content_type = self.headers.get('Content-Type', '')
+        params = {}
+        file_data = None
+        file_name = None
+
+        if 'multipart/form-data' in content_type:
+            boundary = content_type.split("boundary=")[1].encode()
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            parts = body.split(boundary)
+            for part in parts:
+                if b'Content-Disposition' in part:
+                    header_part, _, data_part = part.partition(b'\r\n\r\n')
+                    data_part = data_part.rstrip(b'\r\n--')
+                    header_str = header_part.decode('utf-8', errors='ignore')
+                    if 'name="' in header_str:
+                        field_name = header_str.split('name="')[1].split('"')[0]
+                        if 'filename="' in header_str:
+                            file_name = header_str.split('filename="')[1].split('"')[0]
+                            if file_name:
+                                file_data = data_part
+                        else:
+                            params[field_name] = [data_part.decode('utf-8', errors='ignore')]
+        else:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
+            params = parse_qs(post_data)
 
         if parsed_path.path == "/api/miniapp-chat-send":
             uid = int(params.get("user_id", ["0"])[0])
@@ -2372,10 +2429,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/admin-login":
             username = params.get("username", [""])[0]
             password = params.get("password", [""])[0]
+            hashed_p = hash_pass(password)
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT role FROM admins WHERE username = ? AND password = ?", (username, password))
+            cursor.execute("SELECT role FROM admins WHERE username = ? AND password = ?", (username, hashed_p))
             admin_row = cursor.fetchone()
             conn.close()
 
@@ -2396,6 +2454,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
+        current_username = ""
+        for cookie in cookies_str.split(";"):
+            if "admin_username=" in cookie:
+                current_username = cookie.split("=")[1].strip()
+
         if parsed_path.path == "/admin-update-token":
             new_token = params.get("new_token", [""])[0].strip()
             if new_token:
@@ -2404,13 +2467,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 cursor.execute("UPDATE settings SET value = ? WHERE key = 'bot_token'", (new_token,))
                 conn.commit()
                 conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "UPDATE_BOT_TOKEN", "Bot token güncellendi ve sistem yeniden başlatılıyor.")
+                log_audit(current_username, "UPDATE_BOT_TOKEN", "Bot token güncellendi ve sistem yeniden başlatılıyor.")
                 
                 self.send_response(303)
                 self.send_header('Location', '/admin-web?tab=token')
                 self.end_headers()
                 
-                # Sistemi tamamen yeniden başlat (Yeni token ile ayağa kalkması için)
                 def restart_app():
                     time.sleep(1)
                     os.execv(sys.executable, [sys.executable] + sys.argv)
@@ -2425,17 +2487,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
             can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
             can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
+            can_drop = 1 if params.get("can_manage_drops", ["0"])[0] == "1" else 0
 
             if u_name and u_pass:
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (u_name, u_pass, u_role, can_loc, can_wal, can_crm))
+                    INSERT INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (u_name, hash_pass(u_pass), u_role, can_loc, can_wal, can_crm, can_drop))
                 conn.commit()
                 conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "ADD_STAFF_PERMS", f"Yeni personel: {u_name} (Loc:{can_loc}, Wal:{can_wal}, CRM:{can_crm})")
+                log_audit(current_username, "ADD_STAFF_PERMS", f"Yeni personel: {u_name}")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=admins')
@@ -2450,6 +2513,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
             can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
             can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
+            can_drop = 1 if params.get("can_manage_drops", ["0"])[0] == "1" else 0
 
             if staff_id != "0" and u_name:
                 conn = sqlite3.connect("drop_bot.db")
@@ -2457,18 +2521,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if u_pass:
                     cursor.execute("""
                         UPDATE admins 
-                        SET username = ?, password = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ? 
+                        SET username = ?, password = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ?, can_manage_drops = ? 
                         WHERE id = ? AND username != 'root'
-                    """, (u_name, u_pass, u_role, can_loc, can_wal, can_crm, staff_id))
+                    """, (u_name, hash_pass(u_pass), u_role, can_loc, can_wal, can_crm, can_drop, staff_id))
                 else:
                     cursor.execute("""
                         UPDATE admins 
-                        SET username = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ? 
+                        SET username = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ?, can_manage_drops = ? 
                         WHERE id = ? AND username != 'root'
-                    """, (u_name, u_role, can_loc, can_wal, can_crm, staff_id))
+                    """, (u_name, u_role, can_loc, can_wal, can_crm, can_drop, staff_id))
                 conn.commit()
                 conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "UPDATE_STAFF_PERMS", f"Personel Güncellendi: {u_name} (Loc:{can_loc}, Wal:{can_wal}, CRM:{can_crm})")
+                log_audit(current_username, "UPDATE_STAFF_PERMS", f"Personel Güncellendi: {u_name}")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=admins')
@@ -2485,7 +2549,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("DELETE FROM admins WHERE id = ? AND username != 'root'", (staff_id,))
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "DELETE_STAFF", f"Personel Silindi: {u_name} (ID: {staff_id})")
+            log_audit(current_username, "DELETE_STAFF", f"Personel Silindi: {u_name}")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=admins')
@@ -2510,7 +2574,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 asyncio.run_coroutine_threadsafe(send_all(), main_loop)
                 log_panel_event(f"📢 Toplu duyuru gönderildi.", "success")
-                log_audit(ADMIN_WEB_USERNAME, "BROADCAST", f"Toplu mesaj gönderildi: {msg_text[:30]}...")
+                log_audit(current_username, "BROADCAST", f"Toplu mesaj gönderildi")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=broadcast')
@@ -2544,7 +2608,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 count_upd += 1
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "BULK_UPDATE", f"Bölge: {target_cat}, Güncellenen ürün: {count_upd}")
+            log_audit(current_username, "BULK_UPDATE", f"Bölge: {target_cat}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=bulk')
             self.end_headers()
@@ -2556,7 +2620,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE settings SET value = ? WHERE key = 'promo_5g_active'", (status,))
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "TOGGLE_5G", f"Durum: {status}")
+            log_audit(current_username, "TOGGLE_5G", f"Durum: {status}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=promo5g')
             self.end_headers()
@@ -2575,34 +2639,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
                 conn.commit()
                 conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "ADD_COUPON", f"Kod: {code}, İndirim: {discount}")
+                log_audit(current_username, "ADD_COUPON", f"Kod: {code}")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=coupons')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-bulk-add":
-            bulk_text = params.get("bulk_data", [""])[0].strip()
-            if bulk_text:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                for line in bulk_text.split("\n"):
-                    parts = [p.strip() for p in line.split(",")]
-                    if len(parts) >= 4:
-                        title, category = parts[0], parts[1]
-                        try:
-                            price, stock = float(parts[2]), int(parts[3])
-                        except:
-                            continue
-                        lat, lon = get_district_coord(category)
-                        desc = parts[6] if len(parts) > 6 else "Güvenli teslimat."
-                        cursor.execute("INSERT INTO drops (title, price, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?)", (title, price, desc, stock, category, lat, lon))
-                conn.commit()
-                conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "BULK_ADD_DROPS", "Toplu ürün eklendi.")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
 
         elif parsed_path.path == "/admin-send-support":
@@ -2615,7 +2655,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'admin', ?)", (target_uid, msg_text))
                     conn.commit()
                     conn.close()
-                    log_audit(ADMIN_WEB_USERNAME, "SUPPORT_REPLY", f"User: {target_uid}")
+                    log_audit(current_username, "SUPPORT_REPLY", f"User: {target_uid}")
 
                     if main_loop:
                         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
@@ -2636,7 +2676,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (target_uid,))
                     conn.commit()
                     conn.close()
-                    log_audit(ADMIN_WEB_USERNAME, "CLOSE_SUPPORT", f"User: {target_uid}")
+                    log_audit(current_username, "CLOSE_SUPPORT", f"User: {target_uid}")
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı."), main_loop)
@@ -2657,7 +2697,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_b, target_uid))
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "BAN_USER", f"User: {target_uid}, Action: {action}")
+            log_audit(current_username, "BAN_USER", f"User: {target_uid}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2674,7 +2714,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "UPDATE_BALANCE", f"User: {target_uid}, New Bal: {new_bal}")
+            log_audit(current_username, "UPDATE_BALANCE", f"User: {target_uid}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
             self.end_headers()
@@ -2684,29 +2724,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             category = params.get("category", ["Genel"])[0]
             try:
                 price = float(params.get("price", [0])[0])
-                count = int(params.get("count", [1])[0])
             except:
-                price, count = 0.0, 1
+                price = 0.0
+
+            coord_raw = params.get("coords", ["0.0, 0.0"])[0]
+            lat, lon = get_district_coord(category)
+            try:
+                if "," in coord_raw:
+                    c_parts = coord_raw.split(",")
+                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+            except:
+                pass
+
+            desc = params.get("description", [""])[0]
+            
+            photo_url = ""
+            if file_data and file_name:
+                safe_filename = f"{int(datetime.now().timestamp())}_{file_name}"
+                saved_path = os.path.join(UPLOAD_DIR, safe_filename)
+                with open(saved_path, "wb") as f:
+                    f.write(file_data)
+                photo_url = f"/{saved_path}"
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            for i in range(1, count + 1):
-                photo = params.get(f"photo_{i}", [""])[0]
-                desc = params.get(f"description_{i}", [""])[0]
-                coord_raw = params.get(f"coords_{i}", ["0.0, 0.0"])[0]
-                lat, lon = get_district_coord(category)
-                try:
-                    if "," in coord_raw:
-                        c_parts = coord_raw.split(",")
-                        lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
-                except:
-                    pass
-
-                if desc:
-                    cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (title, price, photo, desc, 1, category, lat, lon))
+            cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, 1, ?, ?, ?)", (title, price, photo_url, desc, category, lat, lon))
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "ADD_DROP", f"Title: {title}, Count: {count}")
+            log_audit(current_username, "ADD_DROP", f"Title: {title}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2730,15 +2775,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             except:
                 pass
 
-            photo = params.get("photo", [""])[0]
             description = params.get("description", [""])[0]
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo, description, lat, lon, drop_id))
+
+            if file_data and file_name:
+                safe_filename = f"{int(datetime.now().timestamp())}_{file_name}"
+                saved_path = os.path.join(UPLOAD_DIR, safe_filename)
+                with open(saved_path, "wb") as f:
+                    f.write(file_data)
+                photo_url = f"/{saved_path}"
+                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo_url, description, lat, lon, drop_id))
+            else:
+                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, description, lat, lon, drop_id))
+
             conn.commit()
             conn.close()
-            log_audit(ADMIN_WEB_USERNAME, "UPDATE_DROP", f"ID: {drop_id}")
+            log_audit(current_username, "UPDATE_DROP", f"ID: {drop_id}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
@@ -2773,7 +2827,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     conn.commit()
                     conn.close()
-                    log_audit(ADMIN_WEB_USERNAME, "MANUAL_APPROVE", f"Order: {order_id}")
+                    log_audit(current_username, "MANUAL_APPROVE", f"Order: {order_id}")
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
@@ -2890,7 +2944,7 @@ async def cmd_start(message: types.Message):
     existing_user = cursor.fetchone()
     
     if not existing_user:
-        cursor.execute("INSERT INTO users (user_id, username, referred_by) VALUES (?, ?, ?)", (user_id, message.from_user.username, referrer_id))
+        cursor.execute("INSERT INTO users (user_id, username, balance, referred_by) VALUES (?, ?, 5.0, ?)", (user_id, message.from_user.username, referrer_id))
         conn.commit()
         if referrer_id > 0:
             try:
@@ -2903,7 +2957,7 @@ async def cmd_start(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
     ])
-    await message.answer(LANG[lang]["welcome"], reply_markup=kb)
+    await message.answer(LANG[lang]["welcome"], reply_markup=kb, parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("setlang_"))
 async def set_language(callback: types.CallbackQuery):
@@ -2913,7 +2967,7 @@ async def set_language(callback: types.CallbackQuery):
     t = LANG[new_lang]
     await callback.answer()
     await callback.message.edit_text(t["lang_set"])
-    await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang))
+    await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang), parse_mode="Markdown")
 
 @dp.message(F.text.in_([LANG["tr"]["btn_lang"], LANG["en"]["btn_lang"]]))
 async def change_lang_menu(message: types.Message):
@@ -3155,7 +3209,7 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)", (user_id, username))
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, username, balance) VALUES (?, ?, 5.0)", (user_id, username))
     cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (user_id, user_msg))
     conn.commit()
     conn.close()
