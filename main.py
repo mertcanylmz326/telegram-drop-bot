@@ -7,6 +7,7 @@ import threading
 import aiohttp
 import json
 import hashlib
+import time
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -44,7 +45,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & YORUM TABLOSU ---
+# --- VERİTABANI KURULUMU & OYUN TABLOSU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -135,6 +136,17 @@ def init_db():
             code TEXT UNIQUE,
             discount REAL,
             uses_left INTEGER DEFAULT 100,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS game_spins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            game_type TEXT,
+            week_identifier TEXT,
+            reward_text TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -541,7 +553,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (ÇARK & KAZI KAZAN DAHİL) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -668,9 +680,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
+                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans Oyunları</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
                     <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet Et</button>
-                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş & Yorum</button>
+                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
@@ -689,6 +702,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div id="tabProducts" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
                     <div id="productsList"><div class="skeleton"></div></div>
+                </div>
+
+                <div id="tabGames" class="tab-content">
+                    <div class="card" style="border: 1px solid var(--accent-blue);">
+                        <h3 style="color: var(--accent-blue); margin-top:0;">🎡 Şans Çarkı (Haftada 2 Hak)</h3>
+                        <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz ödülü kap!</p>
+                        <div class="wheel-container" style="text-align:center; position:relative; margin:15px 0;">
+                            <div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:16px solid #f8fafc; position:absolute; top:-10px; left:calc(50% - 8px); z-index:10;"></div>
+                            <div class="wheel" id="wheelEl" style="width:180px; height:180px; border-radius:50%; border:6px solid #38bdf8; margin:0 auto; transition:transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); background: conic-gradient(#ef4444 0deg 72deg, #f59e0b 72deg 144deg, #10b981 144deg 216deg, #3b82f6 216deg 288deg, #8b5cf6 288deg 360deg);"></div>
+                        </div>
+                        <button onclick="spinGame('wheel')" id="spinBtn" style="background:var(--accent-green);">Çarkı Çevir</button>
+                        <div id="wheelResult" style="margin-top:10px; font-weight:bold; text-align:center; color:var(--accent-green);"></div>
+                    </div>
+
+                    <div class="card" style="border: 1px solid #f59e0b;">
+                        <h3 style="color: #f59e0b; margin-top:0;">🎫 Kazı Kazan (Haftada 2 Hak)</h3>
+                        <p style="font-size: 11px; color: var(--text-muted);">3 kutudan birini seç ve şansını dene!</p>
+                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:15px 0;">
+                            <div class="scratch-card" onclick="scratchBox(0)" id="sc0" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(1)" id="sc1" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(2)" id="sc2" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
+                        </div>
+                        <div id="scratchResult" style="margin-top:10px; font-weight:bold; text-align:center; color:#f59e0b;"></div>
+                    </div>
                 </div>
 
                 <div id="tabWallet" class="tab-content">
@@ -873,6 +910,52 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         } catch(e) {
                             console.error(e);
                         }
+                    }
+
+                    async function spinGame(gameType) {
+                        const btn = document.getElementById('spinBtn');
+                        btn.disabled = true;
+                        triggerHaptic('heavy');
+                        try {
+                            const res = await fetch('/api/miniapp-spin', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&game_type=${gameType}`
+                            });
+                            const data = await res.json();
+                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
+                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
+                            setTimeout(() => {
+                                document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
+                                alert("🎉 Tebrikler! Kazandınız: " + data.reward);
+                            }, 4000);
+                        } catch(e) { alert("Hata oluştu."); btn.disabled = false; }
+                    }
+
+                    async function scratchBox(idx) {
+                        triggerHaptic('medium');
+                        try {
+                            const res = await fetch('/api/miniapp-spin', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&game_type=scratch`
+                            });
+                            const data = await res.json();
+                            if(!data.success) return alert(data.message);
+
+                            for(let i=0; i<3; i++) {
+                                const card = document.getElementById('sc' + i);
+                                if(i === idx) {
+                                    card.innerText = data.reward;
+                                    card.style.background = "#059669";
+                                } else {
+                                    card.innerText = "Boş";
+                                    card.style.background = "#374151";
+                                }
+                            }
+                            document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
+                            alert("🎉 Kazı kazandan kazandın: " + data.reward);
+                        } catch(e) { alert("Hata oluştu."); }
                     }
 
                     async function submitReview(orderId) {
@@ -1166,6 +1249,54 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        # --- ÇARK & KAZI KAZAN API ROTOSU ---
+        if parsed_path.path == "/api/miniapp-spin":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length).decode('utf-8')
+            params = parse_qs(post_data)
+            uid = int(params.get("user_id", [0])[0])
+            game_type = params.get("game_type", ["wheel"])[0]
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            current_week = datetime.now().strftime("%Y-W%V")
+            
+            cursor.execute("SELECT id FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
+            if cursor.fetchone():
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki hakkınızı kullandınız!"}).encode("utf-8"))
+                return
+
+            import random
+            rewards = [
+                {"text": "1 Gram Weed", "deg": 36, "chance": 5},
+                {"text": "1 Adet Joint", "deg": 108, "chance": 10},
+                {"text": "%5 İndirim", "deg": 180, "chance": 25},
+                {"text": "%3 İndirim", "deg": 252, "chance": 30},
+                {"text": "%1 İndirim", "deg": 324, "chance": 30}
+            ]
+            rand = random.randint(1, 100)
+            cum = 0
+            sel = rewards[-1]
+            for r in rewards:
+                cum += r["chance"]
+                if rand <= cum:
+                    sel = r
+                    break
+
+            cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, game_type, current_week, sel["text"]))
+            conn.commit()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
             return
 
         if parsed_path.path == "/api/miniapp-buy":
@@ -2541,7 +2672,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
 
-        # --- YORUM YAP & 5 DOLAR KAZAN API ---
         if parsed_path.path == "/api/miniapp-review":
             uid = int(params.get("user_id", ["0"])[0])
             oid = int(params.get("order_id", ["0"])[0])
