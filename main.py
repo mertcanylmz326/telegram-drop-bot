@@ -44,7 +44,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & DİNAMİK TOKEN OKUMA ---
+# --- VERİTABANI KURULUMU & YORUM TABLOSU ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -72,6 +72,17 @@ def init_db():
             drop_id INTEGER,
             status TEXT DEFAULT 'pending',
             final_price REAL DEFAULT 0.0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS order_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            user_id INTEGER,
+            review_text TEXT,
+            reward_given INTEGER DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -659,7 +670,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
                     <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet Et</button>
-                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
+                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş & Yorum</button>
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
@@ -708,7 +719,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <div id="tabOrders" class="tab-content">
-                    <h3 style="color: var(--accent-blue); margin-top:0;">📦 Tamamlanan / Geçmiş Siparişlerim</h3>
+                    <h3 style="color: var(--accent-blue); margin-top:0;">📦 Geçmiş Siparişler & Yorumla 5$ Kazan</h3>
                     <div id="pastOrdersList"><div class="skeleton"></div></div>
                 </div>
 
@@ -836,19 +847,57 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             let pastHtml = "";
                             if(data.past_orders.length > 0) {
                                 data.past_orders.forEach(po => {
+                                    let reviewBox = "";
+                                    if(po.has_reviewed) {
+                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${po.review_text}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
+                                    } else {
+                                        reviewBox = `
+                                        <div style="margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;">
+                                            <input type="text" id="reviewInput_${po.id}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
+                                            <button onclick="submitReview(${po.id})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
+                                        </div>`;
+                                    }
+
                                     pastHtml += `
-                                    <div class="card" style="opacity:0.8;">
+                                    <div class="card" style="opacity:0.9;">
                                         <h4 style="margin:0;">Sipariş #${po.id} - ${po.title}</h4>
                                         <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${po.date})</p>
+                                        ${reviewBox}
                                     </div>`;
                                 });
                             } else {
-                                pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz geçmiş siparişiniz bulunmuyor.</p>`;
+                                pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
                             }
                             document.getElementById('pastOrdersList').innerHTML = pastHtml;
 
                         } catch(e) {
                             console.error(e);
+                        }
+                    }
+
+                    async function submitReview(orderId) {
+                        const txtInput = document.getElementById('reviewInput_' + orderId);
+                        const reviewText = txtInput.value.trim();
+                        if(!reviewText) {
+                            alert("Lütfen bir yorum yazın.");
+                            return;
+                        }
+                        triggerHaptic('heavy');
+                        try {
+                            const res = await fetch('/api/miniapp-review', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&order_id=${orderId}&review=${encodeURIComponent(reviewText)}`
+                            });
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("🎉 Harika! Yorumunuz kaydedildi ve hesabınıza 5$ (USDT) bakiye eklendi!");
+                                location.reload();
+                            } else {
+                                alert("❌ Hata: " + (data.message || "İşlem başarısız."));
+                            }
+                        } catch(e) {
+                            alert("Bağlantı hatası oluştu.");
                         }
                     }
 
@@ -1086,7 +1135,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 ORDER BY orders.id DESC
             """, (uid,))
             past_orders_rows = cursor.fetchall()
-            past_orders = [{"id": r[0], "title": r[1], "date": r[2]} for r in past_orders_rows]
+            past_orders = []
+            for r in past_orders_rows:
+                po_id = r[0]
+                cursor.execute("SELECT review_text FROM order_reviews WHERE order_id = ? AND user_id = ?", (po_id, uid))
+                rev_row = cursor.fetchone()
+                has_rev = rev_row is not None
+                rev_txt = rev_row[0] if rev_row else ""
+                past_orders.append({"id": po_id, "title": r[1], "date": r[2], "has_reviewed": has_rev, "review_text": rev_txt})
 
             cursor.execute("SELECT id, title, price, category, stock FROM drops WHERE is_sold = 0 AND stock > 0")
             temsili_rows = cursor.fetchall()
@@ -2235,7 +2291,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn.close()
 
-            # --- DİNAMİK SOL MENÜ (Yetkiye göre filtreleme) ---
             sidebar_links = ""
             sidebar_links += f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
@@ -2281,7 +2336,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     }}
                     body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
                     
-                    /* --- MOBİL UYUMLU ŞIK SOL MENÜ --- */
                     .sidebar {{ width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }}
                     .sidebar .brand {{ font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }}
                     .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
@@ -2290,7 +2344,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }}
                     .logout-link:hover {{ background: #ef4444 !important; color: white !important; }}
 
-                    /* --- ANA İÇERİK & PREMIUM KARTLAR --- */
                     .main-content {{ flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }}
                     .header-title {{ color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }}
                     
@@ -2487,6 +2540,54 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
+
+        # --- YORUM YAP & 5 DOLAR KAZAN API ---
+        if parsed_path.path == "/api/miniapp-review":
+            uid = int(params.get("user_id", ["0"])[0])
+            oid = int(params.get("order_id", ["0"])[0])
+            review_text = params.get("review", [""])[0].strip()
+
+            if not uid or not oid or not review_text:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Eksik bilgi."}).encode("utf-8"))
+                return
+
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT id FROM orders WHERE id = ? AND user_id = ? AND status = 'received'", (oid, uid))
+            order_check = cursor.fetchone()
+            if not order_check:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Sipariş bulunamadı veya henüz teslim alınmadı."}).encode("utf-8"))
+                return
+
+            cursor.execute("SELECT id FROM order_reviews WHERE order_id = ? AND user_id = ?", (oid, uid))
+            rev_check = cursor.fetchone()
+            if rev_check:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Bu sipariş için zaten yorum yaptınız."}).encode("utf-8"))
+                return
+
+            cursor.execute("INSERT INTO order_reviews (order_id, user_id, review_text) VALUES (?, ?, ?)", (oid, uid, review_text))
+            cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (uid,))
+            conn.commit()
+            conn.close()
+
+            log_panel_event(f"💬 Kullanıcı {uid} sipariş #{oid} için yorum yaptı ve 5$ kazandı.", "success")
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            return
 
         if parsed_path.path == "/api/miniapp-chat-send":
             uid = int(params.get("user_id", ["0"])[0])
