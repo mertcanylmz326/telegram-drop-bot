@@ -1627,7 +1627,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
                 """
-            # YENİ ÖZELLİK 3: Kullanıcı CRM ve Detaylı Profil Modal Penceresi Entegrasyonu
+            # YENİ ÖZELLİK 3: Kullanıcı CRM ve Detaylı Profil Modal Penceresi Entegrasyonu (F-String Hatasından Arındırılmış)
             elif tab == "users":
                 cursor.execute("""
                     SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
@@ -1664,12 +1664,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;'>Profil Detay</button>"
                     rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{profile_btn} {ban_btn}</td></tr>"
 
-                content_html = f"""
+                table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"
+
+                content_html = """
                 <div class="table-box" style="border: 1px solid #38bdf8;">
                     <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
                     <table>
                         <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Ref Kazancı</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
-                        {rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"}
+                        {rows_placeholder}
                     </table>
                 </div>
 
@@ -1689,17 +1691,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         try {
                             const res = await fetch('/api/admin-user-detail?user_id=' + uid);
                             const data = await res.json();
-                            let html = `<p><b>ID:</b> ${data.user_id} | <b>Username:</b> @${data.username || 'N/A'}</p>`;
-                            html += `<p><b>Bakiye:</b> ${data.balance} USDT | <b>Ref Kazancı:</b> ${data.ref_earnings} USDT</p>`;
-                            html += `<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>`;
+                            let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
+                            html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
+                            html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
                             if(data.orders.length > 0) {
-                                data.orders.forEach(o => { html += `<li>#${o.id} - ${o.title} (${o.price} USDT) - <b>${o.status}</b></li>`; });
-                            } else { html += `<li>Sipariş yok.</li>`; }
-                            html += `</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>`;
+                                data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
+                            } else { html += '<li>Sipariş yok.</li>'; }
+                            html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
                             if(data.deposits.length > 0) {
-                                data.deposits.forEach(d => { html += `<li>${d.amount} USDT - <b>${d.status}</b> (${d.date})</li>`; });
-                            } else { html += `<li>Yükleme yok.</li>`; }
-                            html += `</ul>`;
+                                data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
+                            } else { html += '<li>Yükleme yok.</li>'; }
+                            html += '</ul>';
                             document.getElementById('modalBody').innerHTML = html;
                         } catch(e) {
                             document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
@@ -1709,7 +1711,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         document.getElementById('userModal').style.display = 'none';
                     }
                 </script>
-                """
+                """.format(rows_placeholder=table_rows_html)
+
             elif tab == "active":
                 cursor.execute("""
                     SELECT orders.id, users.username, drops.title, orders.final_price, orders.status, orders.created_at 
