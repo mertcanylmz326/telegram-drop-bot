@@ -21,8 +21,8 @@ ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
 
-ADMIN_WEB_USERNAME = "root"
-ADMIN_WEB_PASSWORD = "toor"
+ADMIN_WEB_USERNAME = "root*"
+ADMIN_WEB_PASSWORD = "toor*"
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
@@ -315,16 +315,31 @@ def init_db():
         except:
             pass
 
+    # --- ADMINS TABLOSU & GRANULAR İZİNLER ---
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT,
             role TEXT DEFAULT 'support',
+            can_view_exact_loc INTEGER DEFAULT 0,
+            can_view_wallets INTEGER DEFAULT 0,
+            can_view_crm INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role) VALUES (?, ?, ?)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD, 'super_admin'))
+
+    for col, def_val in [
+        ("can_view_exact_loc", "INTEGER DEFAULT 0"),
+        ("can_view_wallets", "INTEGER DEFAULT 0"),
+        ("can_view_crm", "INTEGER DEFAULT 0")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE admins ADD COLUMN {col} {def_val}")
+        except:
+            pass
+
+    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) VALUES (?, ?, 'super_admin', 1, 1, 1)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD))
     conn.commit()
     conn.close()
 
@@ -521,9 +536,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         is_logged_in = 'admin_auth=true' in cookies_str
 
         current_role = "support"
+        current_username = ""
         for cookie in cookies_str.split(";"):
             if "admin_role=" in cookie:
                 current_role = cookie.split("=")[1].strip()
+            if "admin_username=" in cookie:
+                current_username = cookie.split("=")[1].strip()
+
+        # Personel özel izinleri çek
+        can_view_exact_loc = 0
+        can_view_wallets = 0
+        can_view_crm = 0
+
+        if is_logged_in and current_username:
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT can_view_exact_loc, can_view_wallets, can_view_crm FROM admins WHERE username = ?", (current_username,))
+            perm_row = cursor.fetchone()
+            conn.close()
+            if perm_row:
+                can_view_exact_loc, can_view_wallets, can_view_crm = perm_row
+            if current_role == "super_admin":
+                can_view_exact_loc, can_view_wallets, can_view_crm = 1, 1, 1
 
         if parsed_path.path == "/":
             self.send_response(200)
@@ -1278,12 +1312,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 map_markers_js = ""
                 for ad in active_drops_for_map:
                     d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
-                    lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
-                    lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
-                    map_markers_js += f"""
-                    markers[{d_id}] = L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
-                        .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
-                    """
+                    
+                    # --- HARİTADA TAM KONUM İZİN KONTROLÜ ---
+                    if can_view_exact_loc == 1:
+                        lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
+                        lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
+                        map_markers_js += f"""
+                        markers[{d_id}] = L.marker([{lat}, {lon}], {{icon: weedIcon}}).addTo(map)
+                            .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
+                        """
+                    else:
+                        # Yetkisi yoksa müşteri gibi sadece ilçe merkezinde temsili mavi çember gösterilir!
+                        coord = get_district_coord(d_cat)
+                        map_markers_js += f"""
+                        L.circle([{coord[0]}, {coord[1]}], {{
+                            color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, radius: 1200
+                        }}).addTo(map).bindPopup("<b>Bölge: {d_cat}</b><br>Ürün: {d_title}<br>Stok: {d_stock} Adet<br><span style='color:orange;'>⚠️ Tam konum yetkiniz bulunmamaktadır.</span>");
+                        """
 
                 cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 10")
                 logs = cursor.fetchall()
@@ -1307,12 +1352,50 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                loop.close()
+                w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
+                if can_view_wallets == 1:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                    w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                    w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                    loop.close()
+
+                wallet_section_html = ""
+                if can_view_wallets == 1:
+                    wallet_section_html = f"""
+                    <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
+                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                                <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+                                    📥 1. Giriş Hesabı (Bot)
+                                    <button onclick="copyText('{CRYPTO_WALLET}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                </h4>
+                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
+                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{CRYPTO_WALLET}`</p>
+                            </div>
+                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
+                                <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
+                                    🔄 2. Çıkış / Ara Hesap (Bitay)
+                                    <button onclick="copyText('{EXIT_WALLET}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                </h4>
+                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
+                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{EXIT_WALLET}`</p>
+                            </div>
+                            <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
+                                <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
+                                    💰 3. Ana Birikim / Kasa
+                                    <button onclick="copyText('{MAIN_SAVINGS_WALLET}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
+                                </h4>
+                                <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
+                                <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{MAIN_SAVINGS_WALLET}`</p>
+                            </div>
+                        </div>
+                    </div>
+                    """
+
+                exact_badge = "<span style='font-size: 11px; background: #10b981; padding: 4px 8px; border-radius: 6px; color: white;'>🟢 Tam Konum İzni Açık</span>" if can_view_exact_loc == 1 else "<span style='font-size: 11px; background: #d97706; padding: 4px 8px; border-radius: 6px; color: white;'>🔒 Sadece Temsili Bölge Görünümü (Müşteri Modu)</span>"
 
                 home_template = """
                 <div class="stats-grid">
@@ -1322,9 +1405,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px;">
-                        🗺️ İstanbul Aktif Konum Haritası 
-                        <span style="font-size: 11px; background: var(--card-bg-inner); padding: 4px 10px; border-radius: 6px; color: var(--text-muted);">Ürün No ile Arama</span>
+                    <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        🗺️ İstanbul Aktif Konum Haritası {exact_badge}
                     </h2>
                     <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                         <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); padding: 10px; font-size: 14px;">
@@ -1333,35 +1415,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
                 </div>
 
-                <div class="form-box" style="margin-bottom: 30px; border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
-                                📥 1. Giriş Hesabı (Bot)
-                                <button onclick="copyText('{crypto_wallet}')" style="background:#2563eb; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                            </h4>
-                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{crypto_wallet}`</p>
-                        </div>
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
-                            <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
-                                🔄 2. Çıkış / Ara Hesap (Bitay)
-                                <button onclick="copyText('{exit_wallet}')" style="background:#d97706; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                            </h4>
-                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{exit_wallet}`</p>
-                        </div>
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
-                                💰 3. Ana Birikim / Kasa
-                                <button onclick="copyText('{main_savings_wallet}')" style="background:#10b981; border:none; padding:3px 8px; font-size:10px; border-radius:4px; cursor:pointer; color:white; width:auto;">Kopyala</button>
-                            </h4>
-                            <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
-                            <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{main_savings_wallet}`</p>
-                        </div>
-                    </div>
-                </div>
+                {wallet_section_html}
 
                 <div class="grid-2">
                     <div class="table-box">
@@ -1404,7 +1458,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             map.setView(markers[id].getLatLng(), 16);
                             markers[id].openPopup();
                         }} else {{
-                            alert("Bu numaraya ait aktif harita konumu bulunamadı!");
+                            alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
                         }}
                     }}
 
@@ -1438,12 +1492,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     total_revenue=total_revenue,
                     total_active_stock=total_active_stock,
                     total_drops=total_drops,
-                    crypto_wallet=CRYPTO_WALLET,
-                    exit_wallet=EXIT_WALLET,
-                    main_savings_wallet=MAIN_SAVINGS_WALLET,
-                    w1_bal=w1_bal,
-                    w2_bal=w2_bal,
-                    w3_bal=w3_bal,
+                    exact_badge=exact_badge,
+                    wallet_section_html=wallet_section_html,
                     logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
                     map_markers_js=map_markers_js,
                     labels_json=json.dumps(labels),
@@ -1652,7 +1702,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
             elif tab == "users":
-                if current_role != "super_admin":
+                if current_role != "super_admin" and can_view_crm == 0:
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
                     cursor.execute("""
@@ -1742,22 +1792,26 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if current_role != "super_admin":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
-                    cursor.execute("SELECT id, username, role, created_at FROM admins")
+                    cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm, created_at FROM admins")
                     all_staff = cursor.fetchall()
                     staff_rows = ""
                     for st in all_staff:
-                        s_id, s_user, s_role, s_date = st
+                        s_id, s_user, s_role, s_loc, s_wal, s_crm, s_date = st
+                        loc_badge = "🟢 Açık" if s_loc == 1 else "🔴 Kapalı"
+                        wal_badge = "🟢 Açık" if s_wal == 1 else "🔴 Kapalı"
+                        crm_badge = "🟢 Açık" if s_crm == 1 else "🔴 Kapalı"
+                        
                         staff_rows += f"""
                         <tr>
                             <td>#{s_id}</td>
                             <td><b>{s_user}</b></td>
                             <td><span style="color:#38bdf8;">{s_role}</span></td>
+                            <td>{loc_badge}</td>
+                            <td>{wal_badge}</td>
+                            <td>{crm_badge}</td>
                             <td>{s_date}</td>
                             <td>
-                                <form action="/admin-delete-staff" method="POST" style="margin:0;">
-                                    <input type="hidden" name="id" value="{s_id}">
-                                    <button type="submit" style="background:#ef4444; padding:5px 10px; font-size:12px; width:auto;">Sil</button>
-                                </form>
+                                {f'<form action="/admin-delete-staff" method="POST" style="margin:0;"><input type="hidden" name="id" value="{s_id}"><button type="submit" style="background:#ef4444; padding:5px 10px; font-size:12px; width:auto;">Sil</button></form>' if s_user != 'root' else '👑 Root'}
                             </td>
                         </tr>
                         """
@@ -1765,27 +1819,46 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     content_html = f"""
                     <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
                         <div class="form-box" style="margin:0; border: 1px solid #38bdf8;">
-                            <h2 style="color: #38bdf8; margin-top: 0;">➕ Yeni Personel / Alt Admin Ekle</h2>
+                            <h2 style="color: #38bdf8; margin-top: 0;">➕ Yeni Personel Ekle & Yetkileri Seç</h2>
                             <form action="/admin-add-staff" method="POST">
                                 <label>Kullanıcı Adı:</label>
                                 <input type="text" name="username" required placeholder="Örn: destek_mehmet">
                                 <label>Giriş Şifresi:</label>
                                 <input type="password" name="password" required placeholder="******">
-                                <label>Erişim Yetkisi / Rolü:</label>
+                                <label>Varsayılan Rol:</label>
                                 <select name="role" style="width:100%; padding:10px; background:#090d16; color:white; border:1px solid #1f2937; border-radius:8px; margin-bottom:15px;">
-                                    <option value="support">💬 Canlı Destek Personeli (Sadece Chat)</option>
-                                    <option value="stock_manager">📦 Stok & Depo Sorumlusu (Ürün/Konum Ekleme)</option>
+                                    <option value="support">💬 Canlı Destek Personeli</option>
+                                    <option value="stock_manager">📦 Stok Sorumlusu</option>
                                     <option value="super_admin">👑 Tam Yetkili Süper Admin</option>
                                 </select>
+
+                                <h4 style="color: #10b981; margin-bottom: 8px;">🔐 Granular İzin Matrisi:</h4>
+                                <div style="background: var(--card-bg-inner); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px;">
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px;">
+                                        <input type="checkbox" name="can_view_exact_loc" value="1" style="width: auto; margin:0;">
+                                        <span>📍 <b>Tam Konum İzni:</b> Haritada pinleri görebilsin (İşaretlenmezse müşteri gibi sadece temsili mavi çember görünür)</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px;">
+                                        <input type="checkbox" name="can_view_wallets" value="1" style="width: auto; margin:0;">
+                                        <span>🏦 <b>Cüzdan İzni:</b> Kasa / Cüzdan Bakiyelerini Görebilsin</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                        <input type="checkbox" name="can_view_crm" value="1" style="width: auto; margin:0;">
+                                        <span>👥 <b>CRM İzni:</b> Müşteri CRM listesine erişebilsin</span>
+                                    </label>
+                                </div>
+
                                 <button type="submit" style="background: #10b981;">Personel Hesabını Oluştur</button>
                             </form>
                         </div>
                         <div class="table-box" style="margin:0;">
-                            <h2 style="margin-top: 0;">📋 Mevcut Personeller</h2>
-                            <table>
-                                <tr><th>ID</th><th>Kullanıcı Adı</th><th>Rol</th><th>Tarih</th><th>İşlem</th></tr>
-                                {staff_rows if staff_rows else "<tr><td colspan='5' style='text-align:center;'>Başka personel bulunmuyor.</td></tr>"}
-                            </table>
+                            <h2 style="margin-top: 0;">📋 Mevcut Personeller & İzinleri</h2>
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <tr><th>ID</th><th>Kullanıcı</th><th>Rol</th><th>Tam Konum</th><th>Cüzdan</th><th>CRM</th><th>Tarih</th><th>İşlem</th></tr>
+                                    {staff_rows if staff_rows else "<tr><td colspan='8' style='text-align:center;'>Başka personel bulunmuyor.</td></tr>"}
+                                </table>
+                            </div>
                         </div>
                     </div>
                     """
@@ -1980,7 +2053,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
-                sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
+                if can_view_crm == 1 or current_role == "super_admin":
+                    sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
 
             dashboard_html = f"""
@@ -2029,7 +2103,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Rol: {current_role.upper()}</div>
+                    <div class="christmas-banner">🎄 Rol: {current_role.upper()} ({current_username})</div>
                     {sidebar_links}
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
@@ -2091,6 +2165,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(303)
             self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
             self.end_headers()
             return
@@ -2243,14 +2318,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             u_name = params.get("username", [""])[0].strip()
             u_pass = params.get("password", [""])[0].strip()
             u_role = params.get("role", ["support"])[0]
+            
+            can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
+            can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
+            can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
 
             if u_name and u_pass:
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO admins (username, password, role) VALUES (?, ?, ?)", (u_name, u_pass, u_role))
+                cursor.execute("""
+                    INSERT INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm) 
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (u_name, u_pass, u_role, can_loc, can_wal, can_crm))
                 conn.commit()
                 conn.close()
-                log_audit(ADMIN_WEB_USERNAME, "ADD_STAFF", f"Yeni personel eklendi: {u_name} ({u_role})")
+                log_audit(ADMIN_WEB_USERNAME, "ADD_STAFF_PERMS", f"Yeni personel: {u_name} (Loc:{can_loc}, Wal:{can_wal}, CRM:{can_crm})")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=admins')
@@ -2946,7 +3028,6 @@ async def cmd_admin_start(message: types.Message, state: FSMContext):
     if message.chat.type != "private":
         return
     
-    # Yönetici ID kontrolü
     if is_admin(message.from_user.id):
         await state.set_state(AdminAuth.waiting_password)
         await message.answer("🔒 Lütfen Yönetici Şifresini Giriniz:")
