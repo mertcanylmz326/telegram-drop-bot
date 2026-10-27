@@ -34,7 +34,7 @@ USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 if not RENDER_EXTERNAL_URL:
-    RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
+    RENDER_EXTERNAL_URL = "https://telegram-weed-bot.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -475,7 +475,6 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- SALI & CUMA OTOMATİK ÇARK BİLDİRİM GÖREVİ ---
 async def wheel_notification_scheduler():
     while True:
         now = datetime.now()
@@ -841,12 +840,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     const tg = window.Telegram.WebApp;
                     tg.expand();
                     
-                    let userId = 0;
-                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-                        userId = tg.initDataUnsafe.user.id;
-                    } else {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        userId = urlParams.get('user_id') || 1012940363;
+                    let userId = 1012940363; // Güvenli fallback (Admin ID)
+                    try {
+                        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                            userId = tg.initDataUnsafe.user.id;
+                        } else {
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const qUser = urlParams.get('user_id');
+                            if (qUser) userId = qUser;
+                        }
+                    } catch (e) {
+                        console.log("User ID alınamadı, fallback kullanılıyor:", e);
                     }
 
                     function triggerHaptic(style = 'medium') {
@@ -1282,7 +1286,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             
             cursor.execute("SELECT balance, referral_earnings, vip_level, wheel_rights FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
-            bal = u_row[0] if u_row else 0.0
+            bal = u_row[0] if u_row else 5.0
             ref_earnings = u_row[1] if u_row and len(u_row) > 1 else 0.0
             vip_level = u_row[2] if u_row and len(u_row) > 2 else "Bronz"
             wheel_rights = u_row[3] if u_row and len(u_row) > 3 else 0
@@ -2168,16 +2172,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 
                                 html += '<h4 style="color:#facc15; margin-top:15px;">🎁 Kazanılan Bonuslar / Hediyeler</h4><ul>';
                                 if(data.rewards.length > 0) {{
-                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; }});
+                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; });
                                 }} else {{ html += '<li>Bonus bulunmuyor.</li>'; }}
 
                                 html += '</ul><h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
                                 if(data.orders.length > 0) {{
-                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
+                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
                                 }} else {{ html += '<li>Sipariş yok.</li>'; }}
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
                                 if(data.deposits.length > 0) {{
-                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
+                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
                                 }} else {{ html += '<li>Yükleme yok.</li>'; }}
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
@@ -2650,7 +2654,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
