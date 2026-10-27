@@ -34,7 +34,7 @@ USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 if not RENDER_EXTERNAL_URL:
-    RENDER_EXTERNAL_URL = "https://telegram-weed-bot.onrender.com"
+    RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -475,6 +475,7 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
+# --- SALI & CUMA OTOMATİK ÇARK BİLDİRİM GÖREVİ ---
 async def wheel_notification_scheduler():
     while True:
         now = datetime.now()
@@ -840,17 +841,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     const tg = window.Telegram.WebApp;
                     tg.expand();
                     
-                    let userId = 1012940363; // Güvenli fallback (Admin ID)
-                    try {
-                        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-                            userId = tg.initDataUnsafe.user.id;
-                        } else {
-                            const urlParams = new URLSearchParams(window.location.search);
-                            const qUser = urlParams.get('user_id');
-                            if (qUser) userId = qUser;
-                        }
-                    } catch (e) {
-                        console.log("User ID alınamadı, fallback kullanılıyor:", e);
+                    let userId = 0;
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                        userId = tg.initDataUnsafe.user.id;
+                    } else {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        userId = urlParams.get('user_id') || 1012940363;
                     }
 
                     function triggerHaptic(style = 'medium') {
@@ -1286,7 +1282,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             
             cursor.execute("SELECT balance, referral_earnings, vip_level, wheel_rights FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
-            bal = u_row[0] if u_row else 5.0
+            bal = u_row[0] if u_row else 0.0
             ref_earnings = u_row[1] if u_row and len(u_row) > 1 else 0.0
             vip_level = u_row[2] if u_row and len(u_row) > 2 else "Bronz"
             wheel_rights = u_row[3] if u_row and len(u_row) > 3 else 0
@@ -1797,83 +1793,83 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                     <script>
                         const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
                             attribution: '&copy; OpenStreetMap contributors',
                             maxZoom: 19
-                        }).addTo(map);
+                        }}).addTo(map);
 
-                        const weedIcon = L.divIcon({
+                        const weedIcon = L.divIcon({{
                             className: 'custom-weed-marker',
                             html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                             iconSize: [36, 36],
                             iconAnchor: [18, 18],
                             popupAnchor: [0, -18]
-                        });
+                        }});
 
-                        const trollIcon = L.divIcon({
+                        const trollIcon = L.divIcon({{
                             className: 'custom-troll-marker',
                             html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
-                        });
+                        }});
 
-                        const markers = {};
-                        """ + map_markers_js + """
+                        const markers = {{}};
+                        {map_markers_js}
 
-                        if (navigator.geolocation) {
-                            navigator.geolocation.watchPosition(function(position) {
+                        if (navigator.geolocation) {{
+                            navigator.geolocation.watchPosition(function(position) {{
                                 const lat = position.coords.latitude;
                                 const lon = position.coords.longitude;
-                                if (window.myLocationMarker) {
+                                if (window.myLocationMarker) {{
                                     window.myLocationMarker.setLatLng([lat, lon]);
-                                } else {
-                                    window.myLocationMarker = L.marker([lat, lon], {icon: trollIcon}).addTo(map)
+                                }} else {{
+                                    window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
                                         .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                                }
-                            }, function(err) {
+                                }}
+                            }}, function(err) {{
                                 console.log("Konum alınamadı: ", err.message);
-                            }, { enableHighAccuracy: true });
-                        }
+                            }}, {{ enableHighAccuracy: true }});
+                        }}
 
-                        function searchMarkerOnMap() {
+                        function searchMarkerOnMap() {{
                             const id = document.getElementById('searchProductId').value.trim();
-                            if (markers[id]) {
+                            if (markers[id]) {{
                                 map.setView(markers[id].getLatLng(), 16);
                                 markers[id].openPopup();
-                            } else {
+                            }} else {{
                                 alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
-                            }
-                        }
+                            }}
+                        }}
 
-                        function copyText(txt) {
+                        function copyText(txt) {{
                             navigator.clipboard.writeText(txt);
                             alert("✅ Cüzdan adresi panoya kopyalandı!");
-                        }
+                        }}
 
                         const ctx = document.getElementById('revenueChart').getContext('2d');
-                        new Chart(ctx, {
+                        new Chart(ctx, {{
                             type: 'line',
-                            data: {
-                                labels: """ + json.dumps(labels) + """,
-                                datasets: [{
+                            data: {{
+                                labels: {labels_json},
+                                datasets: [{{
                                     label: 'Revenue (USDT)',
-                                    data: """ + json.dumps(values) + """,
+                                    data: {values_json},
                                     borderColor: '#38bdf8',
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                                }]
-                            },
-                            options: {
+                                }}]
+                            }},
+                            options: {{
                                 responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                    x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
-                                    y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
-                                }
-                            }
-                        });
+                                plugins: {{ legend: {{ display: false }} }},
+                                scales: {{
+                                    x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
+                                    y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
+                                }}
+                            }}
+                        }});
                     </script>
                     """
 
@@ -1883,7 +1879,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         total_drops=total_drops,
                         exact_badge=exact_badge,
                         wallet_section_html=wallet_section_html,
-                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>"
+                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
+                        map_markers_js=map_markers_js,
+                        labels_json=json.dumps(labels),
+                        values_json=json.dumps(values)
                     )
 
                 elif tab == "finance":
@@ -2169,16 +2168,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 
                                 html += '<h4 style="color:#facc15; margin-top:15px;">🎁 Kazanılan Bonuslar / Hediyeler</h4><ul>';
                                 if(data.rewards.length > 0) {{
-                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; });
+                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; }});
                                 }} else {{ html += '<li>Bonus bulunmuyor.</li>'; }}
 
                                 html += '</ul><h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
                                 if(data.orders.length > 0) {{
-                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
+                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
                                 }} else {{ html += '<li>Sipariş yok.</li>'; }}
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
                                 if(data.deposits.length > 0) {{
-                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
+                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
                                 }} else {{ html += '<li>Yükleme yok.</li>'; }}
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
@@ -2515,7 +2514,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const initLat = {e_lat if e_lat else 41.0082};
                             const initLon = {e_lon if e_lon else 28.9784};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
-                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{z}/{x}/{y}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
+                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
 
                             editPickMap.on('click', function(e) {{
@@ -2651,7 +2650,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
