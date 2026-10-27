@@ -20,7 +20,6 @@ BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
-# İsteğin üzerine güncellenen ana admin bilgileri
 ADMIN_WEB_USERNAME = "root"
 ADMIN_WEB_PASSWORD = "toor"
 
@@ -315,7 +314,6 @@ def init_db():
         except:
             pass
 
-    # Kısmi Yetkilendirme / Personel Tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -325,7 +323,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # Ana admin (root / toor) hesabını varsayılan olarak tabloya ekliyoruz
     cursor.execute("INSERT OR IGNORE INTO admins (username, password, role) VALUES (?, ?, ?)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD, 'super_admin'))
     conn.commit()
     conn.close()
@@ -378,9 +375,11 @@ def log_audit(admin_name, action_type, details):
         logging.error(e)
 
 def is_admin(user_id: int) -> bool:
+    if user_id == ADMIN_ID:
+        return True
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT id FROM admins WHERE id = ?", (user_id,))
     res = cursor.fetchone()
     conn.close()
     return res is not None
@@ -520,7 +519,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
 
-        # Kullanıcının rolünü cookie içerisinden okuma
         current_role = "support"
         for cookie in cookies_str.split(";"):
             if "admin_role=" in cookie:
@@ -1255,7 +1253,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             tab = query_params.get("tab", ["home"])[0]
 
-            # Rol kısıtlaması koruması (Yetkisiz sekmeye girişi engelleme)
             if current_role == "support" and tab not in ["support", "home"]:
                 tab = "support"
             elif current_role == "stock_manager" and tab not in ["home", "passive", "add", "active", "pending"]:
@@ -1967,7 +1964,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn.close()
 
-            # Sol Menü (Sidebar) Dinamik Rol Filtreleme
             sidebar_links = f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
             
             if current_role in ["super_admin", "stock_manager"]:
@@ -2215,7 +2211,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"success": true}')
             return
 
-        # Sabit "root" / "toor" veya veritabanındaki diğer adminlerin doğrulanması
         if parsed_path.path == "/admin-login":
             username = params.get("username", [""])[0]
             password = params.get("password", [""])[0]
@@ -2616,9 +2611,6 @@ def run_health_server():
 threading.Thread(target=run_health_server, daemon=True).start()
 
 # --- FSM VE BOT KODLARI ---
-class AdminPassState(StatesGroup):
-    password = State()
-
 class SupportState(StatesGroup):
     message = State()
 
@@ -2945,28 +2937,16 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
     await message.answer(t["support_sent"], reply_markup=kb)
 
 @dp.message(Command("admin"))
-async def cmd_admin(message: types.Message, state: FSMContext):
+async def cmd_admin(message: types.Message):
     if message.chat.type != "private" or not is_admin(message.from_user.id):
         return
-    await state.set_state(AdminPassState.password)
-    await message.answer("🔐 Yönetim paneline erişmek için admin şifresini girin:")
-
-@dp.message(AdminPassState.password)
-async def process_admin_password(message: types.Message, state: FSMContext):
-    if message.chat.type != "private":
-        return
-    entered_pass = message.text.strip()
-    if entered_pass == "1881":
-        await state.clear()
-        web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-            [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-        ])
-        await message.answer("✅ Şifre Doğru!\n\n👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
-    else:
-        await state.clear()
-        await message.answer("❌ Hatalı şifre!")
+    
+    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
+        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
+    ])
+    await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
 
 @dp.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
