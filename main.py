@@ -19,6 +19,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
+ADMIN_PASS = "1881"
 
 ADMIN_WEB_USERNAME = "root"
 ADMIN_WEB_PASSWORD = "toor"
@@ -2611,6 +2612,9 @@ def run_health_server():
 threading.Thread(target=run_health_server, daemon=True).start()
 
 # --- FSM VE BOT KODLARI ---
+class AdminAuth(StatesGroup):
+    waiting_password = State()
+
 class SupportState(StatesGroup):
     message = State()
 
@@ -2936,17 +2940,30 @@ async def forward_support_to_panel(message: types.Message, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
     await message.answer(t["support_sent"], reply_markup=kb)
 
+# --- ŞİFRE KORUMALI /ADMIN KOMUTU (1881) ---
 @dp.message(Command("admin"))
-async def cmd_admin(message: types.Message):
-    if message.chat.type != "private" or not is_admin(message.from_user.id):
+async def cmd_admin_start(message: types.Message, state: FSMContext):
+    if message.chat.type != "private":
         return
     
-    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-    ])
-    await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
+    # Yönetici ID kontrolü
+    if is_admin(message.from_user.id):
+        await state.set_state(AdminAuth.waiting_password)
+        await message.answer("🔒 Lütfen Yönetici Şifresini Giriniz:")
+
+@dp.message(AdminAuth.waiting_password)
+async def process_admin_password(message: types.Message, state: FSMContext):
+    if message.text.strip() == ADMIN_PASS:
+        await state.clear()
+        web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
+            [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
+        ])
+        await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
+    else:
+        await state.clear()
+        await message.answer("❌ Hatalı şifre!")
 
 @dp.callback_query(F.data == "stats")
 async def show_stats(callback: types.CallbackQuery):
