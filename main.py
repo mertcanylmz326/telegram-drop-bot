@@ -21,8 +21,8 @@ ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
 
-ADMIN_WEB_USERNAME = "root*"
-ADMIN_WEB_PASSWORD = "toor*"
+ADMIN_WEB_USERNAME = "*root*"
+ADMIN_WEB_PASSWORD = "*toor*"
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
@@ -1313,7 +1313,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 for ad in active_drops_for_map:
                     d_id, d_title, d_price, d_stock, d_cat, d_lat, d_lon = ad
                     
-                    # --- HARİTADA TAM KONUM İZİN KONTROLÜ ---
                     if can_view_exact_loc == 1:
                         lat = d_lat if d_lat and d_lat != 0.0 else get_district_coord(d_cat)[0]
                         lon = d_lon if d_lon and d_lon != 0.0 else get_district_coord(d_cat)[1]
@@ -1322,7 +1321,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             .bindPopup("<b>#{d_id} - {d_title}</b><br>Bölge: {d_cat}<br>Fiyat: {d_price} USDT<br>Stok: {d_stock}");
                         """
                     else:
-                        # Yetkisi yoksa müşteri gibi sadece ilçe merkezinde temsili mavi çember gösterilir!
                         coord = get_district_coord(d_cat)
                         map_markers_js += f"""
                         L.circle([{coord[0]}, {coord[1]}], {{
@@ -1792,8 +1790,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if current_role != "super_admin":
                     content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
                 else:
+                    edit_staff_id = query_params.get("edit_id", ["0"])[0]
+                    edit_staff_data = None
+                    
+                    if edit_staff_id != "0":
+                        cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm FROM admins WHERE id = ?", (edit_staff_id,))
+                        edit_staff_data = cursor.fetchone()
+
                     cursor.execute("SELECT id, username, role, can_view_exact_loc, can_view_wallets, can_view_crm, created_at FROM admins")
                     all_staff = cursor.fetchall()
+                    
                     staff_rows = ""
                     for st in all_staff:
                         s_id, s_user, s_role, s_loc, s_wal, s_crm, s_date = st
@@ -1801,6 +1807,18 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         wal_badge = "🟢 Açık" if s_wal == 1 else "🔴 Kapalı"
                         crm_badge = "🟢 Açık" if s_crm == 1 else "🔴 Kapalı"
                         
+                        actions = "👑 Root"
+                        if s_user != 'root':
+                            actions = f"""
+                            <div style="display:flex; gap:5px;">
+                                <a href="/admin-web?tab=admins&edit_id={s_id}" style="background:#d97706; color:white; padding:5px 10px; font-size:12px; border-radius:4px; text-decoration:none; font-weight:bold;">Düzenle</a>
+                                <form action="/admin-delete-staff" method="POST" style="margin:0;" onsubmit="return confirm('{s_user} kullanıcısını silmek istediğinize emin misiniz?');">
+                                    <input type="hidden" name="id" value="{s_id}">
+                                    <button type="submit" style="background:#ef4444; padding:5px 10px; font-size:12px; width:auto; border-radius:4px;">Sil</button>
+                                </form>
+                            </div>
+                            """
+
                         staff_rows += f"""
                         <tr>
                             <td>#{s_id}</td>
@@ -1810,45 +1828,63 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <td>{wal_badge}</td>
                             <td>{crm_badge}</td>
                             <td>{s_date}</td>
-                            <td>
-                                {f'<form action="/admin-delete-staff" method="POST" style="margin:0;"><input type="hidden" name="id" value="{s_id}"><button type="submit" style="background:#ef4444; padding:5px 10px; font-size:12px; width:auto;">Sil</button></form>' if s_user != 'root' else '👑 Root'}
-                            </td>
+                            <td>{actions}</td>
                         </tr>
                         """
 
+                    if edit_staff_data:
+                        es_id, es_user, es_role, es_loc, es_wal, es_crm = edit_staff_data
+                        form_title = f"✏️ Personel Yetkilerini Düzenle ({es_user})"
+                        form_action = "/admin-update-staff"
+                        hidden_id = f'<input type="hidden" name="id" value="{es_id}">'
+                        user_input = f'<input type="text" name="username" value="{es_user}" required>'
+                        pass_label = "<label>Yeni Şifre (Boş bırakırsanız değişmez):</label><input type='password' name='password' placeholder='******'>"
+                        btn_text = "Yetkileri Güncelle"
+                        cancel_btn = '<a href="/admin-web?tab=admins" style="display:block; text-align:center; background:#475569; color:white; padding:10px; border-radius:8px; text-decoration:none; margin-top:8px; font-weight:bold;">İptal</a>'
+                    else:
+                        es_role, es_loc, es_wal, es_crm = "support", 0, 0, 0
+                        form_title = "➕ Yeni Personel Ekle & Yetkileri Seç"
+                        form_action = "/admin-add-staff"
+                        hidden_id = ""
+                        user_input = '<input type="text" name="username" required placeholder="Örn: destek_mehmet">'
+                        pass_label = '<label>Giriş Şifresi:</label><input type="password" name="password" required placeholder="******">'
+                        btn_text = "Personel Hesabını Oluştur"
+                        cancel_btn = ""
+
                     content_html = f"""
-                    <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div class="grid-2" style="grid-template-columns: 1fr 1.2fr; gap: 20px;">
                         <div class="form-box" style="margin:0; border: 1px solid #38bdf8;">
-                            <h2 style="color: #38bdf8; margin-top: 0;">➕ Yeni Personel Ekle & Yetkileri Seç</h2>
-                            <form action="/admin-add-staff" method="POST">
+                            <h2 style="color: #38bdf8; margin-top: 0;">{form_title}</h2>
+                            <form action="{form_action}" method="POST">
+                                {hidden_id}
                                 <label>Kullanıcı Adı:</label>
-                                <input type="text" name="username" required placeholder="Örn: destek_mehmet">
-                                <label>Giriş Şifresi:</label>
-                                <input type="password" name="password" required placeholder="******">
+                                {user_input}
+                                {pass_label}
                                 <label>Varsayılan Rol:</label>
                                 <select name="role" style="width:100%; padding:10px; background:#090d16; color:white; border:1px solid #1f2937; border-radius:8px; margin-bottom:15px;">
-                                    <option value="support">💬 Canlı Destek Personeli</option>
-                                    <option value="stock_manager">📦 Stok Sorumlusu</option>
-                                    <option value="super_admin">👑 Tam Yetkili Süper Admin</option>
+                                    <option value="support" {'selected' if es_role=='support' else ''}>💬 Canlı Destek Personeli</option>
+                                    <option value="stock_manager" {'selected' if es_role=='stock_manager' else ''}>📦 Stok Sorumlusu</option>
+                                    <option value="super_admin" {'selected' if es_role=='super_admin' else ''}>👑 Tam Yetkili Süper Admin</option>
                                 </select>
 
                                 <h4 style="color: #10b981; margin-bottom: 8px;">🔐 Granular İzin Matrisi:</h4>
                                 <div style="background: var(--card-bg-inner); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 15px;">
                                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px;">
-                                        <input type="checkbox" name="can_view_exact_loc" value="1" style="width: auto; margin:0;">
-                                        <span>📍 <b>Tam Konum İzni:</b> Haritada pinleri görebilsin (İşaretlenmezse müşteri gibi sadece temsili mavi çember görünür)</span>
+                                        <input type="checkbox" name="can_view_exact_loc" value="1" {'checked' if es_loc==1 else ''} style="width: auto; margin:0;">
+                                        <span>📍 <b>Tam Konum İzni:</b> Haritada pinleri görebilsin</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 8px;">
-                                        <input type="checkbox" name="can_view_wallets" value="1" style="width: auto; margin:0;">
+                                        <input type="checkbox" name="can_view_wallets" value="1" {'checked' if es_wal==1 else ''} style="width: auto; margin:0;">
                                         <span>🏦 <b>Cüzdan İzni:</b> Kasa / Cüzdan Bakiyelerini Görebilsin</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                        <input type="checkbox" name="can_view_crm" value="1" style="width: auto; margin:0;">
+                                        <input type="checkbox" name="can_view_crm" value="1" {'checked' if es_crm==1 else ''} style="width: auto; margin:0;">
                                         <span>👥 <b>CRM İzni:</b> Müşteri CRM listesine erişebilsin</span>
                                     </label>
                                 </div>
 
-                                <button type="submit" style="background: #10b981;">Personel Hesabını Oluştur</button>
+                                <button type="submit" style="background: #10b981;">{btn_text}</button>
+                                {cancel_btn}
                             </form>
                         </div>
                         <div class="table-box" style="margin:0;">
@@ -2338,13 +2374,51 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header('Location', '/admin-web?tab=admins')
             self.end_headers()
 
+        elif parsed_path.path == "/admin-update-staff":
+            staff_id = params.get("id", ["0"])[0]
+            u_name = params.get("username", [""])[0].strip()
+            u_pass = params.get("password", [""])[0].strip()
+            u_role = params.get("role", ["support"])[0]
+            
+            can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
+            can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
+            can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
+
+            if staff_id != "0" and u_name:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                if u_pass:
+                    cursor.execute("""
+                        UPDATE admins 
+                        SET username = ?, password = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ? 
+                        WHERE id = ? AND username != 'root'
+                    """, (u_name, u_pass, u_role, can_loc, can_wal, can_crm, staff_id))
+                else:
+                    cursor.execute("""
+                        UPDATE admins 
+                        SET username = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ? 
+                        WHERE id = ? AND username != 'root'
+                    """, (u_name, u_role, can_loc, can_wal, can_crm, staff_id))
+                conn.commit()
+                conn.close()
+                log_audit(ADMIN_WEB_USERNAME, "UPDATE_STAFF_PERMS", f"Personel Güncellendi: {u_name} (Loc:{can_loc}, Wal:{can_wal}, CRM:{can_crm})")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=admins')
+            self.end_headers()
+
         elif parsed_path.path == "/admin-delete-staff":
             staff_id = params.get("id", ["0"])[0]
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
+            cursor.execute("SELECT username FROM admins WHERE id = ?", (staff_id,))
+            deleted_user = cursor.fetchone()
+            u_name = deleted_user[0] if deleted_user else "Bilinmeyen"
+
             cursor.execute("DELETE FROM admins WHERE id = ? AND username != 'root'", (staff_id,))
             conn.commit()
             conn.close()
+            log_audit(ADMIN_WEB_USERNAME, "DELETE_STAFF", f"Personel Silindi: {u_name} (ID: {staff_id})")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=admins')
