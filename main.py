@@ -1797,83 +1797,83 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                     <script>
                         const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                             attribution: '&copy; OpenStreetMap contributors',
                             maxZoom: 19
-                        }}).addTo(map);
+                        }).addTo(map);
 
-                        const weedIcon = L.divIcon({{
+                        const weedIcon = L.divIcon({
                             className: 'custom-weed-marker',
                             html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                             iconSize: [36, 36],
                             iconAnchor: [18, 18],
                             popupAnchor: [0, -18]
-                        }});
+                        });
 
-                        const trollIcon = L.divIcon({{
+                        const trollIcon = L.divIcon({
                             className: 'custom-troll-marker',
                             html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
-                        }});
+                        });
 
-                        const markers = {{}};
-                        {map_markers_js}
+                        const markers = {};
+                        """ + map_markers_js + """
 
-                        if (navigator.geolocation) {{
-                            navigator.geolocation.watchPosition(function(position) {{
+                        if (navigator.geolocation) {
+                            navigator.geolocation.watchPosition(function(position) {
                                 const lat = position.coords.latitude;
                                 const lon = position.coords.longitude;
-                                if (window.myLocationMarker) {{
+                                if (window.myLocationMarker) {
                                     window.myLocationMarker.setLatLng([lat, lon]);
-                                }} else {{
-                                    window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
+                                } else {
+                                    window.myLocationMarker = L.marker([lat, lon], {icon: trollIcon}).addTo(map)
                                         .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                                }}
-                            }}, function(err) {{
+                                }
+                            }, function(err) {
                                 console.log("Konum alınamadı: ", err.message);
-                            }}, {{ enableHighAccuracy: true }});
-                        }}
+                            }, { enableHighAccuracy: true });
+                        }
 
-                        function searchMarkerOnMap() {{
+                        function searchMarkerOnMap() {
                             const id = document.getElementById('searchProductId').value.trim();
-                            if (markers[id]) {{
+                            if (markers[id]) {
                                 map.setView(markers[id].getLatLng(), 16);
                                 markers[id].openPopup();
-                            }} else {{
+                            } else {
                                 alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
-                            }}
-                        }}
+                            }
+                        }
 
-                        function copyText(txt) {{
+                        function copyText(txt) {
                             navigator.clipboard.writeText(txt);
                             alert("✅ Cüzdan adresi panoya kopyalandı!");
-                        }}
+                        }
 
                         const ctx = document.getElementById('revenueChart').getContext('2d');
-                        new Chart(ctx, {{
+                        new Chart(ctx, {
                             type: 'line',
-                            data: {{
-                                labels: {labels_json},
-                                datasets: [{{
+                            data: {
+                                labels: """ + json.dumps(labels) + """,
+                                datasets: [{
                                     label: 'Revenue (USDT)',
-                                    data: {values_json},
+                                    data: """ + json.dumps(values) + """,
                                     borderColor: '#38bdf8',
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                                }}]
-                            }},
-                            options: {{
+                                }]
+                            },
+                            options: {
                                 responsive: true,
-                                plugins: {{ legend: {{ display: false }} }},
-                                scales: {{
-                                    x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
-                                    y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
-                                }}
-                            }}
-                        }});
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
+                                    y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
+                                }
+                            }
+                        });
                     </script>
                     """
 
@@ -1883,10 +1883,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         total_drops=total_drops,
                         exact_badge=exact_badge,
                         wallet_section_html=wallet_section_html,
-                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
-                        map_markers_js=map_markers_js,
-                        labels_json=json.dumps(labels),
-                        values_json=json.dumps(values)
+                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>"
                     )
 
                 elif tab == "finance":
@@ -2518,7 +2515,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const initLat = {e_lat if e_lat else 41.0082};
                             const initLon = {e_lon if e_lon else 28.9784};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
-                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
+                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{z}/{x}/{y}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
 
                             editPickMap.on('click', function(e) {{
