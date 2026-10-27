@@ -2073,18 +2073,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
                     <div class="form-box" style="margin:0; border: 1px solid rgba(56, 189, 248, 0.4); max-width: 650px;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Galeriden Fotoğraflı)</h2>
+                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Canlı Konumlu & Otomatik Semt)</h2>
                         <form action="/admin-add" method="POST" enctype="multipart/form-data" id="addForm">
                             <label>Ürün Başlığı:</label>
                             <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
-                            <label>Semt / İlçe:</label>
-                            <input type="text" name="category" required placeholder="Kartal">
+                            
+                            <label>Semt / İlçe (Haritadan Seçince Otomatik Dolar):</label>
+                            <input type="text" id="categoryInput" name="category" required placeholder="Kartal, Çekmeköy vb.">
+                            
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" required placeholder="65">
                             
-                            <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin:</label>
-                            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; margin-bottom:8px;">Harita üzerine tıkladığınızda koordinat otomatik doldurulacaktır.</p>
-                            <div id="selectMap" style="width: 100%; height: 220px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
+                            <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin (🧌 Canlı Konumunuz İşaretlidir):</label>
+                            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; margin-bottom:8px;">Haritaya tıkladığınızda hem koordinat, hem de ilçe otomatik doldurulur.</p>
+                            <div id="selectMap" style="width: 100%; height: 260px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
 
                             <label>Koordinat (Örn: 40.8885, 29.1856):</label>
                             <input type="text" id="coordsInput" name="coords" required placeholder="40.8885, 29.1856">
@@ -2102,6 +2104,40 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pickMap);
                         let pickedMarker = null;
 
+                        const trollIcon = L.divIcon({
+                            className: 'custom-troll-marker',
+                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
+                            iconSize: [38, 38],
+                            iconAnchor: [19, 19]
+                        });
+
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(function(position) {
+                                const lat = position.coords.latitude;
+                                const lon = position.coords.longitude;
+                                pickMap.setView([lat, lon], 14);
+                                L.marker([lat, lon], {icon: trollIcon}).addTo(pickMap)
+                                    .bindPopup("<b>🧌 Buradasın (Canlı Konumun)</b>").openPopup();
+                            }, function(err) {
+                                console.log("Canlı konum alınamadı: ", err.message);
+                            }, { enableHighAccuracy: true });
+                        }
+
+                        async function fetchDistrictAndFill(lat, lon) {
+                            try {
+                                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                                const data = await response.json();
+                                if (data && data.address) {
+                                    const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
+                                    if (district) {
+                                        document.getElementById('categoryInput').value = district.toUpperCase();
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("İlçe alınamadı", e);
+                            }
+                        }
+
                         pickMap.on('click', function(e) {
                             const lat = e.latlng.lat.toFixed(6);
                             const lon = e.latlng.lng.toFixed(6);
@@ -2112,6 +2148,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             } else {
                                 pickedMarker = L.marker(e.latlng).addTo(pickMap);
                             }
+
+                            fetchDistrictAndFill(lat, lon);
                         });
                     </script>
                     """
@@ -2137,8 +2175,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="hidden" name="id" value="{edit_id}">
                                 <label>Ürün Başlığı:</label>
                                 <input type="text" name="title" value="{e_title}" required>
+                                
                                 <label>Semt / İlçe:</label>
-                                <input type="text" name="category" value="{e_cat or 'Genel'}" required>
+                                <input type="text" id="editCategoryInput" name="category" value="{e_cat or 'Genel'}" required>
+                                
                                 <label>Fiyat (USDT):</label>
                                 <input type="number" step="0.1" name="price" value="{e_price}" required>
                                 <label>Stok Adedi:</label>
@@ -2166,6 +2206,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
 
+                            async function fetchEditDistrictAndFill(lat, lon) {{
+                                try {{
+                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                                    const data = await response.json();
+                                    if (data && data.address) {{
+                                        const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
+                                        if (district) {{
+                                            document.getElementById('editCategoryInput').value = district.toUpperCase();
+                                        }}
+                                    }}
+                                }} catch (e) {{}}
+                            }}
+
                             editPickMap.on('click', function(e) {{
                                 const lat = e.latlng.lat.toFixed(6);
                                 const lon = e.latlng.lng.toFixed(6);
@@ -2175,6 +2228,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 }} else {{
                                     editPickedMarker = L.marker(e.latlng).addTo(editPickMap);
                                 }}
+                                fetchEditDistrictAndFill(lat, lon);
                             }});
                         </script>
                         """
@@ -2192,7 +2246,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1:
-                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Galeriden)</a>'
+                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Canlı Konumlu)</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_view_crm == 1:
                 sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
