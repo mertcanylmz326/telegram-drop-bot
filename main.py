@@ -41,7 +41,7 @@ main_loop = None
 # --- İSTANBUL İLÇE KOORDİNATLARI ---
 DISTRICT_COORDS = {
     "BEŞİKTAŞ": [41.0429, 29.0077],
-    "KADIKÖY": [40.9901, 29.0254],
+    "KADİKÖY": [40.9901, 29.0254],
     "ÜSKÜDAR": [41.0256, 29.0153],
     "ŞİŞLİ": [41.0615, 28.9877],
     "BEYOĞLU": [41.0369, 28.9776],
@@ -90,7 +90,6 @@ async def fetch_wallet_balance(wallet_address):
         logging.error(f"Wallet balance fetch error: {e}")
         return 0.0
 
-# --- ÇEVİRİ SÖZLÜĞÜ ---
 LANG = {
     "tr": {
         "welcome": "👋 Merhaba! Gelişmiş otomatik teslimat ve VIP botuna hoş geldiniz. Lütfen dil seçiniz:",
@@ -264,7 +263,6 @@ def init_db():
     ''')
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('promo_5g_active', '1')")
 
-    # Yeni Özellik Tabloları: Yorumlar ve Stok Alarmları
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS feedbacks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -479,7 +477,6 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (TÜM ÖZELLİKLER ENTEGRE) ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -538,7 +535,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .btn-received:hover { background: #059669; }
                     .btn-close { background: var(--accent-red); margin-top: 15px; }
                     
-                    /* Chat box CSS */
                     .chat-box { height: 240px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }
                     .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
                     .msg-user { background: #2563eb; margin-left: auto; color: white; }
@@ -562,7 +558,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
-                <!-- 1. TAB: HARİTA -->
                 <div id="tabMap" class="tab-content active">
                     <div id="vipContainer"></div>
                     <div id="promoContainer"></div>
@@ -574,12 +569,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <button onclick="subscribeStockAlert()" style="width: auto; background: var(--accent-gold); color: black; font-weight: bold; font-size: 11px; padding: 10px;">🔔 Stok Alarmı Kur</button>
                     </div>
 
-                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">🧌 <b>Kırmızı Pin:</b> Satın aldığınız tam konum.<br>🌿 <b>Kenevir:</b> Yaklaşık bölge alanı (Satın alımda tam nokta açılır).</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">📌 <b>Kırmızı Pin:</b> Satın aldığınız tam konum.<br>🌿 <b>Kenevir:</b> Yaklaşık bölge alanı (Satın alımda tam nokta açılır).</p>
                     <div id="mainMap"></div>
                     <div id="activeOrdersList"></div>
                 </div>
 
-                <!-- 2. TAB: ÜRÜN KATALOĞU & KUPON -->
                 <div id="tabProducts" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Kupon Kullanımı</h3>
                     <div class="card" style="border: 1px dashed var(--accent-green); margin-bottom: 15px;">
@@ -593,7 +587,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="productsList"></div>
                 </div>
 
-                <!-- 3. TAB: CÜZDANIM -->
                 <div id="tabWallet" class="tab-content">
                     <div class="card">
                         <h3 style="color: var(--accent-green); margin-top:0;">💰 Güncel Bakiye & VIP</h3>
@@ -608,13 +601,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="depositResult"></div>
                 </div>
 
-                <!-- 4. TAB: GEÇMİŞ SİPARİŞLER & YORUM/FEEDBACK -->
                 <div id="tabOrders" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">📦 Tamamlanan / Geçmiş Siparişlerim</h3>
                     <div id="pastOrdersList"></div>
                 </div>
 
-                <!-- 5. TAB: MİNİ APP İÇİ CHAT DESTEK -->
                 <div id="tabSupport" class="tab-content">
                     <h3 style="color: var(--accent-blue); margin-top:0;">💬 Canlı Destek Ekibi</h3>
                     <div class="chat-box" id="chatBox"></div>
@@ -1311,23 +1302,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <h2 style="color: #38bdf8; margin-top: 0;">🏦 Cüzdan Mimarisi & Canlı Bakiye Takibi</h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                            <h4 style="margin: 0 0 5px 0; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
-                                📥 1. Giriş Hesabı (Bot)
-                            </h4>
+                            <h4 style="margin: 0 0 5px 0; color: #38bdf8;">📥 1. Giriş Hesabı (Bot)</h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w1_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{crypto_wallet}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #d97706;">
-                            <h4 style="margin: 0 0 5px 0; color: #d97706; display: flex; justify-content: space-between; align-items: center;">
-                                🔄 2. Çıkış / Ara Hesap (Bitay)
-                            </h4>
+                            <h4 style="margin: 0 0 5px 0; color: #d97706;">🔄 2. Çıkış / Ara Hesap (Bitay)</h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w2_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{exit_wallet}`</p>
                         </div>
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;">
-                            <h4 style="margin: 0 0 5px 0; color: #10b981; display: flex; justify-content: space-between; align-items: center;">
-                                💰 3. Ana Birikim / Kasa
-                            </h4>
+                            <h4 style="margin: 0 0 5px 0; color: #10b981;">💰 3. Ana Birikim / Kasa</h4>
                             <p style="font-size: 12px; font-weight: bold; color: #10b981; margin: 5px 0;">💵 Bakiye: {w3_bal} USDT</p>
                             <p style="font-size: 11px; color: var(--text-muted); word-break: break-all; margin: 0;">`{main_savings_wallet}`</p>
                         </div>
@@ -1341,9 +1326,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     <div class="table-box">
                         <h2>🔔 Live Logs & Alerts</h2>
-                        <div style="max-height: 250px; overflow-y: auto;">
-                            {logs_html}
-                        </div>
+                        <div style="max-height: 250px; overflow-y: auto;">{logs_html}</div>
                     </div>
                 </div>
 
@@ -2098,7 +2081,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (title, price, photo, desc, count, category, lat, lon))
             
-            # Stok alarmı kuran kullanıcılara otomatik bildirim fırlat
             cursor.execute("SELECT user_id FROM stock_alerts WHERE category = ?", (category,))
             alert_users = cursor.fetchall()
             cursor.execute("DELETE FROM stock_alerts WHERE category = ?", (category,))
@@ -2109,7 +2091,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 async def notify_alerts():
                     for au in alert_users:
                         try:
-                            await bot.send_message(au[0], f"🚨🚨🚨 **Stok Alarmı!** Beklediğiniz **{category}** bölgesine yeni ürün eklendi: *{title}* 🌿\n\nMini App üzerinden hemen inceleyebilirsiniz!")
+                            await bot.send_message(au[0], f"🚨 **Stok Alarmı!** Beklediğiniz **{category}** bölgesine yeni ürün eklendi: *{title}* 🌿\n\nMini App üzerinden hemen inceleyebilirsiniz!")
                             await asyncio.sleep(0.05)
                         except:
                             pass
@@ -2196,7 +2178,6 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- BOT & FSM KOMUTLARI ---
 class SupportState(StatesGroup):
     message = State()
 
