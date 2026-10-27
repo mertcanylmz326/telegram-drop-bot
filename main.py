@@ -1549,14 +1549,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     home_template = """
                     <div class="stats-grid">
-                        <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
-                        <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
-                        <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
+                        <div class="card"><h3>TOTAL REVENUE</h3><p>TOTAL_REVENUE_PLACEHOLDER USDT</p></div>
+                        <div class="card"><h3>ACTIVE STOCK</h3><p>TOTAL_ACTIVE_STOCK_PLACEHOLDER Pcs</p></div>
+                        <div class="card"><h3>PRODUCT VARIETY</h3><p>TOTAL_DROPS_PLACEHOLDER</p></div>
                     </div>
 
                     <div class="form-box" style="margin-bottom: 30px; border: 1px solid rgba(56, 189, 248, 0.3);">
                         <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between;">
-                            <span>🗺️ İstanbul Aktif Konum Haritası</span> {exact_badge}
+                            <span>🗺️ İstanbul Aktif Konum Haritası</span> EXACT_BADGE_PLACEHOLDER
                         </h2>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); padding: 12px; font-size: 14px;">
@@ -1565,7 +1565,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
 
-                    {wallet_section_html}
+                    WALLET_SECTION_PLACEHOLDER
 
                     <div class="grid-2">
                         <div class="table-box">
@@ -1576,7 +1576,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div class="table-box">
                             <h2>🔔 Live Logs & Alerts</h2>
                             <div style="max-height: 250px; overflow-y: auto;">
-                                {logs_html}
+                                LOGS_HTML_PLACEHOLDER
                             </div>
                         </div>
                     </div>
@@ -1608,7 +1608,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         });
 
                         const markers = {};
-                        {map_markers_js}
+                        MAP_MARKERS_JS_PLACEHOLDER
 
                         if (navigator.geolocation) {
                             navigator.geolocation.watchPosition(function(position) {
@@ -1644,10 +1644,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         new Chart(ctx, {
                             type: 'line',
                             data: {
-                                labels: {labels_json},
+                                labels: LABELS_JSON_PLACEHOLDER,
                                 datasets: [{
                                     label: 'Revenue (USDT)',
-                                    data: {values_json},
+                                    data: VALUES_JSON_PLACEHOLDER,
                                     borderColor: '#38bdf8',
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
@@ -1666,17 +1666,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </script>
                     """
 
-                    content_html = home_template.format(
-                        total_revenue=total_revenue,
-                        total_active_stock=total_active_stock,
-                        total_drops=total_drops,
-                        exact_badge=exact_badge,
-                        wallet_section_html=wallet_section_html,
-                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
-                        map_markers_js=map_markers_js,
-                        labels_json=json.dumps(labels),
-                        values_json=json.dumps(values)
-                    )
+                    content_html = home_template.replace("TOTAL_REVENUE_PLACEHOLDER", str(total_revenue)) \
+                                               .replace("TOTAL_ACTIVE_STOCK_PLACEHOLDER", str(total_active_stock)) \
+                                               .replace("TOTAL_DROPS_PLACEHOLDER", str(total_drops)) \
+                                               .replace("EXACT_BADGE_PLACEHOLDER", exact_badge) \
+                                               .replace("WALLET_SECTION_PLACEHOLDER", wallet_section_html) \
+                                               .replace("LOGS_HTML_PLACEHOLDER", logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>") \
+                                               .replace("MAP_MARKERS_JS_PLACEHOLDER", map_markers_js) \
+                                               .replace("LABELS_JSON_PLACEHOLDER", json.dumps(labels)) \
+                                               .replace("VALUES_JSON_PLACEHOLDER", json.dumps(values))
 
                 elif tab == "finance":
                     cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
@@ -1814,14 +1812,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                     </div>
                     <style>
-                        .support-container { display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }
-                        .chat-main-area { order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
-                        .support-sidebar-area { order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
-                        @media (min-width: 900px) {
-                            .support-container { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-                            .chat-main-area { order: 1; }
-                            .support-sidebar-area { order: 2; }
-                        }
+                        .support-container {{ display: flex; flex-direction: column; gap: 20px; background: var(--card-bg); padding: 20px; border-radius: 14px; border: 1px solid var(--border-color); }}
+                        .chat-main-area {{ order: 1; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                        .support-sidebar-area {{ order: 2; background: var(--card-bg-inner); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }}
+                        @media (min-width: 900px) {{
+                            .support-container {{ display: grid; grid-template-columns: 1fr 300px; gap: 20px; }}
+                            .chat-main-area {{ order: 1; }}
+                            .support-sidebar-area {{ order: 2; }}
+                        }}
                     </style>
                     """
                 elif tab == "broadcast":
