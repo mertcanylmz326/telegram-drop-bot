@@ -75,7 +75,7 @@ async def fetch_wallet_balance(wallet_address):
     try:
         url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+            async with session.get(url, timeout=5) as response:
                 if response.status == 200:
                     data = await response.json()
                     acc_data = data.get("data", [])
@@ -1272,12 +1272,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 labels = [r[0] for r in chart_rows] if chart_rows else ["Bugün"]
                 values = [r[1] for r in chart_rows] if chart_rows else [total_revenue]
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                loop.close()
+                # Güvenli Bakiye Çekimi (502 Hatalarını Kesin Olarak Önler)
+                w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                    w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                    w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                    loop.close()
+                except Exception as e:
+                    logging.error(f"Wallet balance fetch skipped: {e}")
 
                 home_template = """
                 <div class="stats-grid">
