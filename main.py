@@ -1277,7 +1277,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
             resp_data = {
-                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4], "ref_earnings": u[5], "created_at": u[6],
+                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4] or 0.0, "ref_earnings": u[5] or 0.0, "created_at": u[6],
                 "orders": u_orders, "deposits": u_deps
             }
             self.send_response(200)
@@ -1534,7 +1534,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                               }}]
+                                }}]
                             }},
                             options: {{
                                 responsive: true,
@@ -1769,49 +1769,57 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
                 elif tab == "users":
-                    cursor.execute("""
-                        SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
-                               COUNT(o.id) as total_orders, 
-                               COALESCE(SUM(o.final_price), 0.0) as total_spent
-                        FROM users u
-                        LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('completed', 'received')
-                        GROUP BY u.user_id
-                        ORDER BY total_spent DESC
-                    """)
-                    users_list = cursor.fetchall()
+                    try:
+                        cursor.execute("""
+                            SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
+                                   COUNT(o.id) as total_orders, 
+                                   COALESCE(SUM(o.final_price), 0.0) as total_spent
+                            FROM users u
+                            LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('completed', 'received')
+                            GROUP BY u.user_id
+                            ORDER BY total_spent DESC
+                        """)
+                        users_list = cursor.fetchall()
+                    except Exception as e:
+                        logging.error(f"CRM Query error: {e}")
+                        users_list = []
+
                     rows = ""
                     for u in users_list:
                         uid, uname, u_lang, is_b, u_bal, ref_earn, t_orders, t_spent = u
                         username_str = f"@{uname}" if uname else "N/A"
+                        u_lang_str = (u_lang or "TR").upper()
+                        u_bal_val = u_bal if u_bal is not None else 0.0
+                        ref_earn_val = ref_earn if ref_earn is not None else 0.0
                         status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
                         
                         balance_form = f"""
                         <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
                             <input type="hidden" name="user_id" value="{uid}">
-                            <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:110px; margin:0; padding:8px; font-size:13px; font-weight:bold; color:#38bdf8; background:#090d16; border:1px solid #38bdf8; border-radius:6px;">
-                            <button type="submit" style="background:#2563eb; padding:8px 12px; font-size:12px; width:auto; border-radius:6px;">Düzenle</button>
+                            <input type="number" step="0.1" name="new_balance" value="{u_bal_val}" style="width:100px; margin:0; padding:6px; font-size:12px; font-weight:bold; color:#38bdf8; background:#070b14; border:1px solid #38bdf8; border-radius:6px;">
+                            <button type="submit" style="background:#2563eb; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;">Düzenle</button>
                         </form>
                         """
                         ban_btn = f"""
                         <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
                             <input type="hidden" name="user_id" value="{uid}">
                             <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
-                            <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:12px; width:auto; border-radius:6px;">
+                            <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:5px 10px; font-size:11px; width:auto; border-radius:6px;">
                                 {'Unban' if is_b == 1 else 'Ban'}
                             </button>
                         </form>
                         """
-                        profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;'>Profil Detay</button>"
-                        rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{profile_btn} {ban_btn}</td></tr>"
+                        profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:5px 8px; font-size:11px; width:auto; border-radius:6px;'>Profil</button>"
+                        rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang_str}</td><td style='padding: 8px;'>{balance_form}</td><td>{ref_earn_val:.2f} USDT</td><td><b>{t_orders}</b></td><td><b>{t_spent:.2f} USDT</b></td><td>{status_badge}</td><td><div style='display:flex; gap:4px;'>{profile_btn}{ban_btn}</div></td></tr>"
 
-                    table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"
+                    table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>Henüz kayıtlı müşteri yok.</td></tr>"
 
-                    content_html = """
-                    <div class="table-box" style="border: 1px solid #38bdf8;">
+                    content_html = f"""
+                    <div class="table-box" style="border: 1px solid #38bdf8; overflow-x: auto;">
                         <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
                         <table>
-                            <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Ref Kazancı</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
-                            {rows_placeholder}
+                            <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye</th><th>Ref Kazancı</th><th>Sipariş</th><th>Harcama</th><th>Status</th><th>Action</th></tr>
+                            {table_rows_html}
                         </table>
                     </div>
 
@@ -1824,33 +1832,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
 
                     <script>
-                        async function openUserProfile(uid) {
+                        async function openUserProfile(uid) {{
                             document.getElementById('userModal').style.display = 'flex';
                             document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
-                            try {
+                            try {{
                                 const res = await fetch('/api/admin-user-detail?user_id=' + uid);
                                 const data = await res.json();
                                 let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
                                 html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
                                 html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
-                                if(data.orders.length > 0) {
-                                    data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
-                                } else { html += '<li>Sipariş yok.</li>'; }
+                                if(data.orders.length > 0) {{
+                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
+                                }} else {{ html += '<li>Sipariş yok.</li>'; }}
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
-                                if(data.deposits.length > 0) {
-                                    data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
-                                } else { html += '<li>Yükleme yok.</li>'; }
+                                if(data.deposits.length > 0) {{
+                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
+                                }} else {{ html += '<li>Yükleme yok.</li>'; }}
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
-                            } catch(e) {
+                            }} catch(e) {{
                                 document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
-                            }
-                        }
-                        function closeUserProfile() {
+                            }}
+                        }}
+                        function closeUserProfile() {{
                             document.getElementById('userModal').style.display = 'none';
-                        }
+                        }}
                     </script>
-                    """.format(rows_placeholder=table_rows_html)
+                    """
 
                 elif tab == "admins":
                     edit_staff_id = query_params.get("edit_id", ["0"])[0]
@@ -2254,7 +2262,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }}
                     .edit-btn {{ background: #d97706; color: white; }}
 
-                    /* Küçük ekranlar için esnek esneme */
                     @media(max-width: 768px) {{
                         body {{ flex-direction: column; }}
                         .sidebar {{ width: 100%; height: auto; padding: 15px; }}
