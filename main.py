@@ -5,8 +5,6 @@ import os
 import threading
 import aiohttp
 import json
-import hashlib
-import hmac
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -22,8 +20,9 @@ BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 
-ADMIN_WEB_USERNAME = "dionisus"
-ADMIN_WEB_PASSWORD = "weedstanbul34"
+# İsteğin üzerine güncellenen ana admin bilgileri
+ADMIN_WEB_USERNAME = "root"
+ADMIN_WEB_PASSWORD = "toor"
 
 CRYPTO_WALLET = "TMDAC83GTrxDCQiQBCEEL11CdHBYPSMpjH"
 MAIN_SAVINGS_WALLET = "TVsUkivFz217G7yAZ9w9PDj4WphJZty1tY"
@@ -284,7 +283,6 @@ def init_db():
         )
     ''')
 
-    # Finans ve Denetim (Audit Trail) tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admin_audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -317,14 +315,18 @@ def init_db():
         except:
             pass
 
+    # Kısmi Yetkilendirme / Personel Tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (
-            user_id INTEGER PRIMARY KEY,
-            username TEXT,
-            role TEXT DEFAULT 'super_admin'
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            role TEXT DEFAULT 'support',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    cursor.execute("INSERT OR IGNORE INTO admins (user_id, username, role) VALUES (?, ?, ?)", (ADMIN_ID, ADMIN_WEB_USERNAME, 'super_admin'))
+    # Ana admin (root / toor) hesabını varsayılan olarak tabloya ekliyoruz
+    cursor.execute("INSERT OR IGNORE INTO admins (username, password, role) VALUES (?, ?, ?)", (ADMIN_WEB_USERNAME, ADMIN_WEB_PASSWORD, 'super_admin'))
     conn.commit()
     conn.close()
 
@@ -517,6 +519,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         query_params = parse_qs(parsed_path.query)
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
+
+        # Kullanıcının rolünü cookie içerisinden okuma
+        current_role = "support"
+        for cookie in cookies_str.split(";"):
+            if "admin_role=" in cookie:
+                current_role = cookie.split("=")[1].strip()
 
         if parsed_path.path == "/":
             self.send_response(200)
@@ -1187,7 +1195,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.end_headers()
             return
 
-        # Web Paneli Yeni Özellik API: Kullanıcı Detay Profili JSON Verisi
         if parsed_path.path == "/api/admin-user-detail":
             if not is_logged_in:
                 self.send_response(401)
@@ -1221,7 +1228,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp_data).encode("utf-8"))
             return
 
-        # Sesli/Görsel Bildirimler İçin Yeni Mesaj Kontrol API
         if parsed_path.path == "/api/admin-check-notifications":
             if not is_logged_in:
                 self.send_response(401)
@@ -1248,6 +1254,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
             tab = query_params.get("tab", ["home"])[0]
+
+            # Rol kısıtlaması koruması (Yetkisiz sekmeye girişi engelleme)
+            if current_role == "support" and tab not in ["support", "home"]:
+                tab = "support"
+            elif current_role == "stock_manager" and tab not in ["home", "passive", "add", "active", "pending"]:
+                tab = "passive"
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
@@ -1440,39 +1452,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     values_json=json.dumps(values)
                 )
 
-            # YENİ ÖZELLİK 1 & 2: Finans & Denetim ve Toplu İşlemler Sekmeleri
             elif tab == "finance":
-                cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
-                audit_rows = cursor.fetchall()
-                audit_table = ""
-                for ar in audit_rows:
-                    audit_table += f"<tr><td>#{ar[0]}</td><td><b>{ar[1]}</b></td><td><span style='color:#38bdf8;'>{ar[2]}</span></td><td>{ar[3]}</td><td>{ar[4]}</td></tr>"
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
+                    audit_rows = cursor.fetchall()
+                    audit_table = ""
+                    for ar in audit_rows:
+                        audit_table += f"<tr><td>#{ar[0]}</td><td><b>{ar[1]}</b></td><td><span style='color:#38bdf8;'>{ar[2]}</span></td><td>{ar[3]}</td><td>{ar[4]}</td></tr>"
 
-                content_html = f"""
-                <div class="table-box" style="border: 1px solid #10b981;">
-                    <h2 style="color: #10b981; margin-top: 0;">💰 Finansal Akış & Admin Denetim Kayıtları (Audit Trail)</h2>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Yöneticilerin panel üzerinden yaptığı tüm bakiye değişiklikleri, onaylar ve kritik işlemler aşağıda loglanmaktadır.</p>
-                    <table>
-                        <tr><th>ID</th><th>Admin</th><th>İşlem Tipi</th><th>Detaylar</th><th>Tarih</th></tr>
-                        {audit_table if audit_table else "<tr><td colspan='5' style='text-align:center;'>Henüz denetim kaydı bulunmuyor.</td></tr>"}
-                    </table>
-                </div>
-                """
+                    content_html = f"""
+                    <div class="table-box" style="border: 1px solid #10b981;">
+                        <h2 style="color: #10b981; margin-top: 0;">💰 Finansal Akış & Admin Denetim Kayıtları (Audit Trail)</h2>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Yöneticilerin panel üzerinden yaptığı tüm bakiye değişiklikleri, onaylar ve kritik işlemler aşağıda loglanmaktadır.</p>
+                        <table>
+                            <tr><th>ID</th><th>Admin</th><th>İşlem Tipi</th><th>Detaylar</th><th>Tarih</th></tr>
+                            {audit_table if audit_table else "<tr><td colspan='5' style='text-align:center;'>Henüz denetim kaydı bulunmuyor.</td></tr>"}
+                        </table>
+                    </div>
+                    """
 
             elif tab == "bulk":
-                content_html = f"""
-                <div class="form-box" style="border: 1px solid #d97706;">
-                    <h2 style="color: #d97706; margin-top: 0;">⚡ Toplu Fiyat ve Bölge Güncelleme Araçları</h2>
-                    <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Belirli bir bölgedeki tüm aktif ürünlerin fiyatlarını tek hamlede güncelleyin veya toplu işlem yapın.</p>
-                    <form action="/admin-update-drop-bulk" method="POST">
-                        <label>Hedef Bölge / Semt (Örn: KARTAL veya TÜMÜ):</label>
-                        <input type="text" name="target_category" required placeholder="KARTAL">
-                        <label>Fiyat Değişim Oranı (%) veya Sabit Tutar Artışı (+/-):</label>
-                        <input type="text" name="price_modifier" required placeholder="Örn: +5 veya -10 (veya net fiyat yazın)">
-                        <button type="submit" style="background: #d97706; margin-top: 15px;">Bölge Fiyatlarını Toplu Güncelle</button>
-                    </form>
-                </div>
-                """
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    content_html = f"""
+                    <div class="form-box" style="border: 1px solid #d97706;">
+                        <h2 style="color: #d97706; margin-top: 0;">⚡ Toplu Fiyat ve Bölge Güncelleme Araçları</h2>
+                        <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Belirli bir bölgedeki tüm aktif ürünlerin fiyatlarını tek hamlede güncelleyin veya toplu işlem yapın.</p>
+                        <form action="/admin-update-drop-bulk" method="POST">
+                            <label>Hedef Bölge / Semt (Örn: KARTAL veya TÜMÜ):</label>
+                            <input type="text" name="target_category" required placeholder="KARTAL">
+                            <label>Fiyat Değişim Oranı (%) veya Sabit Tutar Artışı (+/-):</label>
+                            <input type="text" name="price_modifier" required placeholder="Örn: +5 veya -10 (veya net fiyat yazın)">
+                            <button type="submit" style="background: #d97706; margin-top: 15px;">Bölge Fiyatlarını Toplu Güncelle</button>
+                        </form>
+                    </div>
+                    """
 
             elif tab == "support":
                 cursor.execute("SELECT DISTINCT user_id FROM support_messages")
@@ -1565,153 +1582,215 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </style>
                 """
             elif tab == "broadcast":
-                content_html = """
-                <div class="form-box" style="border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0;">📢 Toplu Duyuru & Kampanya Merkezi (Broadcast)</h2>
-                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Botu kullanan tüm kullanıcılara anında duyuru, kampanya veya indirim mesajı fırlatın.</p>
-                    <form action="/admin-broadcast" method="POST">
-                        <label>Duyuru Mesajı (Markdown destekler):</label>
-                        <textarea name="message" rows="6" required placeholder="🔥 Büyük indirim başladı! Tüm ürünlerde geçerli kupon kodunuz: ..."></textarea>
-                        <button type="submit" style="background: #2563eb; margin-top: 15px;">🚀 Tüm Kullanıcılara Gönder</button>
-                    </form>
-                </div>
-                """
-            elif tab == "promo5g":
-                cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
-                s_res = cursor.fetchone()
-                is_5g_active = s_res and s_res[0] == "1"
-                status_text = "🟢 AKTİF (5 Alana 1 Hediye Bilgilendirmesi Açık)" if is_5g_active else "🔴 PASİF"
-                toggle_btn_text = "Kampanyayı Kapat" if is_5g_active else "Kampanyayı Aç"
-                toggle_val = "0" if is_5g_active else "1"
-
-                content_html = f"""
-                <div class="form-box" style="border: 1px solid #10b981;">
-                    <h2 style="color: #10b981; margin-top: 0;">🎁 5 Gram Alana 1 Gram Hediye Kampanyası</h2>
-                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Mevcut Durum: <b>{status_text}</b></p>
-                    <form action="/admin-toggle-5g" method="POST">
-                        <input type="hidden" name="status" value="{toggle_val}">
-                        <button type="submit" style="background: {'#ef4444' if is_5g_active else '#10b981'}; width: auto; padding: 12px 25px;">{toggle_btn_text}</button>
-                    </form>
-                </div>
-                """
-            elif tab == "coupons":
-                cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
-                c_rows = cursor.fetchall()
-                c_table = ""
-                for c in c_rows:
-                    cid, ccode, cdisc, cuses, cdate = c
-                    c_table += f"<tr><td>#{cid}</td><td><code>{ccode}</code></td><td><b>{cdisc} USDT</b></td><td>{cuses} Adet</td><td>{cdate}</td></tr>"
-
-                content_html = f"""
-                <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div class="form-box" style="margin:0; border: 1px solid #10b981;">
-                        <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur & Bot Duyurusu</h2>
-                        <form action="/admin-add-coupon" method="POST">
-                            <label>Kupon Kodu:</label>
-                            <input type="text" name="code" required placeholder="Örn: YAZ2026">
-                            <label>İndirim Tutarı (USDT):</label>
-                            <input type="number" step="0.1" name="discount" required placeholder="10.0">
-                            <label>Kullanım Limiti:</label>
-                            <input type="number" name="uses" value="100" required>
-                            <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet & Botu Ateşle</button>
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    content_html = """
+                    <div class="form-box" style="border: 1px solid #38bdf8;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">📢 Toplu Duyuru & Kampanya Merkezi (Broadcast)</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">Botu kullanan tüm kullanıcılara anında duyuru, kampanya veya indirim mesajı fırlatın.</p>
+                        <form action="/admin-broadcast" method="POST">
+                            <label>Duyuru Mesajı (Markdown destekler):</label>
+                            <textarea name="message" rows="6" required placeholder="🔥 Büyük indirim başladı! Tüm ürünlerde geçerli kupon kodunuz: ..."></textarea>
+                            <button type="submit" style="background: #2563eb; margin-top: 15px;">🚀 Tüm Kullanıcılara Gönder</button>
                         </form>
                     </div>
-                    <div class="table-box" style="margin:0;">
-                        <h2 style="margin-top: 0;">📋 Aktif Kuponlar</h2>
-                        <div style="max-height: 320px; overflow-y: auto;">
+                    """
+            elif tab == "promo5g":
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
+                    s_res = cursor.fetchone()
+                    is_5g_active = s_res and s_res[0] == "1"
+                    status_text = "🟢 AKTİF (5 Alana 1 Hediye Bilgilendirmesi Açık)" if is_5g_active else "🔴 PASİF"
+                    toggle_btn_text = "Kampanyayı Kapat" if is_5g_active else "Kampanyayı Aç"
+                    toggle_val = "0" if is_5g_active else "1"
+
+                    content_html = f"""
+                    <div class="form-box" style="border: 1px solid #10b981;">
+                        <h2 style="color: #10b981; margin-top: 0;">🎁 5 Gram Alana 1 Gram Hediye Kampanyası</h2>
+                        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Mevcut Durum: <b>{status_text}</b></p>
+                        <form action="/admin-toggle-5g" method="POST">
+                            <input type="hidden" name="status" value="{toggle_val}">
+                            <button type="submit" style="background: {'#ef4444' if is_5g_active else '#10b981'}; width: auto; padding: 12px 25px;">{toggle_btn_text}</button>
+                        </form>
+                    </div>
+                    """
+            elif tab == "coupons":
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("SELECT id, code, discount, uses_left, created_at FROM coupons ORDER BY id DESC")
+                    c_rows = cursor.fetchall()
+                    c_table = ""
+                    for c in c_rows:
+                        cid, ccode, cdisc, cuses, cdate = c
+                        c_table += f"<tr><td>#{cid}</td><td><code>{ccode}</code></td><td><b>{cdisc} USDT</b></td><td>{cuses} Adet</td><td>{cdate}</td></tr>"
+
+                    content_html = f"""
+                    <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-box" style="margin:0; border: 1px solid #10b981;">
+                            <h2 style="color: #10b981; margin-top: 0;">🎟️ Yeni Kupon Oluştur & Bot Duyurusu</h2>
+                            <form action="/admin-add-coupon" method="POST">
+                                <label>Kupon Kodu:</label>
+                                <input type="text" name="code" required placeholder="Örn: YAZ2026">
+                                <label>İndirim Tutarı (USDT):</label>
+                                <input type="number" step="0.1" name="discount" required placeholder="10.0">
+                                <label>Kullanım Limiti:</label>
+                                <input type="number" name="uses" value="100" required>
+                                <button type="submit" style="background: #10b981; margin-top: 15px;">Kuponu Kaydet & Botu Ateşle</button>
+                            </form>
+                        </div>
+                        <div class="table-box" style="margin:0;">
+                            <h2 style="margin-top: 0;">📋 Aktif Kuponlar</h2>
+                            <div style="max-height: 320px; overflow-y: auto;">
+                                <table>
+                                    <tr><th>ID</th><th>Kod</th><th>İndirim</th><th>Limit</th><th>Tarih</th></tr>
+                                    {c_table if c_table else "<tr><td colspan='5' style='text-align:center;'>Kupon bulunmuyor.</td></tr>"}
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    """
+            elif tab == "users":
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("""
+                        SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
+                               COUNT(o.id) as total_orders, 
+                               COALESCE(SUM(o.final_price), 0.0) as total_spent
+                        FROM users u
+                        LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('completed', 'received')
+                        GROUP BY u.user_id
+                        ORDER BY total_spent DESC
+                    """)
+                    users_list = cursor.fetchall()
+                    rows = ""
+                    for u in users_list:
+                        uid, uname, u_lang, is_b, u_bal, ref_earn, t_orders, t_spent = u
+                        username_str = f"@{uname}" if uname else "N/A"
+                        status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
+                        
+                        balance_form = f"""
+                        <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
+                            <input type="hidden" name="user_id" value="{uid}">
+                            <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:110px; margin:0; padding:8px; font-size:13px; font-weight:bold; color:#38bdf8; background:#090d16; border:1px solid #38bdf8; border-radius:6px;">
+                            <button type="submit" style="background:#2563eb; padding:8px 12px; font-size:12px; width:auto; border-radius:6px;">Düzenle</button>
+                        </form>
+                        """
+                        ban_btn = f"""
+                        <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
+                            <input type="hidden" name="user_id" value="{uid}">
+                            <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
+                            <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:12px; width:auto; border-radius:6px;">
+                                {'Unban' if is_b == 1 else 'Ban'}
+                            </button>
+                        </form>
+                        """
+                        profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;'>Profil Detay</button>"
+                        rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{profile_btn} {ban_btn}</td></tr>"
+
+                    table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"
+
+                    content_html = """
+                    <div class="table-box" style="border: 1px solid #38bdf8;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
+                        <table>
+                            <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Ref Kazancı</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
+                            {rows_placeholder}
+                        </table>
+                    </div>
+
+                    <div id="userModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+                        <div style="background:#111827; padding:25px; border-radius:12px; border:1px solid #38bdf8; width:90%; max-width:600px; max-height:80vh; overflow-y:auto; position:relative;">
+                            <button onclick="closeUserProfile()" style="position:absolute; top:15px; right:15px; background:#ef4444; width:30px; height:30px; border-radius:50%; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>
+                            <h3 style="color:#38bdf8; margin-top:0;">👤 Kullanıcı Detay Profili</h3>
+                            <div id="modalBody"><p>Yükleniyor...</p></div>
+                        </div>
+                    </div>
+
+                    <script>
+                        async function openUserProfile(uid) {
+                            document.getElementById('userModal').style.display = 'flex';
+                            document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
+                            try {
+                                const res = await fetch('/api/admin-user-detail?user_id=' + uid);
+                                const data = await res.json();
+                                let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
+                                html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
+                                html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
+                                if(data.orders.length > 0) {
+                                    data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
+                                } else { html += '<li>Sipariş yok.</li>'; }
+                                html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
+                                if(data.deposits.length > 0) {
+                                    data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
+                                } else { html += '<li>Yükleme yok.</li>'; }
+                                html += '</ul>';
+                                document.getElementById('modalBody').innerHTML = html;
+                            } catch(e) {
+                                document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
+                            }
+                        }
+                        function closeUserProfile() {
+                            document.getElementById('userModal').style.display = 'none';
+                        }
+                    </script>
+                    """.format(rows_placeholder=table_rows_html)
+
+            elif tab == "admins":
+                if current_role != "super_admin":
+                    content_html = "<h3 style='color:red;'>⚠️ Bu sayfaya erişim yetkiniz yok!</h3>"
+                else:
+                    cursor.execute("SELECT id, username, role, created_at FROM admins")
+                    all_staff = cursor.fetchall()
+                    staff_rows = ""
+                    for st in all_staff:
+                        s_id, s_user, s_role, s_date = st
+                        staff_rows += f"""
+                        <tr>
+                            <td>#{s_id}</td>
+                            <td><b>{s_user}</b></td>
+                            <td><span style="color:#38bdf8;">{s_role}</span></td>
+                            <td>{s_date}</td>
+                            <td>
+                                <form action="/admin-delete-staff" method="POST" style="margin:0;">
+                                    <input type="hidden" name="id" value="{s_id}">
+                                    <button type="submit" style="background:#ef4444; padding:5px 10px; font-size:12px; width:auto;">Sil</button>
+                                </form>
+                            </td>
+                        </tr>
+                        """
+
+                    content_html = f"""
+                    <div class="grid-2" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-box" style="margin:0; border: 1px solid #38bdf8;">
+                            <h2 style="color: #38bdf8; margin-top: 0;">➕ Yeni Personel / Alt Admin Ekle</h2>
+                            <form action="/admin-add-staff" method="POST">
+                                <label>Kullanıcı Adı:</label>
+                                <input type="text" name="username" required placeholder="Örn: destek_mehmet">
+                                <label>Giriş Şifresi:</label>
+                                <input type="password" name="password" required placeholder="******">
+                                <label>Erişim Yetkisi / Rolü:</label>
+                                <select name="role" style="width:100%; padding:10px; background:#090d16; color:white; border:1px solid #1f2937; border-radius:8px; margin-bottom:15px;">
+                                    <option value="support">💬 Canlı Destek Personeli (Sadece Chat)</option>
+                                    <option value="stock_manager">📦 Stok & Depo Sorumlusu (Ürün/Konum Ekleme)</option>
+                                    <option value="super_admin">👑 Tam Yetkili Süper Admin</option>
+                                </select>
+                                <button type="submit" style="background: #10b981;">Personel Hesabını Oluştur</button>
+                            </form>
+                        </div>
+                        <div class="table-box" style="margin:0;">
+                            <h2 style="margin-top: 0;">📋 Mevcut Personeller</h2>
                             <table>
-                                <tr><th>ID</th><th>Kod</th><th>İndirim</th><th>Limit</th><th>Tarih</th></tr>
-                                {c_table if c_table else "<tr><td colspan='5' style='text-align:center;'>Kupon bulunmuyor.</td></tr>"}
+                                <tr><th>ID</th><th>Kullanıcı Adı</th><th>Rol</th><th>Tarih</th><th>İşlem</th></tr>
+                                {staff_rows if staff_rows else "<tr><td colspan='5' style='text-align:center;'>Başka personel bulunmuyor.</td></tr>"}
                             </table>
                         </div>
                     </div>
-                </div>
-                """
-            # YENİ ÖZELLİK 3: Kullanıcı CRM ve Detaylı Profil Modal Penceresi Entegrasyonu (F-String Hatasından Arındırılmış)
-            elif tab == "users":
-                cursor.execute("""
-                    SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
-                           COUNT(o.id) as total_orders, 
-                           COALESCE(SUM(o.final_price), 0.0) as total_spent
-                    FROM users u
-                    LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('completed', 'received')
-                    GROUP BY u.user_id
-                    ORDER BY total_spent DESC
-                """)
-                users_list = cursor.fetchall()
-                rows = ""
-                for u in users_list:
-                    uid, uname, u_lang, is_b, u_bal, ref_earn, t_orders, t_spent = u
-                    username_str = f"@{uname}" if uname else "N/A"
-                    status_badge = "<span style='color:#ef4444; font-weight:bold;'>BANNED</span>" if is_b == 1 else "<span style='color:#10b981; font-weight:bold;'>ACTIVE</span>"
-                    
-                    balance_form = f"""
-                    <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
-                        <input type="hidden" name="user_id" value="{uid}">
-                        <input type="number" step="0.1" name="new_balance" value="{u_bal}" style="width:110px; margin:0; padding:8px; font-size:13px; font-weight:bold; color:#38bdf8; background:#090d16; border:1px solid #38bdf8; border-radius:6px;">
-                        <button type="submit" style="background:#2563eb; padding:8px 12px; font-size:12px; width:auto; border-radius:6px;">Düzenle</button>
-                    </form>
                     """
-                    ban_btn = f"""
-                    <form action="/admin-ban" method="POST" style="margin:0; display:inline;">
-                        <input type="hidden" name="user_id" value="{uid}">
-                        <input type="hidden" name="action" value="{'unban' if is_b == 1 else 'ban'}">
-                        <button type="submit" style="background:{'#10b981' if is_b == 1 else '#ef4444'}; padding:6px 12px; font-size:12px; width:auto; border-radius:6px;">
-                            {'Unban' if is_b == 1 else 'Ban'}
-                        </button>
-                    </form>
-                    """
-                    profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;'>Profil Detay</button>"
-                    rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang.upper()}</td><td style='padding: 10px;'>{balance_form}</td><td>{ref_earn:.2f} USDT</td><td><b>{t_orders} Adet</b></td><td><b>{t_spent} USDT</b></td><td>{status_badge}</td><td>{profile_btn} {ban_btn}</td></tr>"
-
-                table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>No users registered yet.</td></tr>"
-
-                content_html = """
-                <div class="table-box" style="border: 1px solid #38bdf8;">
-                    <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
-                    <table>
-                        <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye (USDT)</th><th>Ref Kazancı</th><th>Toplam Sipariş</th><th>Toplam Harcama</th><th>Status</th><th>Action</th></tr>
-                        {rows_placeholder}
-                    </table>
-                </div>
-
-                <!-- Kullanıcı Profil Detay Modal Penceresi -->
-                <div id="userModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
-                    <div style="background:#111827; padding:25px; border-radius:12px; border:1px solid #38bdf8; width:90%; max-width:600px; max-height:80vh; overflow-y:auto; position:relative;">
-                        <button onclick="closeUserProfile()" style="position:absolute; top:15px; right:15px; background:#ef4444; width:30px; height:30px; border-radius:50%; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>
-                        <h3 style="color:#38bdf8; margin-top:0;">👤 Kullanıcı Detay Profili</h3>
-                        <div id="modalBody"><p>Yükleniyor...</p></div>
-                    </div>
-                </div>
-
-                <script>
-                    async function openUserProfile(uid) {
-                        document.getElementById('userModal').style.display = 'flex';
-                        document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
-                        try {
-                            const res = await fetch('/api/admin-user-detail?user_id=' + uid);
-                            const data = await res.json();
-                            let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
-                            html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
-                            html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
-                            if(data.orders.length > 0) {
-                                data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
-                            } else { html += '<li>Sipariş yok.</li>'; }
-                            html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
-                            if(data.deposits.length > 0) {
-                                data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
-                            } else { html += '<li>Yükleme yok.</li>'; }
-                            html += '</ul>';
-                            document.getElementById('modalBody').innerHTML = html;
-                        } catch(e) {
-                            document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
-                        }
-                    }
-                    function closeUserProfile() {
-                        document.getElementById('userModal').style.display = 'none';
-                    }
-                </script>
-                """.format(rows_placeholder=table_rows_html)
 
             elif tab == "active":
                 cursor.execute("""
@@ -1888,7 +1967,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn.close()
 
-            # YENİ ÖZELLİK 4: Sesli ve Görsel Yeni Bildirim Alarmları (Web Audio API)
+            # Sol Menü (Sidebar) Dinamik Rol Filtreleme
+            sidebar_links = f'<a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>'
+            
+            if current_role in ["super_admin", "stock_manager"]:
+                sidebar_links += f'<a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>'
+                sidebar_links += f'<a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>'
+                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop / Excel</a>'
+                sidebar_links += f'<a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>'
+                sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
+
+            if current_role == "super_admin":
+                sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
+                sidebar_links += f'<a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>'
+                sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
+                sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
+                sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
+                sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
+                sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
+
             dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
@@ -1935,19 +2032,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Yönetim Paneli</div>
-                    <a href="/admin-web?tab=home" class="{"active" if tab == "home" else ""}">🏠 Home & Harita</a>
-                    <a href="/admin-web?tab=support" class="{"active" if tab == "support" else ""}">💬 Canlı Destek</a>
-                    <a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>
-                    <a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>
-                    <a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>
-                    <a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>
-                    <a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>
-                    <a href="/admin-web?tab=active" class="{"active" if tab == "active" else ""}">🟢 Active Orders</a>
-                    <a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>
-                    <a href="/admin-web?tab=passive" class="{"active" if tab in ["passive", "edit"] else ""}">📦 Passive Drops</a>
-                    <a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Add Drop / Excel</a>
-                    <a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>
+                    <div class="christmas-banner">🎄 Rol: {current_role.upper()}</div>
+                    {sidebar_links}
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
                 <div class="main-content">
@@ -1957,14 +2043,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 </div>
 
                 <script>
-                    // Tarayıcı Sesli Uyarı (Beep) Sinyali Üretici
                     function playBeep() {{
                         try {{
                             const ctx = new (window.AudioContext || window.webkitAudioContext)();
                             const osc = ctx.createOscillator();
                             const gain = ctx.createGain();
                             osc.type = 'sine';
-                            osc.frequency.value = 587.33; // D5 nota sesi
+                            osc.frequency.value = 587.33;
                             gain.gain.setValueAtTime(0.1, ctx.currentTime);
                             osc.connect(gain);
                             gain.connect(ctx.destination);
@@ -1980,7 +2065,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const data = await res.json();
                             if(lastUnreadChats !== -1 && data.unread_chats > lastUnreadChats) {{
                                 playBeep();
-                                console.log("Yeni destek mesajı geldi!");
                             }}
                             lastUnreadChats = data.unread_chats;
                         }} catch(e) {{}}
@@ -2009,6 +2093,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
             self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
             self.end_headers()
             return
@@ -2130,13 +2215,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"success": true}')
             return
 
+        # Sabit "root" / "toor" veya veritabanındaki diğer adminlerin doğrulanması
         if parsed_path.path == "/admin-login":
             username = params.get("username", [""])[0]
             password = params.get("password", [""])[0]
 
-            if username == ADMIN_WEB_USERNAME and password == ADMIN_WEB_PASSWORD:
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT role FROM admins WHERE username = ? AND password = ?", (username, password))
+            admin_row = cursor.fetchone()
+            conn.close()
+
+            if admin_row:
+                user_role = admin_row[0]
                 self.send_response(303)
                 self.send_header('Set-Cookie', 'admin_auth=true; Path=/; HttpOnly')
+                self.send_header('Set-Cookie', f'admin_role={user_role}; Path=/; HttpOnly')
+                self.send_header('Set-Cookie', f'admin_username={username}; Path=/; HttpOnly')
                 self.send_header('Location', '/admin-web')
                 self.end_headers()
             else:
@@ -2148,7 +2243,36 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_html_error("Yetkisiz Erişim!")
             return
 
-        if parsed_path.path == "/admin-broadcast":
+        if parsed_path.path == "/admin-add-staff":
+            u_name = params.get("username", [""])[0].strip()
+            u_pass = params.get("password", [""])[0].strip()
+            u_role = params.get("role", ["support"])[0]
+
+            if u_name and u_pass:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO admins (username, password, role) VALUES (?, ?, ?)", (u_name, u_pass, u_role))
+                conn.commit()
+                conn.close()
+                log_audit(ADMIN_WEB_USERNAME, "ADD_STAFF", f"Yeni personel eklendi: {u_name} ({u_role})")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=admins')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-delete-staff":
+            staff_id = params.get("id", ["0"])[0]
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM admins WHERE id = ? AND username != 'root'", (staff_id,))
+            conn.commit()
+            conn.close()
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=admins')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-broadcast":
             msg_text = params.get("message", [""])[0].strip()
             if msg_text and main_loop:
                 conn = sqlite3.connect("drop_bot.db")
@@ -2465,8 +2589,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <h2>🔐 Admin Girişi</h2>
                 {err_html}
                 <form action="/admin-login" method="POST">
-                    <input type="text" name="username" required placeholder="Kullanıcı Adı">
-                    <input type="password" name="password" required placeholder="Şifre">
+                    <input type="text" name="username" required placeholder="Kullanıcı Adı (root)">
+                    <input type="password" name="password" required placeholder="Şifre (toor)">
                     <button type="submit">Giriş Yap</button>
                 </form>
             </div>
