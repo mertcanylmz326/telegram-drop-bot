@@ -1464,11 +1464,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
                     if can_view_wallets == 1:
                         try:
+                            async def fetch_all_wallets():
+                                b1 = await fetch_wallet_balance(CRYPTO_WALLET)
+                                b2 = await fetch_wallet_balance(EXIT_WALLET)
+                                b3 = await fetch_wallet_balance(MAIN_SAVINGS_WALLET)
+                                return b1, b2, b3
+
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
-                            w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                            w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                            w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                            w1_bal, w2_bal, w3_bal = loop.run_until_complete(fetch_all_wallets())
                             loop.close()
                         except Exception as e:
                             logging.error(f"Sync wallet fetch error: {e}")
@@ -3873,7 +3877,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
-    cursor.execute("orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
