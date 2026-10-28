@@ -2298,12 +2298,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
                     edit_form_html = "<h3 style='color:red;'>⚠️ Yetkiniz yok!</h3>"
                 else:
-                    edit_id = query_params.get("id", ["0"])[0]
+                    try:
+                        edit_id = int(query_params.get("id", ["0"])[0])
+                    except:
+                        edit_id = 0
+
                     cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
                     drop_data = cursor.fetchone()
                     if drop_data:
                         e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
-                        combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
+                        combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else "41.0082, 28.9784"
                         edit_form_html = f"""
                         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2371,6 +2375,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }});
                         </script>
                         """
+                    else:
+                        edit_form_html = "<h3 style='color:red;'>⚠️ Düzenlenecek ürün bulunamadı.</h3>"
 
             conn.close()
 
@@ -2485,7 +2491,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if not is_logged_in:
                 self.send_login_page()
                 return
-            edit_id = query_params.get("id", ["0"])[0]
+            try:
+                edit_id = int(query_params.get("id", ["0"])[0])
+            except:
+                edit_id = 0
             self.send_response(303)
             self.send_header('Location', f'/admin-web?tab=edit&id={edit_id}')
             self.end_headers()
@@ -3230,20 +3239,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if file_data and file_name:
                 try:
                     file_stream = io.BytesIO(file_data)
-                    fname_lower = file_name.lower()
                     df = None
-                    
-                    # 1. Önce modern Excel (.xlsx) olarak dene
                     try:
                         file_stream.seek(0)
                         df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
                     except Exception:
-                        # 2. Eski Excel (.xls) olarak dene
                         try:
                             file_stream.seek(0)
                             df = pd.read_excel(file_stream, sheet_name=0)
                         except Exception:
-                            # 3. CSV ise farklı encoding'lerle (utf-8, windows-1254, latin5) okumayı dene
                             success_csv = False
                             for enc in ['utf-8', 'windows-1254', 'latin5', 'cp1254']:
                                 try:
