@@ -3230,9 +3230,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if file_data and file_name:
                 try:
                     file_stream = io.BytesIO(file_data)
-                    if file_name.lower().endswith('.csv'):
+                    fname_lower = file_name.lower()
+                    
+                    if fname_lower.endswith('.csv'):
                         df = pd.read_csv(file_stream)
+                    elif fname_lower.endswith('.xls'):
+                        file_stream.seek(0)
+                        df = pd.read_excel(file_stream, sheet_name=0)
                     else:
+                        file_stream.seek(0)
                         df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
 
                     df.columns = df.columns.astype(str).str.strip().str.lower()
