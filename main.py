@@ -670,35 +670,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
 
                     .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
-                    .wheel { 
-                        width: 220px; 
-                        height: 220px; 
-                        border-radius: 50%; 
-                        border: 6px solid #38bdf8; 
-                        position: relative; 
-                        overflow: hidden; 
-                        transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); 
-                        box-shadow: 0 0 20px rgba(56,189,248,0.3); 
-                        background: conic-gradient(
-                            #ef4444 0deg 72deg,
-                            #f59e0b 72deg 144deg,
-                            #10b981 144deg 216deg,
-                            #3b82f6 216deg 288deg,
-                            #8b5cf6 288deg 360deg
-                        );
-                    }
-                    .wheel-label {
-                        position: absolute;
-                        width: 100%;
-                        height: 100%;
-                        text-align: center;
-                        font-size: 11px;
-                        font-weight: bold;
-                        color: white;
-                        text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-                        padding-top: 12px;
-                        box-sizing: border-box;
-                    }
+                    .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
+                    .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
                 </style>
             </head>
             <body>
@@ -745,11 +718,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             
                             <div class="wheel-wrapper">
                                 <div class="wheel" id="wheelEl">
-                                    <div class="wheel-label" style="transform: rotate(36deg);">🌿 1g Weed</div>
-                                    <div class="wheel-label" style="transform: rotate(108deg);">🏷️ %1 İndirim</div>
-                                    <div class="wheel-label" style="transform: rotate(180deg);">🏷️ %3 İndirim</div>
-                                    <div class="wheel-label" style="transform: rotate(252deg);">🏷️ %5 İndirim</div>
-                                    <div class="wheel-label" style="transform: rotate(324deg);">🚬 1 Joint</div>
+                                    <div class="wheel-slice" style="transform: rotate(0deg) skewY(-18deg); background: #ef4444;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🌿 1g Weed</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(72deg) skewY(-18deg); background: #f59e0b;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🚬 1 Joint</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(144deg) skewY(-18deg); background: #10b981;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %5 İndirim</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(216deg) skewY(-18deg); background: #3b82f6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %3 İndirim</span></div>
+                                    <div class="wheel-slice" style="transform: rotate(288deg) skewY(-18deg); background: #8b5cf6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %1 İndirim</span></div>
                                 </div>
                             </div>
                         </div>
@@ -954,8 +927,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    let currentRotation = 0;
-
                     async function spinGame(gameType) {
                         const btn = document.getElementById('spinBtn');
                         btn.disabled = true;
@@ -967,20 +938,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 body: JSON.stringify({user_id: userId, game_type: gameType})
                             });
                             const data = await res.json();
-                            if(!data.success) { 
-                                alert(data.message); 
-                                btn.disabled = false; 
-                                return; 
-                            }
+                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
                             
-                            currentRotation += 1800 + (data.target_deg - (currentRotation % 360));
-                            document.getElementById('wheelEl').style.transform = `rotate(${currentRotation}deg)`;
-                            
+                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
                             setTimeout(() => {
                                 document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
                                 alert("🎉 Tebrikler! Kazandınız: " + data.reward);
-                                btn.disabled = false;
-                            }, 4200);
+                            }, 4000);
                         } catch(e) { 
                             alert("Bağlantı hatası oluştu."); 
                             btn.disabled = false; 
@@ -1167,8 +1131,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <input type="text" value="${data.wallet}" readonly>
                                     <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
-                            } else {
-                                alert("Bakiye yükleme talebi oluşturulamadı.");
                             }
                         } catch(e) {
                             alert("Bakiye yükleme talebi oluşturulamadı.");
@@ -1198,15 +1160,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const res = await fetch('/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
-                            if(data && data.messages) {
-                                data.messages.forEach(m => {
-                                    const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
-                                    const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
-                                    chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
-                                });
-                            }
+                            data.messages.forEach(m => {
+                                const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
+                                const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
+                                chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
+                            });
                             const box = document.getElementById('chatBox');
-                            if(box && box.innerHTML !== chatHtml) {
+                            if(box.innerHTML !== chatHtml) {
                                 box.innerHTML = chatHtml;
                                 box.scrollTop = box.scrollHeight;
                             }
@@ -1314,20 +1274,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-chat":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
-            rows = cursor.fetchall()
-            conn.close()
-            msgs = [{"sender": r[0], "message": r[1], "date": r[2]} for r in rows]
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
             return
 
         if parsed_path.path == "/api/admin-user-detail":
@@ -1463,15 +1409,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
                     if can_view_wallets == 1:
-                        try:
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                            w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                            w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                            loop.close()
-                        except Exception as e:
-                            logging.error(f"Sync wallet fetch error: {e}")
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                        w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                        w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                        loop.close()
 
                     wallet_section_html = ""
                     if can_view_wallets == 1:
@@ -2433,7 +2376,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
@@ -2536,7 +2479,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
-        query_params = parse_qs(parsed_path.query)
         
         content_type = self.headers.get('Content-Type', '')
         params = {}
@@ -2573,11 +2515,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             import random
             rewards = [
-                {"text": "🌿 1g Weed", "deg": 0, "chance": 10},
-                {"text": "🚬 1 Joint", "deg": 288, "chance": 15},
-                {"text": "🏷️ %5 İndirim", "deg": 216, "chance": 25},
-                {"text": "🏷️ %3 İndirim", "deg": 144, "chance": 25},
-                {"text": "🏷️ %1 İndirim", "deg": 72, "chance": 25}
+                {"text": "1g Weed", "deg": 36, "chance": 10},
+                {"text": "1 Joint", "deg": 108, "chance": 15},
+                {"text": "%5 İndirim", "deg": 180, "chance": 25},
+                {"text": "%3 İndirim", "deg": 252, "chance": 25},
+                {"text": "%1 İndirim", "deg": 324, "chance": 25}
             ]
             rand = random.randint(1, 100)
             cum = 0
@@ -2597,101 +2539,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
             return
-
-        if parsed_path.path == "/api/miniapp-deposit":
-            try:
-                uid = int(query_params.get("user_id", ["0"])[0])
-                amount = float(query_params.get("amount", ["0"])[0])
-                if not uid:
-                    content_length = int(self.headers.get('Content-Length', 0))
-                    if content_length > 0:
-                        post_body = self.rfile.read(content_length).decode('utf-8', errors='ignore')
-                        body_params = parse_qs(post_body)
-                        uid = int(body_params.get("user_id", ["0"])[0])
-                        amount = float(body_params.get("amount", ["0"])[0])
-            except:
-                uid, amount = 0, 0.0
-
-            if uid > 0 and amount > 0:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
-                deposit_id = cursor.lastrowid
-                conn.commit()
-                conn.close()
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "deposit_id": deposit_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
-                return
-            else:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz miktar veya kullanıcı ID."}).encode("utf-8"))
-                return
-
-        if parsed_path.path == "/api/miniapp-check-deposit":
-            try:
-                dep_id = int(query_params.get("dep_id", ["0"])[0])
-                uid = int(query_params.get("user_id", ["0"])[0])
-                target_amount = float(query_params.get("amount", ["0"])[0])
-                
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT status FROM deposits WHERE id = ? AND user_id = ?", (dep_id, uid))
-                dep = cursor.fetchone()
-                if not dep:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                    return
-                
-                if dep[0] == 'completed':
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                    return
-
-                api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
-                verified = False
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(api_url) as response:
-                        if response.status == 200:
-                            res_json = await response.json()
-                            for tx in res_json.get("data", []):
-                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                                    verified = True
-                                    break
-
-                if verified:
-                    cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
-                    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
-                    conn.commit()
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                    return
-                else:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                    return
-            except Exception as e:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                return
 
         if 'multipart/form-data' in content_type:
             boundary = content_type.split("boundary=")[1].encode()
@@ -2715,93 +2562,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
-
-        if parsed_path.path == "/api/miniapp-buy":
-            try:
-                uid = int(query_params.get("user_id", ["0"])[0])
-                drop_id = int(query_params.get("drop_id", ["0"])[0])
-                if not uid:
-                    uid = int(params.get("user_id", ["0"])[0])
-                    drop_id = int(params.get("drop_id", ["0"])[0])
-
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-                drop = cursor.fetchone()
-                if not drop:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "message": "Ürün tükenmiş."}).encode("utf-8"))
-                    return
-
-                title, price, stock = drop
-                cursor.execute("SELECT balance FROM users WHERE user_id = ?", (uid,))
-                u_row = cursor.fetchone()
-                bal = u_row[0] if u_row else 0.0
-
-                if bal < price:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "message": "Yetersiz bakiye."}).encode("utf-8"))
-                    return
-
-                cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
-                new_stock = stock - 1
-                if new_stock <= 0:
-                    cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
-                else:
-                    cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
-
-                cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, drop_id, price))
-                order_id = cursor.lastrowid
-                
-                cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
-                ref_row = cursor.fetchone()
-                if ref_row and ref_row[0] > 0:
-                    ref_id = ref_row[0]
-                    bonus = float(price) * 0.05
-                    cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
-
-                conn.commit()
-                conn.close()
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "order_id": order_id}).encode("utf-8"))
-                return
-            except Exception as e:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode("utf-8"))
-                return
-
-        if parsed_path.path == "/api/miniapp-received":
-            try:
-                order_id = int(query_params.get("id", ["0"])[0])
-                if not order_id:
-                    order_id = int(params.get("id", ["0"])[0])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
-                conn.commit()
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                return
-            except:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                return
 
         if parsed_path.path == "/api/miniapp-review":
             uid = int(params.get("user_id", ["0"])[0])
@@ -3272,7 +3032,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
@@ -3873,7 +3633,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
-    cursor.execute("orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
+    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
