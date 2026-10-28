@@ -8,6 +8,7 @@ import urllib.request
 import json
 import hashlib
 import time
+import io
 import pandas as pd
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -3230,19 +3231,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if file_data and file_name:
                 try:
                     file_stream = io.BytesIO(file_data)
-                    if file_name.endswith('.csv'):
+                    if file_name.lower().endswith('.csv'):
                         df = pd.read_csv(file_stream)
                     else:
-                        df = pd.read_excel(file_stream)
+                        df = pd.read_excel(file_stream, sheet_name=0)
+
+                    df.columns = df.columns.astype(str).str.strip().str.lower()
 
                     conn = sqlite3.connect("drop_bot.db")
                     cursor = conn.cursor()
                     count = 0
+                    
                     for _, row in df.iterrows():
-                        title = str(row.get('title', 'Lemon Haze'))
-                        category = str(row.get('category', 'Genel')).upper()
+                        title = str(row.get('title', 'Lemon Haze Drop'))
+                        if title == 'nan' or not title.strip():
+                            continue
+                            
+                        category = str(row.get('category', 'Genel')).upper().strip()
+                        
+                        raw_price = str(row.get('price', 70.0)).replace('$', '').replace(',', '.').strip()
                         try:
-                            price = float(row.get('price', 70.0))
+                            price = float(raw_price)
                         except:
                             price = 70.0
                         
@@ -3255,14 +3264,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         except:
                             pass
 
-                        desc = str(row.get('description', 'Açıklama yok'))
-                        cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, '', ?, 1, ?, ?, ?)", (title, price, desc, category, lat, lon))
+                        desc = str(row.get('description', 'Açıklama girilmedi'))
+                        
+                        cursor.execute("""
+                            INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
+                            VALUES (?, ?, '', ?, 1, ?, ?, ?)
+                        """, (title, price, desc, category, lat, lon))
                         count += 1
+                        
                     conn.commit()
                     conn.close()
-                    log_audit(current_username, "EXCEL_UPLOAD", f"{count} ürün yüklendi")
+                    log_audit(current_username, "EXCEL_UPLOAD", f"Başarıyla {count} ürün yüklendi.")
+                    log_panel_event(f"📊 Excel'den {count} adet toplu ürün başarıyla eklendi.", "success")
                 except Exception as e:
                     logging.error(f"Excel upload error: {e}")
+                    log_panel_event(f"❌ Excel yükleme hatası: {str(e)}", "warning")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
