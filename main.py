@@ -20,7 +20,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
-ADMIN_IDS = [1012940363]  
+ADMIN_ID = 1012940363
+ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
 
 ADMIN_WEB_USERNAME = "root"
@@ -416,7 +417,7 @@ def log_audit(admin_name, action_type, details):
         logging.error(e)
 
 def is_admin(user_id: int) -> bool:
-    if user_id in ADMIN_IDS:
+    if user_id == ADMIN_ID:
         return True
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -439,7 +440,7 @@ async def auto_backup_task():
         try:
             if os.path.exists("drop_bot.db"):
                 file = FSInputFile("drop_bot.db")
-                await bot.send_document(ADMIN_IDS[0], file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
+                await bot.send_document(ADMIN_GROUP_ID, file, caption="💾 **Otomatik Günlük Veritabanı Yedeği**")
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
             logging.error(e)
@@ -517,7 +518,7 @@ async def background_payment_worker():
 
                     log_panel_event(f"🎉 Otomatik Arka Plan Satışı: #{o_id} - {title} ({f_price} USDT)", "success")
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
-                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_IDS[0], f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"🎉 **OTOMATİK SATIŞ ONAYLANDI!**\n\n📌 Ürün: {title}\n💰 Tutar: {f_price} USDT\n🔑 Takip Kodu: `WEE-{o_id}`"), main_loop)
 
             for dep in pending_deposits:
                 dep_id, u_id, amount, created_at_str = dep
@@ -547,18 +548,13 @@ async def background_payment_worker():
                     u_lang = get_user_lang(u_id)
                     log_panel_event(f"📥 Otomatik Bakiye Yüklendi: Kullanıcı {u_id} - {amount} USDT", "success")
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, LANG[u_lang]["deposit_success"].format(amount=amount, balance=new_bal)), main_loop)
-                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_IDS[0], f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{u_id}`\n💵 Miktar: **{amount} USDT**"), main_loop)
+                    asyncio.run_coroutine_threadsafe(bot.send_message(ADMIN_GROUP_ID, f"📥 **BAKİYE YÜKLENDİ!**\n\n👤 Kullanıcı ID: `{u_id}`\n💵 Miktar: **{amount} USDT**"), main_loop)
 
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
-    def do_HEAD(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-
     def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
@@ -619,7 +615,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
         if parsed_path.path == "/miniapp":
-            miniapp_template = """
+            miniapp_html = """
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -666,7 +662,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .nav-btn.apple { background: #475569; }
 
                     .skeleton { background: linear-gradient(90deg, #111827 25%, #1f2937 50%, #111827 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 40px; margin-bottom: 10px; }
-                    @keyframes shimmer {{ 0% {{ background-position: 200% 0; }} 100% {{ background-position: -200% 0; }} }}
+                    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
                     .chat-box { height: 260px; overflow-y: auto; background: var(--bg-main); padding: 10px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 10px; }
                     .msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; max-width: 80%; word-break: break-word; }
@@ -797,16 +793,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     let userId = 0;
                     if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
                         userId = tg.initDataUnsafe.user.id;
-                    }
-                    if (!userId) {
+                    } else {
                         const urlParams = new URLSearchParams(window.location.search);
-                        userId = urlParams.get('user_id');
+                        userId = urlParams.get('user_id') || 1012940363;
                     }
-                    if (!userId) {
-                        userId = 1012940363; 
-                    }
-
-                    const baseUrl = "RENDER_URL_PLACEHOLDER";
 
                     function triggerHaptic(style = 'medium') {
                         if (tg.HapticFeedback) {
@@ -850,7 +840,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     async function loadAppData() {
                         if(!userId) return;
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-data?user_id=' + userId);
+                            const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
                             globalAppData = data;
                             
@@ -942,7 +932,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         btn.disabled = true;
                         triggerHaptic('heavy');
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-spin', {
+                            const res = await fetch('/api/miniapp-spin', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({user_id: userId, game_type: gameType})
@@ -964,7 +954,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     async function scratchBox(idx) {
                         triggerHaptic('medium');
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-spin', {
+                            const res = await fetch('/api/miniapp-spin', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({user_id: userId, game_type: 'scratch'})
@@ -1002,7 +992,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                         triggerHaptic('heavy');
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-review', {
+                            const res = await fetch('/api/miniapp-review', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                                 body: `user_id=${userId}&order_id=${orderId}&review=${encodeURIComponent(reviewText)}`
@@ -1098,7 +1088,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
                         triggerHaptic('medium');
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-received?id=' + orderId);
+                            const res = await fetch('/api/miniapp-received?id=' + orderId);
                             const data = await res.json();
                             if(data.success) {
                                 alert("Ürün teslim alındı olarak kaydedildi!");
@@ -1113,7 +1103,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
                         triggerHaptic('heavy');
                         try {
-                            const res = await fetch(baseUrl + `/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
+                            const res = await fetch(`/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
                             const data = await res.json();
                             if(data.success) {
                                 alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
@@ -1131,7 +1121,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
                         triggerHaptic('medium');
                         try {
-                            const res = await fetch(baseUrl + `/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
+                            const res = await fetch(`/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
                             if(data.success) {
                                 document.getElementById('depositResult').innerHTML = `
@@ -1141,8 +1131,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <input type="text" value="${data.wallet}" readonly>
                                     <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
-                            } else {
-                                alert("❌ Hata: Bakiye yükleme talebi oluşturulamadı.");
                             }
                         } catch(e) {
                             alert("Bakiye yükleme talebi oluşturulamadı.");
@@ -1153,7 +1141,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         triggerHaptic('medium');
                         alert("Blokzincir taranıyor, lütfen bekleyin...");
                         try {
-                            const res = await fetch(baseUrl + `/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
+                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
                             const data = await res.json();
                             if(data.success) {
                                 alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
@@ -1169,7 +1157,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     async function loadChatMessages() {
                         if(!userId) return;
                         try {
-                            const res = await fetch(baseUrl + '/api/miniapp-chat?user_id=' + userId);
+                            const res = await fetch('/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
                             data.messages.forEach(m => {
@@ -1192,7 +1180,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         inp.value = '';
                         triggerHaptic('light');
                         try {
-                            await fetch(baseUrl + '/api/miniapp-chat-send', {
+                            await fetch('/api/miniapp-chat-send', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                                 body: `user_id=${userId}&message=${encodeURIComponent(msg)}`
@@ -1210,11 +1198,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             </body>
             </html>
             """
-            final_miniapp = miniapp_template.replace("RENDER_URL_PLACEHOLDER", RENDER_EXTERNAL_URL)
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(final_miniapp.encode("utf-8"))
+            self.wfile.write(miniapp_html.encode("utf-8"))
             return
 
         if parsed_path.path == "/api/miniapp-data":
@@ -1289,139 +1276,57 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
-        if parsed_path.path == "/api/miniapp-chat":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
-            rows = cursor.fetchall()
-            conn.close()
-            msgs = [{"sender": r[0], "message": r[1], "time": r[2]} for r in rows]
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-buy":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            d_id = int(query_params.get("drop_id", ["0"])[0])
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (d_id,))
-            drop = cursor.fetchone()
-            if not drop:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
+        if parsed_path.path == "/api/admin-user-detail":
+            if not is_logged_in:
+                self.send_response(401)
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Ürün tükenmiş."}).encode("utf-8"))
                 return
-            title, price, stock = drop
-            bal = get_user_balance(uid)
-            if bal < price:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, username, language, is_banned, balance, referral_earnings, created_at FROM users WHERE user_id = ?", (uid,))
+            u = cursor.fetchone()
+            
+            cursor.execute("SELECT o.id, d.title, o.final_price, o.status, o.created_at FROM orders o JOIN drops d ON o.drop_id = d.id WHERE o.user_id = ? ORDER BY o.id DESC", (uid,))
+            u_orders = [{"id": r[0], "title": r[1], "price": r[2], "status": r[3], "date": r[4]} for r in cursor.fetchall()]
+            
+            cursor.execute("SELECT amount, status, created_at FROM deposits WHERE user_id = ? ORDER BY id DESC", (uid,))
+            u_deps = [{"amount": r[0], "status": r[1], "date": r[2]} for r in cursor.fetchall()]
+            conn.close()
+
+            if not u:
+                self.send_response(404)
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Yetersiz bakiye."}).encode("utf-8"))
                 return
 
-            cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
-            new_stock = stock - 1
-            if new_stock <= 0:
-                cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (d_id,))
-            else:
-                cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
-            cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, d_id, price))
-            order_id = cursor.lastrowid
-            
-            cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
-            ref_row = cursor.fetchone()
-            if ref_row and ref_row[0] > 0:
-                ref_id = ref_row[0]
-                bonus = float(price) * 0.05
-                cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
-
-            conn.commit()
-            conn.close()
+            resp_data = {
+                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4] or 0.0, "ref_earnings": u[5] or 0.0, "created_at": u[6],
+                "orders": u_orders, "deposits": u_deps
+            }
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "order_id": order_id}).encode("utf-8"))
+            self.wfile.write(json.dumps(resp_data).encode("utf-8"))
             return
 
-        if parsed_path.path == "/api/miniapp-received":
-            oid = int(query_params.get("id", ["0"])[0])
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (oid,))
-            conn.commit()
-            conn.close()
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-deposit":
-            uid = int(query_params.get("user_id", ["0"])[0])
-            amount = float(query_params.get("amount", [0])[0])
-            if not uid or amount <= 0:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
+        if parsed_path.path == "/api/admin-check-notifications":
+            if not is_logged_in:
+                self.send_response(401)
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz kullanıcı ID veya tutar."}).encode("utf-8"))
                 return
-            
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("INSERT OR IGNORE INTO users (user_id, balance) VALUES (?, 5.0)", (uid,))
-            cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
-            dep_id = cursor.lastrowid
-            conn.commit()
+            cursor.execute("SELECT COUNT(*) FROM support_messages WHERE sender = 'user'")
+            unread_chats = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
+            pending_orders = cursor.fetchone()[0]
             conn.close()
+
+            resp = {"unread_chats": unread_chats, "pending_orders": pending_orders}
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "deposit_id": dep_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-check-deposit":
-            dep_id = int(query_params.get("dep_id", ["0"])[0])
-            uid = int(query_params.get("user_id", ["0"])[0])
-            amount = float(query_params.get("amount", [0])[0])
-            
-            api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
-            verified = False
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(api_url) as response:
-                        if response.status == 200:
-                            res_json = await response.json()
-                            for tx in res_json.get("data", []):
-                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(amount * 1000000):
-                                    verified = True
-                                    break
-            except:
-                pass
-
-            if verified:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
-                cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, uid))
-                conn.commit()
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-            else:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
         if parsed_path.path == "/admin-web":
@@ -1549,14 +1454,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     home_template = """
                     <div class="stats-grid">
-                        <div class="card"><h3>TOTAL REVENUE</h3><p>TOTAL_REVENUE_PLACEHOLDER USDT</p></div>
-                        <div class="card"><h3>ACTIVE STOCK</h3><p>TOTAL_ACTIVE_STOCK_PLACEHOLDER Pcs</p></div>
-                        <div class="card"><h3>PRODUCT VARIETY</h3><p>TOTAL_DROPS_PLACEHOLDER</p></div>
+                        <div class="card"><h3>TOTAL REVENUE</h3><p>{total_revenue} USDT</p></div>
+                        <div class="card"><h3>ACTIVE STOCK</h3><p>{total_active_stock} Pcs</p></div>
+                        <div class="card"><h3>PRODUCT VARIETY</h3><p>{total_drops}</p></div>
                     </div>
 
                     <div class="form-box" style="margin-bottom: 30px; border: 1px solid rgba(56, 189, 248, 0.3);">
                         <h2 style="color: #38bdf8; margin-top: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between;">
-                            <span>🗺️ İstanbul Aktif Konum Haritası</span> EXACT_BADGE_PLACEHOLDER
+                            <span>🗺️ İstanbul Aktif Konum Haritası</span> {exact_badge}
                         </h2>
                         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                             <input type="number" id="searchProductId" placeholder="Ürün Numarası Yazın (Örn: 1, 2...)" style="margin:0; flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); padding: 12px; font-size: 14px;">
@@ -1565,7 +1470,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div id="istanbulMap" style="width: 100%; height: 420px; border-radius: 12px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
 
-                    WALLET_SECTION_PLACEHOLDER
+                    {wallet_section_html}
 
                     <div class="grid-2">
                         <div class="table-box">
@@ -1576,7 +1481,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <div class="table-box">
                             <h2>🔔 Live Logs & Alerts</h2>
                             <div style="max-height: 250px; overflow-y: auto;">
-                                LOGS_HTML_PLACEHOLDER
+                                {logs_html}
                             </div>
                         </div>
                     </div>
@@ -1586,95 +1491,97 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
                     <script>
                         const map = L.map('istanbulMap').setView([41.0082, 28.9784], 11);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
                             attribution: '&copy; OpenStreetMap contributors',
                             maxZoom: 19
-                        }).addTo(map);
+                        }}).addTo(map);
 
-                        const weedIcon = L.divIcon({
+                        const weedIcon = L.divIcon({{
                             className: 'custom-weed-marker',
                             html: '<div style="background: #111827; border: 2px solid #38bdf8; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 12px rgba(56,189,248,0.4);">🌿</div>',
                             iconSize: [36, 36],
                             iconAnchor: [18, 18],
                             popupAnchor: [0, -18]
-                        });
+                        }});
 
-                        const trollIcon = L.divIcon({
+                        const trollIcon = L.divIcon({{
                             className: 'custom-troll-marker',
                             html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
-                        });
+                        }});
 
-                        const markers = {};
-                        MAP_MARKERS_JS_PLACEHOLDER
+                        const markers = {{}};
+                        {map_markers_js}
 
-                        if (navigator.geolocation) {
-                            navigator.geolocation.watchPosition(function(position) {
+                        if (navigator.geolocation) {{
+                            navigator.geolocation.watchPosition(function(position) {{
                                 const lat = position.coords.latitude;
                                 const lon = position.coords.longitude;
-                                if (window.myLocationMarker) {
+                                if (window.myLocationMarker) {{
                                     window.myLocationMarker.setLatLng([lat, lon]);
-                                } else {
-                                    window.myLocationMarker = L.marker([lat, lon], {icon: trollIcon}).addTo(map)
+                                }} else {{
+                                    window.myLocationMarker = L.marker([lat, lon], {{icon: trollIcon}}).addTo(map)
                                         .bindPopup("<b>🧌 Saha Personeli (Sen)</b><br>Canlı Konumun");
-                                }
-                            }, function(err) {
+                                }}
+                            }}, function(err) {{
                                 console.log("Konum alınamadı: ", err.message);
-                            }, { enableHighAccuracy: true });
-                        }
+                            }}, {{ enableHighAccuracy: true }});
+                        }}
 
-                        function searchMarkerOnMap() {
+                        function searchMarkerOnMap() {{
                             const id = document.getElementById('searchProductId').value.trim();
-                            if (markers[id]) {
+                            if (markers[id]) {{
                                 map.setView(markers[id].getLatLng(), 16);
                                 markers[id].openPopup();
-                            } else {
+                            }} else {{
                                 alert("Bu numaraya ait aktif harita konumu bulunamadı (veya tam konum yetkiniz yok)!");
-                            }
-                        }
+                            }}
+                        }}
 
-                        function copyText(txt) {
+                        function copyText(txt) {{
                             navigator.clipboard.writeText(txt);
                             alert("✅ Cüzdan adresi panoya kopyalandı!");
-                        }
+                        }}
 
                         const ctx = document.getElementById('revenueChart').getContext('2d');
-                        new Chart(ctx, {
+                        new Chart(ctx, {{
                             type: 'line',
-                            data: {
-                                labels: LABELS_JSON_PLACEHOLDER,
-                                datasets: [{
+                            data: {{
+                                labels: {labels_json},
+                                datasets: [{{
                                     label: 'Revenue (USDT)',
-                                    data: VALUES_JSON_PLACEHOLDER,
+                                    data: {values_json},
                                     borderColor: '#38bdf8',
                                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
                                     fill: true,
                                     tension: 0.3
-                                }]
-                            },
-                            options: {
+                                }}]
+                            }},
+                            options: {{
                                 responsive: true,
-                                plugins: { legend: { display: false } },
-                                scales: {
-                                    x: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } },
-                                    y: { grid: { color: 'var(--border-color)' }, ticks: { color: 'var(--text-muted)' } }
-                                }
-                            }
-                        });
+                                plugins: {{ legend: {{ display: false }} }},
+                                scales: {{
+                                    x: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }},
+                                    y: {{ grid: {{ color: 'var(--border-color)' }}, ticks: {{ color: 'var(--text-muted)' }} }}
+                                }}
+                            }}
+                        }});
                     </script>
                     """
 
-                    content_html = home_template.replace("TOTAL_REVENUE_PLACEHOLDER", str(total_revenue)) \
-                                               .replace("TOTAL_ACTIVE_STOCK_PLACEHOLDER", str(total_active_stock)) \
-                                               .replace("TOTAL_DROPS_PLACEHOLDER", str(total_drops)) \
-                                               .replace("EXACT_BADGE_PLACEHOLDER", exact_badge) \
-                                               .replace("WALLET_SECTION_PLACEHOLDER", wallet_section_html) \
-                                               .replace("LOGS_HTML_PLACEHOLDER", logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>") \
-                                               .replace("MAP_MARKERS_JS_PLACEHOLDER", map_markers_js) \
-                                               .replace("LABELS_JSON_PLACEHOLDER", json.dumps(labels)) \
-                                               .replace("VALUES_JSON_PLACEHOLDER", json.dumps(values))
+                    content_html = home_template.format(
+                        total_revenue=total_revenue,
+                        total_active_stock=total_active_stock,
+                        total_drops=total_drops,
+                        exact_badge=exact_badge,
+                        wallet_section_html=wallet_section_html,
+                        logs_html=logs_html if logs_html else "<p style='text-align:center; color:var(--text-muted);'>No recent logs.</p>",
+                        map_markers_js=map_markers_js,
+                        labels_json=json.dumps(labels),
+                        values_json=json.dumps(values)
+                    )
 
                 elif tab == "finance":
                     cursor.execute("SELECT id, admin_user, action_type, details, created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 50")
@@ -1948,31 +1855,31 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
 
                     <script>
-                        async function openUserProfile(uid) {
+                        async function openUserProfile(uid) {{
                             document.getElementById('userModal').style.display = 'flex';
                             document.getElementById('modalBody').innerHTML = '<p>Bilgiler getiriliyor...</p>';
-                            try {
+                            try {{
                                 const res = await fetch('/api/admin-user-detail?user_id=' + uid);
                                 const data = await res.json();
                                 let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
                                 html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
                                 html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
-                                if(data.orders.length > 0) {
-                                    data.orders.forEach(o => { html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
-                                } else { html += '<li>Sipariş yok.</li>'; }
+                                if(data.orders.length > 0) {{
+                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
+                                }} else {{ html += '<li>Sipariş yok.</li>'; }}
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
-                                if(data.deposits.length > 0) {
-                                    data.deposits.forEach(d => { html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
-                                } else { html += '<li>Yükleme yok.</li>'; }
+                                if(data.deposits.length > 0) {{
+                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
+                                }} else {{ html += '<li>Yükleme yok.</li>'; }}
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
-                            } catch(e) {
+                            }} catch(e) {{
                                 document.getElementById('modalBody').innerHTML = '<p style="color:red;">Bilgiler alınamadı.</p>';
-                            }
-                        }
-                        function closeUserProfile() {
+                            }}
+                        }}
+                        function closeUserProfile() {{
                             document.getElementById('userModal').style.display = 'none';
-                        }
+                        }}
                     </script>
                     """
 
@@ -2318,34 +2225,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const initLat = {e_lat if e_lat else 41.0082};
                             const initLon = {e_lon if e_lon else 28.9784};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(editPickMap);
+                            L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
                             
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
 
-                            async function fetchEditDistrictAndFill(lat, lon) {
-                                try {
+                            async function fetchEditDistrictAndFill(lat, lon) {{
+                                try {{
                                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
                                     const data = await response.json();
-                                    if (data && data.address) {
+                                    if (data && data.address) {{
                                         const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
-                                        if (district) {
+                                        if (district) {{
                                             document.getElementById('editCategoryInput').value = district.toUpperCase();
-                                        }
-                                    }
-                                } catch (e) {}
-                            }
+                                        }}
+                                    }}
+                                }} catch (e) {{}}
+                            }}
 
-                            editPickMap.on('click', function(e) {
+                            editPickMap.on('click', function(e) {{
                                 const lat = e.latlng.lat.toFixed(6);
                                 const lon = e.latlng.lng.toFixed(6);
                                 document.getElementById('editCoordsInput').value = lat + ', ' + lon;
-                                if (editPickedMarker) {
+                                if (editPickedMarker) {{
                                     editPickedMarker.setLatLng(e.latlng);
-                                } else {
+                                }} else {{
                                     editPickedMarker = L.marker(e.latlng).addTo(editPickMap);
-                                }
+                                }}
                                 fetchEditDistrictAndFill(lat, lon);
-                            });
+                            }});
                         </script>
                         """
 
@@ -2375,7 +2282,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
 
-            dashboard_template = """
+            dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
             <head>
@@ -2383,7 +2290,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Weed Istanbul Yönetim Paneli</title>
                 <style>
-                    :root {
+                    :root {{
                         --bg-color: #060911;
                         --text-color: #f8fafc;
                         --sidebar-bg: #0b111e;
@@ -2393,70 +2300,64 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         --border-color: #1e293b;
                         --input-bg: #070b14;
                         --text-muted: #94a3b8;
-                    }
-                    body { background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }
+                    }}
+                    body {{ background-color: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; display: flex; min-height: 100vh; }}
                     
-                    .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }
-                    .sidebar .brand { font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }
-                    .christmas-banner { background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-                    .sidebar a { background: transparent; color: var(--text-muted); padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; border: 1px solid transparent; transition: all 0.2s ease; }
-                    .sidebar a.active, .sidebar a:hover { background: var(--sidebar-hover); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); transform: translateX(3px); }
-                    .logout-link { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }
-                    .logout-link:hover { background: #ef4444 !important; color: white !important; }
+                    .sidebar {{ width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 14px; box-sizing: border-box; flex-shrink: 0; backdrop-filter: blur(10px); }}
+                    .sidebar .brand {{ font-size: 18px; font-weight: 800; color: #38bdf8; text-align: center; margin-bottom: 15px; letter-spacing: 0.5px; }}
+                    .christmas-banner {{ background: linear-gradient(135deg, #ef4444, #10b981); color: white; padding: 7px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
+                    .sidebar a {{ background: transparent; color: var(--text-muted); padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block; border: 1px solid transparent; transition: all 0.2s ease; }}
+                    .sidebar a.active, .sidebar a:hover {{ background: var(--sidebar-hover); color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); transform: translateX(3px); }}
+                    .logout-link {{ background: rgba(239, 68, 68, 0.15) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; color: #ef4444 !important; margin-top: auto; text-align: center; }}
+                    .logout-link:hover {{ background: #ef4444 !important; color: white !important; }}
 
-                    .main-content { flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }
-                    .header-title { color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+                    .main-content {{ flex: 1; padding: 25px; box-sizing: border-box; overflow-y: auto; max-width: 1250px; }}
+                    .header-title {{ color: var(--text-color); font-size: 22px; font-weight: 700; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }}
                     
-                    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
-                    .card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); transition: transform 0.2s; }
-                    .card:hover { border-color: rgba(56, 189, 248, 0.3); }
-                    .card h3 { margin: 0 0 8px 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-                    .card p { margin: 0; font-size: 24px; font-weight: 800; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.2); }
+                    .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }}
+                    .card {{ background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.25); transition: transform 0.2s; }}
+                    .card:hover {{ border-color: rgba(56, 189, 248, 0.3); }}
+                    .card h3 {{ margin: 0 0 8px 0; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    .card p {{ margin: 0; font-size: 24px; font-weight: 800; color: #38bdf8; text-shadow: 0 0 20px rgba(56,189,248,0.2); }}
                     
-                    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
-                    .form-box, .table-box { background: var(--card-bg); padding: 22px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+                    .grid-2 {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }}
+                    .form-box, .table-box {{ background: var(--card-bg); padding: 22px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }}
                     
-                    input, textarea, select { width: 100%; padding: 11px 14px; margin: 6px 0 14px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }
-                    input:focus, textarea:focus, select:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.15); }
+                    input, textarea, select {{ width: 100%; padding: 11px 14px; margin: 6px 0 14px 0; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-color); box-sizing: border-box; font-size: 13px; outline: none; transition: border-color 0.2s; }}
+                    input:focus, textarea:focus, select:focus {{ border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56,189,248,0.15); }}
                     
-                    button { background: #2563eb; color: white; padding: 11px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
-                    button:hover { background: #1d4ed8; transform: translateY(-1px); }
+                    button {{ background: #2563eb; color: white; padding: 11px 18px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }}
+                    button:hover {{ background: #1d4ed8; transform: translateY(-1px); }}
                     
-                    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-                    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
-                    th { color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+                    th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }}
+                    th {{ color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }}
                     
-                    .action-btn { padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }
-                    .edit-btn { background: #d97706; color: white; }
+                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }}
+                    .edit-btn {{ background: #d97706; color: white; }}
 
-                    @media(max-width: 768px) {
-                        body { flex-direction: column; }
-                        .sidebar { width: 100%; height: auto; padding: 15px; }
-                        .main-content { padding: 15px; }
-                    }
+                    @media(max-width: 768px) {{
+                        body {{ flex-direction: column; }}
+                        .sidebar {{ width: 100%; height: auto; padding: 15px; }}
+                        .main-content {{ padding: 15px; }}
+                    }}
                 </style>
             </head>
             <body>
                 <div class="sidebar">
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Rol: ROLE_PLACEHOLDER (USERNAME_PLACEHOLDER)</div>
-                    LINKS_PLACEHOLDER
+                    <div class="christmas-banner">🎄 Rol: {current_role.upper()} ({current_username})</div>
+                    {sidebar_links}
                     <a href="/admin-logout" class="logout-link">🚪 Logout</a>
                 </div>
                 <div class="main-content">
                     <div class="header-title"><span>👑 Management System</span></div>
-                    EDITFORM_PLACEHOLDER
-                    CONTENT_PLACEHOLDER
+                    {edit_form_html}
+                    {content_html}
                 </div>
             </body>
             </html>
             """
-            dashboard_html = dashboard_template.replace("ROLE_PLACEHOLDER", current_role.upper()) \
-                                             .replace("USERNAME_PLACEHOLDER", current_username) \
-                                             .replace("LINKS_PLACEHOLDER", sidebar_links) \
-                                             .replace("EDITFORM_PLACEHOLDER", edit_form_html) \
-                                             .replace("CONTENT_PLACEHOLDER", content_html)
-
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
@@ -2475,7 +2376,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
@@ -3131,7 +3032,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
