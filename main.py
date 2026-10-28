@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 import threading
-import aiohttp
+import urllib.request
 import json
 import hashlib
 import time
@@ -267,20 +267,20 @@ def get_district_coord(category_name):
             return coord
     return [41.0082, 28.9784]
 
-async def fetch_wallet_balance(wallet_address):
+def fetch_wallet_balance_sync(wallet_address):
     try:
         url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    acc_data = data.get("data", [])
-                    if acc_data:
-                        trc20 = acc_data[0].get("trc20", [])
-                        for token in trc20:
-                            if USDT_CONTRACT in token:
-                                val_str = token[USDT_CONTRACT]
-                                return float(val_str) / 1000000.0
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                acc_data = data.get("data", [])
+                if acc_data:
+                    trc20 = acc_data[0].get("trc20", [])
+                    for token in trc20:
+                        if USDT_CONTRACT in token:
+                            val_str = token[USDT_CONTRACT]
+                            return float(val_str) / 1000000.0
         return 0.0
     except Exception as e:
         logging.error(f"Wallet balance fetch error: {e}")
@@ -469,11 +469,14 @@ async def background_payment_worker():
 
             api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=20"
             tx_data = []
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as response:
+            try:
+                req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as response:
                     if response.status == 200:
-                        res_json = await response.json()
+                        res_json = json.loads(response.read().decode('utf-8'))
                         tx_data = res_json.get("data", [])
+            except Exception as e:
+                logging.error(f"Worker API fetch error: {e}")
 
             for order in pending_orders:
                 o_id, u_id, d_id, f_price, created_at_str, title, stock, category = order
@@ -1464,16 +1467,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
                     if can_view_wallets == 1:
                         try:
-                            async def fetch_all_wallets():
-                                b1 = await fetch_wallet_balance(CRYPTO_WALLET)
-                                b2 = await fetch_wallet_balance(EXIT_WALLET)
-                                b3 = await fetch_wallet_balance(MAIN_SAVINGS_WALLET)
-                                return b1, b2, b3
-
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            w1_bal, w2_bal, w3_bal = loop.run_until_complete(fetch_all_wallets())
-                            loop.close()
+                            w1_bal = fetch_wallet_balance_sync(CRYPTO_WALLET)
+                            w2_bal = fetch_wallet_balance_sync(EXIT_WALLET)
+                            w3_bal = fetch_wallet_balance_sync(MAIN_SAVINGS_WALLET)
                         except Exception as e:
                             logging.error(f"Sync wallet fetch error: {e}")
 
@@ -2664,14 +2660,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
                 verified = False
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(api_url) as response:
+                try:
+                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=10) as response:
                         if response.status == 200:
-                            res_json = await response.json()
+                            res_json = json.loads(response.read().decode('utf-8'))
                             for tx in res_json.get("data", []):
                                 if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
                                     verified = True
                                     break
+                except Exception as e:
+                    logging.error(e)
 
                 if verified:
                     cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
@@ -3568,14 +3567,14 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
     api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
     verified = False
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                if response.status == 200:
-                    res_json = await response.json()
-                    for tx in res_json.get("data", []):
-                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                            verified = True
-                            break
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                res_json = json.loads(response.read().decode('utf-8'))
+                for tx in res_json.get("data", []):
+                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                        verified = True
+                        break
     except Exception as e:
         logging.error(e)
 
