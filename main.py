@@ -19,7 +19,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-DEFAULT_BOT_TOKEN = "8917981396:AAGf6lVFVSRkeLOI1UAwyg3PBHgLyw33Oh0"
+DEFAULT_BOT_TOKEN = "9018759790:AAHH_P_MAta3jo1pr8L4DHcpaObvxOuIpeQ"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
@@ -1463,12 +1463,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
                     if can_view_wallets == 1:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                        w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                        w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                        loop.close()
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
+                            w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
+                            w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
+                            loop.close()
+                        except Exception as e:
+                            logging.error(f"Sync wallet fetch error: {e}")
 
                     wallet_section_html = ""
                     if can_view_wallets == 1:
@@ -2430,7 +2433,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
@@ -3269,7 +3272,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
@@ -3870,7 +3873,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
+    cursor.execute("orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
