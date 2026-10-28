@@ -8,6 +8,7 @@ import urllib.request
 import json
 import hashlib
 import time
+import pandas as pd
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -1448,7 +1449,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if tab in ["home", "passive", "active", "pending"] and not (current_role in ["super_admin", "stock_manager"] or current_username == "root" or can_manage_drops == 1 or can_view_exact_loc == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur!</h3>"
             
-            elif tab in ["add", "edit"] and not (current_role == "super_admin" or current_username == "root" or can_manage_drops == 1):
+            elif tab in ["add", "excel_add", "edit"] and not (current_role == "super_admin" or current_username == "root" or can_manage_drops == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (Drop Ekleme/Düzenleme) erişim yetkiniz yoktur!</h3>"
             
             elif tab == "users" and not (current_role == "super_admin" or current_username == "root" or can_view_crm == 1):
@@ -2273,6 +2274,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </script>
                     """
 
+                elif tab == "excel_add":
+                    content_html = """
+                    <div class="form-box" style="margin:0; border: 1px solid #10b981; max-width: 650px;">
+                        <h2 style="color: #10b981; margin-top: 0;">📊 Excel / CSV ile Toplu Drop Ekle</h2>
+                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+                            Excel veya CSV dosyanızı yükleyerek tek seferde yüzlerce ürünü ekleyebilirsiniz. Fotoğrafları daha sonra ürün listesinden <b>Düzenle</b> diyerek ekleyebilirsiniz.
+                        </p>
+                        <div style="background:var(--card-bg-inner); padding:12px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; margin-bottom:15px;">
+                            <b>Zorunlu / Beklenen Sütun Adları:</b><br>
+                            <code>title</code>, <code>category</code>, <code>price</code>, <code>coords</code> (Örn: 41.0429, 29.0077), <code>description</code>
+                        </div>
+                        <form action="/admin-excel-upload" method="POST" enctype="multipart/form-data">
+                            <label>Excel veya CSV Dosyası Seç:</label>
+                            <input type="file" name="excel_file" accept=".csv, .xlsx, .xls" required style="background:var(--bg-color); padding:10px; border:1px dashed #10b981; border-radius:8px; cursor:pointer; margin-bottom:15px;">
+                            <button type="submit" style="background:#10b981;">Dosyayı Yükle & Dropları Oluştur</button>
+                        </form>
+                    </div>
+                    """
+
             edit_form_html = ""
             if tab == "edit":
                 if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
@@ -2364,7 +2384,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1:
-                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Canlı Konumlu)</a>'
+                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Tekli Drop Ekle</a>'
+                sidebar_links += f'<a href="/admin-web?tab=excel_add" class="{"active" if tab == "excel_add" else ""}">📊 Excel ile Toplu Ekle</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_view_crm == 1:
                 sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
@@ -3201,6 +3222,48 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
             log_audit(current_username, "ADD_DROP", f"Title: {title}")
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=passive')
+            self.end_headers()
+
+        elif parsed_path.path == "/admin-excel-upload":
+            if file_data and file_name:
+                try:
+                    file_stream = io.BytesIO(file_data)
+                    if file_name.endswith('.csv'):
+                        df = pd.read_csv(file_stream)
+                    else:
+                        df = pd.read_excel(file_stream)
+
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    count = 0
+                    for _, row in df.iterrows():
+                        title = str(row.get('title', 'Lemon Haze'))
+                        category = str(row.get('category', 'Genel')).upper()
+                        try:
+                            price = float(row.get('price', 70.0))
+                        except:
+                            price = 70.0
+                        
+                        coord_raw = str(row.get('coords', '41.0082, 28.9784'))
+                        lat, lon = get_district_coord(category)
+                        try:
+                            if "," in coord_raw:
+                                c_parts = coord_raw.split(",")
+                                lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+                        except:
+                            pass
+
+                        desc = str(row.get('description', 'Açıklama yok'))
+                        cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, '', ?, 1, ?, ?, ?)", (title, price, desc, category, lat, lon))
+                        count += 1
+                    conn.commit()
+                    conn.close()
+                    log_audit(current_username, "EXCEL_UPLOAD", f"{count} ürün yüklendi")
+                except Exception as e:
+                    logging.error(f"Excel upload error: {e}")
+
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
