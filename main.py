@@ -3231,59 +3231,67 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 try:
                     file_stream = io.BytesIO(file_data)
                     fname_lower = file_name.lower()
+                    df = None
                     
-                    if fname_lower.endswith('.csv'):
-                        df = pd.read_csv(file_stream)
-                    elif fname_lower.endswith('.xls'):
-                        file_stream.seek(0)
-                        df = pd.read_excel(file_stream, sheet_name=0)
-                    else:
+                    # Ultra esnek okuma: Sırasıyla .xlsx (openpyxl), .xls (xlrd/default) ve .csv dener
+                    try:
                         file_stream.seek(0)
                         df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
+                    except Exception:
+                        try:
+                            file_stream.seek(0)
+                            df = pd.read_excel(file_stream, sheet_name=0)
+                        except Exception:
+                            try:
+                                file_stream.seek(0)
+                                df = pd.read_csv(file_stream)
+                            except Exception as ex:
+                                raise ValueError(f"Dosya okunamadı, format desteklenmiyor: {ex}")
 
-                    df.columns = df.columns.astype(str).str.strip().str.lower()
+                    if df is not None:
+                        df.columns = df.columns.astype(str).str.strip().str.lower()
 
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    count = 0
-                    
-                    for _, row in df.iterrows():
-                        title = str(row.get('title', 'Lemon Haze Drop'))
-                        if title == 'nan' or not title.strip():
-                            continue
+                        conn = sqlite3.connect("drop_bot.db")
+                        cursor = conn.cursor()
+                        count = 0
+                        
+                        for _, row in df.iterrows():
+                            title = str(row.get('title', 'Lemon Haze Drop'))
+                            if title == 'nan' or not title.strip():
+                                continue
+                                
+                            category = str(row.get('category', 'Genel')).upper().strip()
                             
-                        category = str(row.get('category', 'Genel')).upper().strip()
-                        
-                        raw_price = str(row.get('price', 70.0)).replace('$', '').replace(',', '.').strip()
-                        try:
-                            price = float(raw_price)
-                        except:
-                            price = 70.0
-                        
-                        coord_raw = str(row.get('coords', '41.0082, 28.9784'))
-                        lat, lon = get_district_coord(category)
-                        try:
-                            if "," in coord_raw:
-                                c_parts = coord_raw.split(",")
-                                lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
-                        except:
-                            pass
+                            raw_price = str(row.get('price', 70.0)).replace('$', '').replace(',', '.').strip()
+                            try:
+                                price = float(raw_price)
+                            except:
+                                price = 70.0
+                            
+                            coord_raw = str(row.get('coords', '41.0082, 28.9784'))
+                            lat, lon = get_district_coord(category)
+                            try:
+                                if "," in coord_raw:
+                                    c_parts = coord_raw.split(",")
+                                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+                            except:
+                                pass
 
-                        desc = str(row.get('description', 'Açıklama girilmedi'))
-                        
-                        cursor.execute("""
-                            INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
-                            VALUES (?, ?, '', ?, 1, ?, ?, ?)
-                        """, (title, price, desc, category, lat, lon))
-                        count += 1
-                        
-                    conn.commit()
-                    conn.close()
-                    log_audit(current_username, "EXCEL_UPLOAD", f"Başarıyla {count} ürün yüklendi.")
-                    log_panel_event(f"📊 Excel'den {count} adet toplu ürün başarıyla eklendi.", "success")
+                            desc = str(row.get('description', 'Açıklama girilmedi'))
+                            
+                            cursor.execute("""
+                                INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
+                                VALUES (?, ?, '', ?, 1, ?, ?, ?)
+                            """, (title, price, desc, category, lat, lon))
+                            count += 1
+                            
+                        conn.commit()
+                        conn.close()
+                        log_audit(current_username, "EXCEL_UPLOAD", f"Başarıyla {count} ürün yüklendi.")
+                        log_panel_event(f"📊 Dosyadan {count} adet toplu ürün başarıyla eklendi.", "success")
                 except Exception as e:
                     logging.error(f"Excel upload error: {e}")
-                    log_panel_event(f"❌ Excel yükleme hatası: {str(e)}", "warning")
+                    log_panel_event(f"❌ Excel/Dosya yükleme hatası: {str(e)}", "warning")
 
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=passive')
