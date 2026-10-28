@@ -596,6 +596,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
+        if parsed_path.path == "/api/miniapp-deposit":
+            try:
+                uid = int(query_params.get("user_id", ["0"])[0])
+                amount = float(query_params.get("amount", ["0"])[0])
+            except:
+                uid, amount = 0, 0.0
+
+            if uid > 0 and amount > 0:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
+                deposit_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                resp = {"success": True, "deposit_id": deposit_id, "wallet": CRYPTO_WALLET}
+            else:
+                resp = {"success": False, "message": "Geçersiz miktar veya kullanıcı ID."}
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
         if parsed_path.path.startswith("/static/uploads/"):
             file_path = parsed_path.path.lstrip("/")
             if os.path.exists(file_path):
@@ -655,6 +679,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     button { background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }
                     button:hover { background: #1d4ed8; }
                     
+                    .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+                    .quick-btn { background: #1f2937; border: 1px solid var(--border-color); color: var(--accent-blue); padding: 8px; font-size: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+                    .quick-btn:hover { background: #374151; color: white; }
+
                     .btn-received { background: var(--accent-green); }
                     .btn-received:hover { background: #059669; }
                     .btn-close { background: var(--accent-red); margin-top: 15px; }
@@ -714,9 +742,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
-                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans Oyunları</button>
+                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
-                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet Et</button>
+                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
                     <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
@@ -780,6 +808,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <hr style="border-color: var(--border-color); margin: 15px 0;">
                         <h4>📥 Bakiye Yükle (USDT TRC-20)</h4>
                         <label style="font-size: 12px; color: var(--text-muted);">Yüklemek İstediğiniz Tutar (USDT):</label>
+                        <div class="quick-amounts">
+                            <button class="quick-btn" onclick="setDepAmount(10)">+10$</button>
+                            <button class="quick-btn" onclick="setDepAmount(25)">+25$</button>
+                            <button class="quick-btn" onclick="setDepAmount(50)">+50$</button>
+                            <button class="quick-btn" onclick="setDepAmount(100)">+100$</button>
+                        </div>
                         <input type="number" id="depAmount" placeholder="Örn: 50">
                         <button onclick="createDeposit()">Cüzdan Adresi Oluştur</button>
                     </div>
@@ -865,6 +899,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if(tabId === 'tabMap' && map) {
                             setTimeout(() => { map.invalidateSize(); }, 200);
                         }
+                    }
+
+                    function setDepAmount(val) {
+                        triggerHaptic('light');
+                        document.getElementById('depAmount').value = val;
                     }
 
                     async function loadAppData() {
@@ -2597,40 +2636,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
             return
-
-        if parsed_path.path == "/api/miniapp-deposit":
-            try:
-                uid = int(query_params.get("user_id", ["0"])[0])
-                amount = float(query_params.get("amount", ["0"])[0])
-                if not uid:
-                    content_length = int(self.headers.get('Content-Length', 0))
-                    if content_length > 0:
-                        post_body = self.rfile.read(content_length).decode('utf-8', errors='ignore')
-                        body_params = parse_qs(post_body)
-                        uid = int(body_params.get("user_id", ["0"])[0])
-                        amount = float(body_params.get("amount", ["0"])[0])
-            except:
-                uid, amount = 0, 0.0
-
-            if uid > 0 and amount > 0:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
-                deposit_id = cursor.lastrowid
-                conn.commit()
-                conn.close()
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "deposit_id": deposit_id, "wallet": CRYPTO_WALLET}).encode("utf-8"))
-                return
-            else:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz miktar veya kullanıcı ID."}).encode("utf-8"))
-                return
 
         if parsed_path.path == "/api/miniapp-check-deposit":
             try:
