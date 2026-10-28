@@ -3233,20 +3233,28 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     fname_lower = file_name.lower()
                     df = None
                     
-                    # Ultra esnek okuma: Sırasıyla .xlsx (openpyxl), .xls (xlrd/default) ve .csv dener
+                    # 1. Önce modern Excel (.xlsx) olarak dene
                     try:
                         file_stream.seek(0)
                         df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
                     except Exception:
+                        # 2. Eski Excel (.xls) olarak dene
                         try:
                             file_stream.seek(0)
                             df = pd.read_excel(file_stream, sheet_name=0)
                         except Exception:
-                            try:
-                                file_stream.seek(0)
-                                df = pd.read_csv(file_stream)
-                            except Exception as ex:
-                                raise ValueError(f"Dosya okunamadı, format desteklenmiyor: {ex}")
+                            # 3. CSV ise farklı encoding'lerle (utf-8, windows-1254, latin5) okumayı dene
+                            success_csv = False
+                            for enc in ['utf-8', 'windows-1254', 'latin5', 'cp1254']:
+                                try:
+                                    file_stream.seek(0)
+                                    df = pd.read_csv(file_stream, encoding=enc)
+                                    success_csv = True
+                                    break
+                                except Exception:
+                                    continue
+                            if not success_csv:
+                                raise ValueError("Dosya okunamadı, desteklenmeyen format veya bozuk encoding.")
 
                     if df is not None:
                         df.columns = df.columns.astype(str).str.strip().str.lower()
