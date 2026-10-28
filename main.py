@@ -19,7 +19,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-DEFAULT_BOT_TOKEN = "8917981396:AAEwJVq7riDAY_J-PK7XJqTpsAcaEZV0TcU"
+DEFAULT_BOT_TOKEN = "8917981396:AAEa-EoQNTrRwYLeI-zsbHnw_cUwtjmHOao"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
