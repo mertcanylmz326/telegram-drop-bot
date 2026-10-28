@@ -1,2 +1,6 @@
-pandas
-openpyxl
+aiogram==3.31.0
+aiofiles==25.1.0
+aiohttp==3.14.5
+pandas==3.1.0
+openpyxl==3.1.5
+numpy>=2.3.3
