@@ -2307,7 +2307,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     drop_data = cursor.fetchone()
                     if drop_data:
                         e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
-                        combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else "41.0082, 28.9784"
+                        
+                        safe_lat = e_lat if (e_lat is not None and e_lat != 0.0) else 41.0082
+                        safe_lon = e_lon if (e_lon is not None and e_lon != 0.0) else 28.9784
+                        combined_coord = f"{safe_lat}, {safe_lon}"
+                        
                         edit_form_html = f"""
                         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2342,8 +2346,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
 
                         <script>
-                            const initLat = {e_lat if e_lat else 41.0082};
-                            const initLon = {e_lon if e_lon else 28.9784};
+                            const initLat = {safe_lat};
+                            const initLon = {safe_lon};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
                             L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
                             
@@ -2351,7 +2355,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                             async function fetchEditDistrictAndFill(lat, lon) {{
                                 try {{
-                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${{lat}}&lon=${{lon}}&zoom=10&addressdetails=1`);
                                     const data = await response.json();
                                     if (data && data.address) {{
                                         const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
