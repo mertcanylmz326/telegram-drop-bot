@@ -2283,7 +2283,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </p>
                         <div style="background:var(--card-bg-inner); padding:12px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; margin-bottom:15px;">
                             <b>Zorunlu / Beklenen Sütun Adları:</b><br>
-                            <code>title</code>, <code>category</code>, <code>price</code>, <code>coords</code> (Örn: 41.0429, 29.0077), <code>description</code>
+                            <code>title</code>, <code>category</code> (veya <code>semt</code> / <code>ilçe</code>), <code>price</code>, <code>coords</code> (Örn: 41.0429, 29.0077), <code>description</code>
                         </div>
                         <form action="/admin-excel-upload" method="POST" enctype="multipart/form-data">
                             <label>Excel veya CSV Dosyası Seç:</label>
@@ -3272,33 +3272,45 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         count = 0
                         
                         for _, row in df.iterrows():
-                            title = str(row.get('title', 'Lemon Haze Drop'))
-                            if title == 'nan' or not title.strip():
+                            # Başlık güvenli okuma
+                            title_val = row.get('title') if 'title' in df.columns else None
+                            title = str(title_val).strip() if pd.notna(title_val) else 'Lemon Haze Drop'
+                            if not title or title.lower() == 'nan':
                                 continue
                                 
-                            category = str(row.get('category', 'Genel')).upper().strip()
+                            # Kategori / Semt güvenli okuma (NaN tuzağına karşı)
+                            category = 'GENEL'
+                            for col_candidate in ['category', 'semt', 'ilçe', 'bolge', 'district']:
+                                if col_candidate in df.columns:
+                                    val = row[col_candidate]
+                                    if pd.notna(val) and str(val).strip() and str(val).lower() != 'nan':
+                                        category = str(val).upper().strip()
+                                        break
                             
-                            raw_price = str(row.get('price', 70.0)).replace('$', '').replace(',', '.').strip()
+                            # Fiyat okuma
+                            raw_price = row.get('price') if 'price' in df.columns else 70.0
                             try:
-                                price = float(raw_price)
+                                price = float(str(raw_price).replace('$', '').replace(',', '.').strip())
                             except:
                                 price = 70.0
                             
-                            coord_raw = str(row.get('coords', '41.0082, 28.9784'))
+                            # Koordinat okuma
+                            coord_raw = row.get('coords') if 'coords' in df.columns else '41.0082, 28.9784'
                             lat, lon = get_district_coord(category)
                             try:
-                                if "," in coord_raw:
-                                    c_parts = coord_raw.split(",")
+                                if pd.notna(coord_raw) and "," in str(coord_raw):
+                                    c_parts = str(coord_raw).split(",")
                                     lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
                             except:
                                 pass
 
-                            desc = str(row.get('description', 'Açıklama girilmedi'))
+                            desc_val = row.get('description') if 'description' in df.columns else 'Açıklama girilmedi'
+                            desc = str(desc_val).strip() if pd.notna(desc_val) else 'Açıklama girilmedi'
                             
                             cursor.execute("""
                                 INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
-                                VALUES (?, ?, '', ?, 1, ?, ?, ?)
-                            """, (title, price, desc, category, lat, lon))
+                                VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+                            """, (title, price, '', desc, category, lat, lon))
                             count += 1
                             
                         conn.commit()
