@@ -273,7 +273,7 @@ def fetch_wallet_balance_sync(wallet_address):
     try:
         url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=5) as response:
             if response.status == 200:
                 data = json.loads(response.read().decode('utf-8'))
                 acc_data = data.get("data", [])
@@ -284,8 +284,7 @@ def fetch_wallet_balance_sync(wallet_address):
                             val_str = token[USDT_CONTRACT]
                             return float(val_str) / 1000000.0
         return 0.0
-    except Exception as e:
-        logging.error(f"Wallet balance fetch error: {e}")
+    except Exception:
         return 0.0
 
 LANG = {
@@ -3234,7 +3233,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     if file_name.lower().endswith('.csv'):
                         df = pd.read_csv(file_stream)
                     else:
-                        df = pd.read_excel(file_stream, sheet_name=0)
+                        df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
 
                     df.columns = df.columns.astype(str).str.strip().str.lower()
 
