@@ -589,7 +589,8 @@ async def background_payment_worker():
 
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
+    def do_GET(self):d=
+        
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
         cookies_str = self.headers.get('Cookie', '')
@@ -1925,9 +1926,10 @@ function openARRadarWindow(title, distance, lat, lon) {
 
                         function openDetailModal(uid, bat, net, date, coords) {{
                             activeModalData = {{ userId: uid, battery: bat, network: net, lastSeen: date, coordinates: coords }};
-                            document.getElementById('modalContentBody').innerHTML = `
-                                <b>User ID:</b> ${{uid}}<br>
-                                🔋 <b>Pil Durumu:</b> ${{bat}}<br>
+                            document.document.getElementById('modalContentBody').innerHTML = 
+    '<b>User ID:</b> ' + uid + '<br>' +
+    '🔋 <b>Pil Durumu:</b> ' + bat + '<br>'
+
                                 🌐 <b>Ağ Türü:</b> ${{net}}<br>
                                 📍 <b>Son Koordinat:</b> ${{coords}}<br>
                                 ⏱️ <b>Son Aktiflik:</b> ${{date}}
@@ -3729,8 +3731,8 @@ function openARRadarWindow(title, distance, lat, lon) {
                     log_audit(current_username, "MANUAL_APPROVE", f"Order: {order_id}")
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-                    u_lang = get_user_lang(u_id)
-                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
+                    u_lang = get_user_lang(u_id)  success_text = LANG[u_lang]["success_msg"].
+                 format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
@@ -4357,4 +4359,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())
