@@ -1,4 +1,4 @@
-import asyncio
+İmport asyncio
 import sqlite3
 import logging
 import os
@@ -249,25 +249,7 @@ def init_db():
 
 init_db()
 
-def fetch_wallet_balance_sync(wallet_address):
-    import urllib.request
-    import json
-    try:
-        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode('utf-8'))
-                if "data" in data and len(data["data"]) > 0:
-                    for token in data["data"][0].get("trc20", []):
-                        if USDT_CONTRACT in token:
-                            return float(token[USDT_CONTRACT]) / 1000000.0
-    except:
-        pass
-    return 0.0
-
-def get_active_token() -> str:  
-    
+def get_active_token() -> str:
     try:
         conn = sqlite3.connect("drop_bot.db")
         cursor = conn.cursor()
@@ -589,8 +571,7 @@ async def background_payment_worker():
 
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
-    def do_GET(self):d=
-        
+    def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
         cookies_str = self.headers.get('Cookie', '')
@@ -1024,7 +1005,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                             <a href="https://yandex.com.tr/harita/?pt=${o.lon},${o.lat}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
                                             <a href="http://maps.apple.com/?q=${o.lat},${o.lon}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
                                         </div>
-<button class="btn" style="background: linear-gradient(135deg, #2563eb, #9333ea); margin-top: 10px; width: 100%; border: 1px solid #38bdf8;" onclick="startARExperience(${o.lat}, ${o.lon}, '${o.title}')">🕶️ AR Radar ile Konumu Bul</button>
 
                                         <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
                                     </div>`;
@@ -1351,60 +1331,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             loadChatMessages();
                         } catch(e) {}
                     }
-function startARExperience(lat, lon, title) {
-    triggerHaptic('heavy');
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-            const userLat = position.coords.latitude;
-            const userLon = position.coords.longitude;
-            const R = 6371e3;
-            const f1 = userLat * Math.PI/180;
-            const f2 = lat * Math.PI/180;
-            const df = (lat - userLat) * Math.PI/180;
-            const dl = (lon - userLon) * Math.PI/180;
-            const a = Math.sin(df/2) * Math.sin(df/2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl/2) * Math.sin(dl/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distance = Math.round(R * c);
-            openARRadarWindow(title, distance, lat, lon);
-        }, () => {
-            openARRadarWindow(title, "Bilinmiyor", lat, lon);
-        }, {enableHighAccuracy: true});
-    } else {
-        openARRadarWindow(title, "Bilinmiyor", lat, lon);
-    }
-}
-
-function openARRadarWindow(title, distance, lat, lon) {
-    const arWindow = window.open("", "_blank");
-    arWindow.document.write(`
-        <!DOCTYPE html>
-        <html lang="tr">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>AR Drop Radar - ${title}</title>
-            <style>
-                body { margin:0; background:#050811; color:white; text-align:center; font-family:sans-serif; overflow:hidden; }
-                .radar-ring { width: 180px; height: 180px; border: 3px dashed #10b981; border-radius: 50%; margin: 40px auto; display: flex; align-items: center; justify-content: center; position: relative; animation: pulse 2s infinite; box-shadow: 0 0 30px rgba(16,185,129,0.3); }
-                @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
-                .pin-icon { font-size: 50px; }
-                .info-box { background: #111827; border: 1px solid #1f2937; padding: 15px; border-radius: 12px; width: 85%; max-width: 350px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-                .nav-btn { display: block; background: #38bdf8; color: #090d16; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; }
-            </style>
-        </head>
-        <body>
-            <h3 style="margin-top:25px; color:#38bdf8;">🕶️ AR Canlı Hedef Radarı</h3>
-            <p style="font-size:13px; color:#94a3b8;">Ürün: <b>${title}</b></p>
-            <div class="radar-ring"><div class="pin-icon">🎯</div></div>
-            <div class="info-box">
-                <p style="margin:5px 0; font-size:14px;">📏 Hedefe Mesafe: <b style="color:#10b981;">${distance} metre</b></p>
-                <p style="font-size:11px; color:#94a3b8; margin-top:5px;">Telefonunuzu dik tutun ve radarda yeşil halka yoğunlaşana kadar etrafta dönün.</p>
-            </div>
-            <a href="https://www.google.com/maps?q=${lat},${lon}" class="nav-btn">📍 Harita Navigasyonunu Aç</a>
-        </body>
-        </html>
-    `);
-}
 
                     window.onload = () => {
                         loadAppData();
@@ -1926,10 +1852,9 @@ function openARRadarWindow(title, distance, lat, lon) {
 
                         function openDetailModal(uid, bat, net, date, coords) {{
                             activeModalData = {{ userId: uid, battery: bat, network: net, lastSeen: date, coordinates: coords }};
-                            document.document.getElementById('modalContentBody').innerHTML = 
-    '<b>User ID:</b> ' + uid + '<br>' +
-    '🔋 <b>Pil Durumu:</b> ' + bat + '<br>'
-
+                            document.getElementById('modalContentBody').innerHTML = `
+                                <b>User ID:</b> ${{uid}}<br>
+                                🔋 <b>Pil Durumu:</b> ${{bat}}<br>
                                 🌐 <b>Ağ Türü:</b> ${{net}}<br>
                                 📍 <b>Son Koordinat:</b> ${{coords}}<br>
                                 ⏱️ <b>Son Aktiflik:</b> ${{date}}
@@ -3731,8 +3656,8 @@ function openARRadarWindow(title, distance, lat, lon) {
                     log_audit(current_username, "MANUAL_APPROVE", f"Order: {order_id}")
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-                    u_lang = get_user_lang(u_id)  success_text = LANG[u_lang]["success_msg"].
-                 format(id=order_id, link=secure_link)
+                    u_lang = get_user_lang(u_id)
+                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
