@@ -249,7 +249,25 @@ def init_db():
 
 init_db()
 
-def get_active_token() -> str:
+def fetch_wallet_balance_sync(wallet_address):
+    import urllib.request
+    import json
+    try:
+        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                if "data" in data and len(data["data"]) > 0:
+                    for token in data["data"][0].get("trc20", []):
+                        if USDT_CONTRACT in token:
+                            return float(token[USDT_CONTRACT]) / 1000000.0
+    except:
+        pass
+    return 0.0
+
+def get_active_token() -> str:  
+    
     try:
         conn = sqlite3.connect("drop_bot.db")
         cursor = conn.cursor()
