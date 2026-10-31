@@ -575,6 +575,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
+
+        if parsed_path.path == "/admin-close-support":
+            user_id = query_params.get("user_id", [None])[0]
+            if user_id:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (user_id,))
+                conn.commit()
+                conn.close()
+
+            self.send_response(303)
+            self.send_header("Location", "/admin-web?tab=support")
+            self.end_headers()
+            return
+        
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
 
@@ -2902,6 +2917,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-type", "application/json; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+            return
+
+            if parsed_path.path in ["/api/spin-wheel", "/api/scratch-card", "/api/game-spin"]:
+            try:
+                data = json.loads(body)
+                uid = int(data.get("user_id", 0))
+                
+                import random
+                reward = random.choice([0, 0.5, 1, 2, 5])
+
+                if reward > 0:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (reward, uid))
+                    conn.commit()
+                    conn.close()
+
+                msg = f"🎉 Tebrikler! {reward} USDT kazandınız!" if reward > 0 else "😔 Şansınız yokmuş, tekrar deneyin!"
+                
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "reward": reward, "message": msg}).encode("utf-8"))
+            except Exception as e:
+                logging.error(f"Oyun hatası: {e}")
+                self.send_response(500)
+                self.end_headers()
             return
 
         self.send_response(404)
