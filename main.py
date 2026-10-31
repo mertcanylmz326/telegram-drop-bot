@@ -2993,8 +2993,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    :
-       :
         parsed_path = urlparse(self.path)
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8')
