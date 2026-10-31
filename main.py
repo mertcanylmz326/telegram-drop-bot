@@ -2867,19 +2867,21 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/api/upload-ss":
             try:
+                # 1. İstek uzunluğunu alıp body verisini okuyoruz
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(content_length).decode('utf-8')
+                
+                # 2. JSON verisini ayrıştırıyoruz
                 data = json.loads(body)
                 uid = int(data.get("user_id", 0))
                 img_data = data.get("image", "")
 
                 if img_data and "," in img_data:
-                    # Base64 başlığını temizleyip ham resim verisini alıyoruz
                     base64_str = img_data.split(",")[1]
                     img_bytes = base64.b64decode(base64_str)
 
-                    # Görseli Telegram'a göndermek üzere bellek dosyasına çeviriyoruz
                     photo_file = BufferedInputFile(img_bytes, filename=f"miniapp_{uid}.png")
 
-                    # Ana asyncio döngüsü üzerinden bot ile gruba gönderiyoruz
                     if main_loop:
                         asyncio.run_coroutine_threadsafe(
                             bot.send_photo(
@@ -2897,9 +2899,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logging.error(f"SS upload hatası: {e}")
                 self.send_response(500)
+                self.send_header("Content-type", "application/json; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
             return
+
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
 
         if parsed_path.path == "/api/report-telemetry":
             try:
