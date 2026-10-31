@@ -590,7 +590,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        :
+        
             parsed_path = urlparse(self.path)
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
