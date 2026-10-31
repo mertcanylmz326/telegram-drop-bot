@@ -34,7 +34,7 @@ USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 if not RENDER_EXTERNAL_URL:
-    RENDER_EXTERNAL_URL = "https://weed-istanbul.onrender.com"
+    RENDER_EXTERNAL_URL = "https://telegram-weed-bot.onrender.com"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -475,11 +475,9 @@ async def auto_backup_task():
         except Exception as e:
             logging.error(e)
 
-# --- SALI & CUMA OTOMATİK ÇARK BİLDİRİM GÖREVİ ---
 async def wheel_notification_scheduler():
     while True:
         now = datetime.now()
-        # Haftanın günleri: Salı=1, Cuma=4
         if now.weekday() in [1, 4]:
             today_str = now.strftime("%Y-%m-%d")
             conn = sqlite3.connect("drop_bot.db")
@@ -497,7 +495,6 @@ async def wheel_notification_scheduler():
                         await asyncio.sleep(0.05)
                     except:
                         pass
-            # 24 saat boyunca tekrar tetiklenmemesi için bekle
             await asyncio.sleep(86400)
         else:
             await asyncio.sleep(3600)
@@ -558,7 +555,6 @@ async def background_payment_worker():
                         c.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     c.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
                     
-                    # VIP Cashback Mantığı
                     cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (u_id,))
                     vip_row = cursor.fetchone()
                     vip = vip_row[0] if vip_row else "Bronz"
@@ -655,9 +651,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             
             if current_role == "super_admin" or current_username == "root":
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = 1, 1, 1, 1
-
-        if parsed_path.path == "__init__":
-            pass
 
         if parsed_path.path == "/":
             self.send_response(200)
@@ -847,12 +840,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     const tg = window.Telegram.WebApp;
                     tg.expand();
                     
-                    let userId = 0;
-                    if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-                        userId = tg.initDataUnsafe.user.id;
-                    } else {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        userId = urlParams.get('user_id') || 1012940363;
+                    let userId = 1012940363; // Güvenli fallback (Admin ID)
+                    try {
+                        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                            userId = tg.initDataUnsafe.user.id;
+                        } else {
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const qUser = urlParams.get('user_id');
+                            if (qUser) userId = qUser;
+                        }
+                    } catch (e) {
+                        console.log("User ID alınamadı, fallback kullanılıyor:", e);
                     }
 
                     function triggerHaptic(style = 'medium') {
@@ -944,19 +942,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             document.getElementById('activeOrdersList').innerHTML = activeHtml;
 
                             let prodHtml = "";
-                            data.temsili_drops.forEach(p => {
-                                let flashBadge = "";
-                                if(p.is_flash) {
-                                    flashBadge = `<span style="background:var(--accent-red); color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:6px;">⚡ FLASH DROP (Bitiş: ${p.flash_expires})</span>`;
-                                }
-                                prodHtml += `
-                                <div class="card" style="${p.is_flash ? 'border: 1px solid var(--accent-red);' : ''}">
-                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category}) ${flashBadge}</h4>
-                                    <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
-                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
-                                    <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
-                                </div>`;
-                            });
+                            if(data.temsili_drops && data.temsili_drops.length > 0) {
+                                data.temsili_drops.forEach(p => {
+                                    let flashBadge = "";
+                                    if(p.is_flash) {
+                                        flashBadge = `<span style="background:var(--accent-red); color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:6px;">⚡ FLASH DROP (Bitiş: ${p.flash_expires})</span>`;
+                                    }
+                                    prodHtml += `
+                                    <div class="card" style="${p.is_flash ? 'border: 1px solid var(--accent-red);' : ''}">
+                                        <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category}) ${flashBadge}</h4>
+                                        <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
+                                        <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
+                                        <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
+                                    </div>`;
+                                });
+                            } else {
+                                prodHtml = `<p style="font-size:12px; color:var(--text-muted);">Şu anda aktif ürün bulunmuyor.</p>`;
+                            }
                             document.getElementById('productsList').innerHTML = prodHtml;
 
                             let rewardsHtml = "";
@@ -1110,17 +1112,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     function renderMapMarkers(activeOrders, temsilidrops, densityMap, filterCat = "ALL") {
                         markersGroup.clearLayers();
 
-                        // Isı Haritası Çemberleri (Yoğunluğa Göre Renkler: Kırmızı, Turuncu, Yeşil)
                         for(const [cat, count] of Object.entries(densityMap || {})) {
                             let sample = temsilidrops.find(d => d.category === cat);
                             if(sample) {
-                                let color = '#10b981'; // Yeşil (Düşük)
+                                let color = '#10b981';
                                 let opacity = 0.2;
                                 if(count >= 3) {
-                                    color = '#ef4444'; // Kırmızı (Yoğun)
+                                    color = '#ef4444';
                                     opacity = 0.5;
                                 } else if(count == 2) {
-                                    color = '#f59e0b'; // Turuncu (Orta)
+                                    color = '#f59e0b';
                                     opacity = 0.35;
                                 }
 
@@ -1285,7 +1286,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             
             cursor.execute("SELECT balance, referral_earnings, vip_level, wheel_rights FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
-            bal = u_row[0] if u_row else 0.0
+            bal = u_row[0] if u_row else 5.0
             ref_earnings = u_row[1] if u_row and len(u_row) > 1 else 0.0
             vip_level = u_row[2] if u_row and len(u_row) > 2 else "Bronz"
             wheel_rights = u_row[3] if u_row and len(u_row) > 3 else 0
@@ -2171,16 +2172,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 
                                 html += '<h4 style="color:#facc15; margin-top:15px;">🎁 Kazanılan Bonuslar / Hediyeler</h4><ul>';
                                 if(data.rewards.length > 0) {{
-                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; }});
+                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; });
                                 }} else {{ html += '<li>Bonus bulunmuyor.</li>'; }}
 
                                 html += '</ul><h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
                                 if(data.orders.length > 0) {{
-                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
+                                    data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; });
                                 }} else {{ html += '<li>Sipariş yok.</li>'; }}
                                 html += '</ul><h4 style="color:#38bdf8; margin-top:15px;">📥 Bakiye Yükleme Geçmişi</h4><ul>';
                                 if(data.deposits.length > 0) {{
-                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; }});
+                                    data.deposits.forEach(d => {{ html += '<li>' + d.amount + ' USDT - <b>' + d.status + '</b> (' + d.date + ')</li>'; });
                                 }} else {{ html += '<li>Yükleme yok.</li>'; }}
                                 html += '</ul>';
                                 document.getElementById('modalBody').innerHTML = html;
@@ -2653,7 +2654,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
         if parsed_path.path == "/admin-logout":
             self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=false; Path=/; Max-Age=0')
+            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
             self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
             self.send_header('Location', '/admin-web')
@@ -3639,7 +3640,6 @@ async def support_start(message: types.Message, state: FSMContext):
     lang = get_user_lang(user_id)
     t = LANG[lang]
     
-    # VIP öncelikli canlı destek kontrolü
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
     cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (user_id,))
@@ -3905,7 +3905,6 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
-    # VIP Cashback Uygulaması
     cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (user_id,))
     vip_row = cursor.fetchone()
     vip = vip_row[0] if vip_row else "Bronz"
