@@ -754,7 +754,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
-                    <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
                     <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
                     <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
