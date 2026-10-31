@@ -620,10 +620,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
     # --- 1. GET İSTEKLERİ (SAYFA VE PANEL AÇMA) ---
     def do_GET(self):
+        def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
 
-        # Admin panelini kapatma
+        # Admin canlı destek kapatma
         if parsed_path.path == "/admin-close-support":
             user_id = query_params.get("user_id", [None])[0]
             if user_id:
@@ -637,6 +638,37 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_header("Location", "/admin-web?tab=support")
             self.end_headers()
             return
+
+        # 1. MiniApp / Ana Sayfa isteği gelirse miniapp.html dosyasını ver
+        if parsed_path.path in ["/", "/miniapp", "/index.html"]:
+            file_path = "static/miniapp.html"
+        # 2. Admin Web isteği gelirse admin.html dosyasını ver
+        elif parsed_path.path == "/admin-web":
+            file_path = "static/admin.html"
+        # 3. Diğer statik dosyalar (css, js, görsel vb.)
+        else:
+            file_path = f"static{parsed_path.path}"
+
+        # Dosya bilgisayarda/sunucuda varsa oku ve gönder
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            self.send_response(200)
+            self.send_cors_headers()
+            
+            if file_path.endswith(".css"):
+                self.send_header("Content-type", "text/css")
+            elif file_path.endswith(".js"):
+                self.send_header("Content-type", "application/javascript")
+            else:
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                
+            self.end_headers()
+
+            with open(file_path, "rb") as f:
+                self.wfile.write(f.read())
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"404 Not Found")
 
         # DİĞER GET SAYFALARI (Mevcut do_GET kodların burada devam etmeli)
         self.send_response(200)
