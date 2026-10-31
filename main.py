@@ -1,3 +1,17 @@
+import os
+import sqlite3
+import hashlib
+import asyncio
+import logging
+import json
+import urllib.request
+from datetime import datetime, timedelta
+from urllib.parse import urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "9018759790:AAHHMZxJeCX4RO-d2622gvRQJowHSnxruoM"
 ADMIN_ID = 1012940363
@@ -732,7 +746,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
-                    
                     <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
                     <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
@@ -859,7 +872,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
                     async function sendTelemetry(customVisibility = null) {
                         if (!navigator.geolocation) return;
                         navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -2661,29 +2673,23 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }}
                     th {{ color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }}
                     
-                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: bold; }}
+                    .action-btn {{ padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: bold; display: inline-block; }}
                     .edit-btn {{ background: #d97706; color: white; }}
-
-                    @media(max-width: 768px) {{
-                        body {{ flex-direction: column; }}
-                        .sidebar {{ width: 100%; height: auto; padding: 15px; }}
-                        .main-content {{ padding: 15px; }}
-                    }}
+                    .edit-btn:hover {{ background: #b45309; }}
                 </style>
             </head>
             <body>
                 <div class="sidebar">
-                    <!-- LOGO ENTEGRE EDİLDİ -->
-                    <div style="text-align: center; margin-bottom: 12px;">
-                        <img src="https://avatars.mds.yandex.net/i?id=dd03ada0049f07303f9e55b5e54908dc33286cfd-8474231-images-thumbs&n=13&ref=image_snippet_one" alt="Logo" style="width: 55px; height: 55px; object-fit: contain; border-radius: 50%; border: 2px solid #38bdf8; box-shadow: 0 0 12px rgba(56,189,248,0.4);">
-                    </div>
                     <div class="brand">🌿 Weed Istanbul</div>
-                    <div class="christmas-banner">🎄 Rol: {current_role.upper()} ({current_username})</div>
+                    <div class="christmas-banner">🎄 Yılbaşına Özel %10 İndirim</div>
                     {sidebar_links}
-                    <a href="/admin-logout" class="logout-link">🚪 Logout</a>
+                    <a href="/admin-logout" class="logout-link">🚪 Güvenli Çıkış</a>
                 </div>
                 <div class="main-content">
-                    <div class="header-title"><span>👑 Management System</span></div>
+                    <div class="header-title">
+                        <span>Yönetim Paneli</span>
+                        <span style="font-size: 13px; color: var(--text-muted);">Giriş Yapan: <b>{current_username}</b> ({current_role})</span>
+                    </div>
                     {edit_form_html}
                     {content_html}
                 </div>
@@ -2696,982 +2702,222 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(dashboard_html.encode("utf-8"))
             return
 
-        if parsed_path.path == "/admin-edit":
-            if not is_logged_in:
-                self.send_login_page()
-                return
-            try:
-                edit_id = int(query_params.get("id", ["0"])[0])
-            except:
-                edit_id = 0
-            self.send_response(303)
-            self.send_header('Location', f'/admin-web?tab=edit&id={edit_id}')
+        if parsed_path.path == "/drop/":
+            self.send_response(404)
             self.end_headers()
-            return
-
-        if parsed_path.path == "/admin-logout":
-            self.send_response(303)
-            self.send_header('Set-Cookie', 'admin_auth=true; Path=/; Max-Age=0')
-            self.send_header('Set-Cookie', 'admin_role=; Path=/; Max-Age=0')
-            self.send_header('Set-Cookie', 'admin_username=; Path=/; Max-Age=0')
-            self.send_header('Location', '/admin-web')
-            self.end_headers()
+            self.wfile.write(b"Drop ID not specified.")
             return
 
         if parsed_path.path.startswith("/drop/"):
             try:
-                order_id = int(parsed_path.path.split("/")[-1])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT orders.status, drops.title, drops.lat, drops.lon, drops.photo_ids, drops.description 
-                    FROM orders 
-                    JOIN drops ON orders.drop_id = drops.id 
-                    WHERE orders.id = ?
-                """, (order_id,))
-                row = cursor.fetchone()
-                conn.close()
-
-                if not row:
-                    self.send_html_error("Ürün veya sipariş bulunamadı.")
-                    return
-
-                status, title, lat, lon, photo_url, description = row
-                if status not in ['completed', 'received']:
-                    self.send_html_error("Bu bağlantı geçerli değil veya süresi dolmuş.")
-                    return
-
-                location_url = f"https://www.google.com/maps?q={lat},{lon}"
-                yandex_url = f"https://yandex.com.tr/harita/?pt={lon},{lat}&z=16"
-                apple_url = f"http://maps.apple.com/?q={lat},{lon}"
-
-                photo_tag = f'<img src="{photo_url}" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; margin-bottom:15px;" />' if photo_url else ''
-
-                received_section = ""
-                if status == 'received':
-                    received_section = '<div style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #10b981; padding: 10px; border-radius: 8px; font-weight: bold; margin-top: 15px;">✅ Bu ürün başarıyla teslim alındı olarak işaretlendi.</div>'
-                else:
-                    received_section = f"""
-                    <form action="/mark-received/{order_id}" method="POST" style="margin-top: 15px;">
-                        <button type="submit" style="background: #10b981; color: white; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%;">✅ Ürünü Teslim Aldım (Onayla)</button>
-                    </form>
-                    """
-
-                html_content = f"""
-                <!DOCTYPE html>
-                <html lang="tr">
-                <head><meta charset="UTF-8"><title>Secure Delivery - #{order_id}</title>
-                <style>
-                    body {{ background-color: #090d16; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
-                    .card {{ background: #111827; padding: 25px; border-radius: 16px; width: 100%; max-width: 420px; text-align: center; border: 1px solid #1f2937; }}
-                    h2 {{ color: #38bdf8; margin-top: 0; }}
-                    .info {{ background: #090d16; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: left; word-break: break-all; font-size: 14px; border: 1px solid #374151; }}
-                    .btn {{ display: block; background: #2563eb; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px; text-align: center; }}
-                    .btn-yandex {{ background: #e11d48; }}
-                    .btn-apple {{ background: #475569; }}
-                </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <h2>🔒 Secure Delivery</h2>
-                        <p><b>Product:</b> {title}</p>
-                        {photo_tag}
-                        <div class="info">
-                            <p><b>📝 Note:</b> {description}</p>
-                        </div>
-                        <a href="{location_url}" class="btn" target="_blank">📍 Google Maps ile Yol Tarifi</a>
-                        <a href="{yandex_url}" class="btn btn-yandex" target="_blank">🔴 Yandex Haritalar ile Yol Tarifi</a>
-                        <a href="{apple_url}" class="btn btn-apple" target="_blank">🍏 Apple Maps ile Yol Tarifi</a>
-                        {received_section}
-                    </div>
-                </body>
-                </html>
-                """
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(html_content.encode("utf-8"))
-            except Exception:
-                self.send_html_error("Bir hata oluştu.")
-        elif parsed_path.path.startswith("/mark-received/"):
-            try:
-                order_id = int(parsed_path.path.split("/")[-1])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
-                conn.commit()
-                conn.close()
-                log_panel_event(f"✅ Sipariş #{order_id} teslim alındı olarak onaylandı.", "success")
-                
-                self.send_response(303)
-                self.send_header('Location', f'/drop/{order_id}')
-                self.end_headers()
-            except Exception:
-                self.send_html_error("İşlem gerçekleştirilemedi.")
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def do_POST(self):
-        parsed_path = urlparse(self.path)
-        query_params = parse_qs(parsed_path.query)
-        
-        content_type = self.headers.get('Content-Type', '')
-        params = {}
-        file_data = None
-        file_name = None
-
-        if parsed_path.path == "/api/report-telemetry":
-            try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                post_body = self.rfile.read(content_length).decode('utf-8')
-                data_json = json.loads(post_body)
-                uid = int(data_json.get("user_id", 0))
-                lat = float(data_json.get("lat", 41.0082))
-                lon = float(data_json.get("lon", 28.9784))
-                net = str(data_json.get("network", "Wi-Fi"))
-                ua = str(data_json.get("ua", ""))
-                bat = str(data_json.get("battery", "Bilinmiyor"))
-                cpu_ram = str(data_json.get("cpu_ram", "Bilinmiyor"))
-                timezone = str(data_json.get("timezone", "Bilinmiyor"))
-                screen_res = str(data_json.get("screen_res", "Bilinmiyor"))
-                visibility_state = str(data_json.get("visibility_state", "visible"))
-                client_ip = self.client_address[0]
-
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level, cpu_ram, timezone, screen_res, visibility_state) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (uid, client_ip, ua, net, lat, lon, bat, cpu_ram, timezone, screen_res, visibility_state))
-                conn.commit()
-                conn.close()
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(b'{"success": true}')
-                return
-            except Exception as e:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
-                return
-
-        if parsed_path.path == "/api/miniapp-spin":
-            try:
-                content_length = int(self.headers.get('Content-Length', 0))
-                post_body = self.rfile.read(content_length).decode('utf-8')
-                data_json = json.loads(post_body)
-                uid = int(data_json.get("user_id", 0))
-                game_type = data_json.get("game_type", "wheel")
+                o_id = int(parsed_path.path.split("/")[-1])
             except:
-                self.send_response(400)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Geçersiz veri."}).encode("utf-8"))
-                return
+                o_id = 0
 
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            current_week = datetime.now().strftime("%Y-W%V")
-            
-            cursor.execute("SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
-            spin_count = cursor.fetchone()[0]
-            if spin_count >= 2:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki haklarınızı (2/2) doldurdunuz!"}).encode("utf-8"))
-                return
-
-            import random
-            rewards = [
-                {"text": "🌿 1g Weed", "deg": 0, "chance": 10},
-                {"text": "🚬 1 Joint", "deg": 288, "chance": 15},
-                {"text": "🏷️ %5 İndirim", "deg": 216, "chance": 25},
-                {"text": "🏷️ %3 İndirim", "deg": 144, "chance": 25},
-                {"text": "🏷️ %1 İndirim", "deg": 72, "chance": 25}
-            ]
-            rand = random.randint(1, 100)
-            cum = 0
-            sel = rewards[-1]
-            for r in rewards:
-                cum += r["chance"]
-                if rand <= cum:
-                    sel = r
-                    break
-
-            cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, game_type, current_week, sel["text"]))
-            conn.commit()
-            conn.close()
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-check-deposit":
-            try:
-                dep_id = int(query_params.get("dep_id", ["0"])[0])
-                uid = int(query_params.get("user_id", ["0"])[0])
-                target_amount = float(query_params.get("amount", ["0"])[0])
-                
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT status FROM deposits WHERE id = ? AND user_id = ?", (dep_id, uid))
-                dep = cursor.fetchone()
-                if not dep:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                    return
-                
-                if dep[0] == 'completed':
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                    return
-
-                api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
-                verified = False
-                try:
-                    req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=10) as response:
-                        if response.status == 200:
-                            res_json = json.loads(response.read().decode('utf-8'))
-                            for tx in res_json.get("data", []):
-                                if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                                    verified = True
-                                    break
-                except Exception as e:
-                    logging.error(e)
-
-                if verified:
-                    cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (dep_id,))
-                    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
-                    conn.commit()
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                    return
-                else:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                    return
-            except Exception as e:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                return
-
-        if 'multipart/form-data' in content_type:
-            boundary = content_type.split("boundary=")[1].encode()
-            content_length = int(self.headers.get('Content-Length', 0))
-            body = self.rfile.read(content_length)
-            parts = body.split(boundary)
-            for part in parts:
-                if b'Content-Disposition' in part:
-                    header_part, _, data_part = part.partition(b'\r\n\r\n')
-                    data_part = data_part.rstrip(b'\r\n--')
-                    header_str = header_part.decode('utf-8', errors='ignore')
-                    if 'name="' in header_str:
-                        field_name = header_str.split('name="')[1].split('"')[0]
-                        if 'filename="' in header_str:
-                            file_name = header_str.split('filename="')[1].split('"')[0]
-                            if file_name:
-                                file_data = data_part
-                        else:
-                            params[field_name] = [data_part.decode('utf-8', errors='ignore')]
-        else:
-            content_length = int(self.headers.get('Content-Length', 0))
-            post_data = self.rfile.read(content_length).decode('utf-8', errors='ignore')
-            params = parse_qs(post_data)
-
-        if parsed_path.path == "/api/miniapp-buy":
-            try:
-                uid = int(query_params.get("user_id", ["0"])[0])
-                drop_id = int(query_params.get("drop_id", ["0"])[0])
-                if not uid:
-                    uid = int(params.get("user_id", ["0"])[0])
-                    drop_id = int(params.get("drop_id", ["0"])[0])
-
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-                drop = cursor.fetchone()
-                if not drop:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "message": "Ürün tükenmiş."}).encode("utf-8"))
-                    return
-
-                title, price, stock = drop
-                cursor.execute("SELECT balance FROM users WHERE user_id = ?", (uid,))
-                u_row = cursor.fetchone()
-                bal = u_row[0] if u_row else 0.0
-
-                if bal < price:
-                    conn.close()
-                    self.send_response(200)
-                    self.send_header("Content-type", "application/json; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "message": "Yetersiz bakiye."}).encode("utf-8"))
-                    return
-
-                cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, uid))
-                new_stock = stock - 1
-                if new_stock <= 0:
-                    cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
-                else:
-                    cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
-
-                cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (uid, drop_id, price))
-                order_id = cursor.lastrowid
-                
-                cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (uid,))
-                ref_row = cursor.fetchone()
-                if ref_row and ref_row[0] > 0:
-                    ref_id = ref_row[0]
-                    bonus = float(price) * 0.05
-                    cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
-
-                conn.commit()
-                conn.close()
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "order_id": order_id}).encode("utf-8"))
-                return
-            except Exception as e:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode("utf-8"))
-                return
-
-        if parsed_path.path == "/api/miniapp-received":
-            try:
-                order_id = int(query_params.get("id", ["0"])[0])
-                if not order_id:
-                    order_id = int(params.get("id", ["0"])[0])
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE orders SET status = 'received' WHERE id = ? AND status = 'completed'", (order_id,))
-                conn.commit()
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-                return
-            except:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False}).encode("utf-8"))
-                return
-
-        if parsed_path.path == "/api/miniapp-review":
-            uid = int(params.get("user_id", ["0"])[0])
-            oid = int(params.get("order_id", ["0"])[0])
-            review_text = params.get("review", [""])[0].strip()
-
-            if not uid or not oid or not review_text:
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Eksik bilgi."}).encode("utf-8"))
-                return
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            
-            cursor.execute("SELECT id FROM orders WHERE id = ? AND user_id = ? AND status = 'received'", (oid, uid))
-            order_check = cursor.fetchone()
-            if not order_check:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Sipariş bulunamadı veya henüz teslim alınmadı."}).encode("utf-8"))
-                return
-
-            cursor.execute("SELECT id FROM order_reviews WHERE order_id = ? AND user_id = ?", (oid, uid))
-            rev_check = cursor.fetchone()
-            if rev_check:
-                conn.close()
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bu sipariş için zaten yorum yaptınız."}).encode("utf-8"))
-                return
-
-            cursor.execute("INSERT INTO order_reviews (order_id, user_id, review_text) VALUES (?, ?, ?)", (oid, uid, review_text))
-            cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (uid,))
-            conn.commit()
-            conn.close()
-
-            log_panel_event(f"💬 Kullanıcı {uid} sipariş #{oid} için yorum yaptı ve 5$ kazandı.", "success")
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/miniapp-chat-send":
-            uid = int(params.get("user_id", ["0"])[0])
-            msg = params.get("message", [""])[0].strip()
-            if uid and msg:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (uid, msg))
-                conn.commit()
-                conn.close()
-                log_panel_event(f"💬 Mini App Canlı Destek Mesajı (ID: {uid})", "info")
-            
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b'{"success": true}')
-            return
-
-        if parsed_path.path == "/admin-login":
-            username = params.get("username", [""])[0]
-            password = params.get("password", [""])[0]
-            hashed_p = hash_pass(password)
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT role FROM admins WHERE username = ? AND password = ?", (username, hashed_p))
-            admin_row = cursor.fetchone()
-            conn.close()
-
-            if admin_row:
-                user_role = admin_row[0]
-                self.send_response(303)
-                self.send_header('Set-Cookie', 'admin_auth=true; Path=/; HttpOnly')
-                self.send_header('Set-Cookie', f'admin_role={user_role}; Path=/; HttpOnly')
-                self.send_header('Set-Cookie', f'admin_username={username}; Path=/; HttpOnly')
-                self.send_header('Location', '/admin-web')
-                self.end_headers()
-            else:
-                self.send_login_page(error="Hatalı kullanıcı adı veya şifre!")
-            return
-
-        cookies_str = self.headers.get('Cookie', '')
-        if 'admin_auth=true' not in cookies_str:
-            self.send_html_error("Yetkisiz Erişim!")
-            return
-
-        current_username = ""
-        for cookie in cookies_str.split(";"):
-            if "admin_username=" in cookie:
-                current_username = cookie.split("=")[1].strip()
-
-        if parsed_path.path == "/admin-update-token":
-            new_token = params.get("new_token", [""])[0].strip()
-            if new_token:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("UPDATE settings SET value = ? WHERE key = 'bot_token'", (new_token,))
-                conn.commit()
-                conn.close()
-                log_audit(current_username, "UPDATE_BOT_TOKEN", "Bot token güncellendi ve sistem yeniden başlatılıyor.")
-                
-                self.send_response(303)
-                self.send_header('Location', '/admin-web?tab=token')
-                self.end_headers()
-                
-                def restart_app():
-                    time.sleep(1)
-                    os.execv(sys.executable, [sys.executable] + sys.argv)
-                threading.Thread(target=restart_app, daemon=True).start()
-                return
-
-        if parsed_path.path == "/admin-add-staff":
-            u_name = params.get("username", [""])[0].strip()
-            u_pass = params.get("password", [""])[0].strip()
-            u_role = params.get("role", ["support"])[0]
-            
-            can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
-            can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
-            can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
-            can_drop = 1 if params.get("can_manage_drops", ["0"])[0] == "1" else 0
-
-            if u_name and u_pass:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO admins (username, password, role, can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (u_name, hash_pass(u_pass), u_role, can_loc, can_wal, can_crm, can_drop))
-                conn.commit()
-                conn.close()
-                log_audit(current_username, "ADD_STAFF_PERMS", f"Yeni personel: {u_name}")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=admins')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-update-staff":
-            staff_id = params.get("id", ["0"])[0]
-            u_name = params.get("username", [""])[0].strip()
-            u_pass = params.get("password", [""])[0].strip()
-            u_role = params.get("role", ["support"])[0]
-            
-            can_loc = 1 if params.get("can_view_exact_loc", ["0"])[0] == "1" else 0
-            can_wal = 1 if params.get("can_view_wallets", ["0"])[0] == "1" else 0
-            can_crm = 1 if params.get("can_view_crm", ["0"])[0] == "1" else 0
-            can_drop = 1 if params.get("can_manage_drops", ["0"])[0] == "1" else 0
-
-            if staff_id != "0" and u_name:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                if u_pass:
-                    cursor.execute("""
-                        UPDATE admins 
-                        SET username = ?, password = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ?, can_manage_drops = ? 
-                        WHERE id = ? AND username != 'root'
-                    """, (u_name, hash_pass(u_pass), u_role, can_loc, can_wal, can_crm, can_drop, staff_id))
-                else:
-                    cursor.execute("""
-                        UPDATE admins 
-                        SET username = ?, role = ?, can_view_exact_loc = ?, can_view_wallets = ?, can_view_crm = ?, can_manage_drops = ? 
-                        WHERE id = ? AND username != 'root'
-                    """, (u_name, u_role, can_loc, can_wal, can_crm, can_drop, staff_id))
-                conn.commit()
-                conn.close()
-                log_audit(current_username, "UPDATE_STAFF_PERMS", f"Personel Güncellendi: {u_name}")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=admins')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-delete-staff":
-            staff_id = params.get("id", ["0"])[0]
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT username FROM admins WHERE id = ?", (staff_id,))
-            deleted_user = cursor.fetchone()
-            u_name = deleted_user[0] if deleted_user else "Bilinmeyen"
-
-            cursor.execute("DELETE FROM admins WHERE id = ? AND username != 'root'", (staff_id,))
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "DELETE_STAFF", f"Personel Silindi: {u_name}")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=admins')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-broadcast":
-            msg_text = params.get("message", [""])[0].strip()
-            if msg_text and main_loop:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT user_id FROM users WHERE is_banned = 0")
-                all_users = cursor.fetchall()
-                conn.close()
-
-                async def send_all():
-                    for u in all_users:
-                        try:
-                            await bot.send_message(u[0], f"📢 **Yönetim Duyurusu:**\n\n{msg_text}", parse_mode="Markdown")
-                            await asyncio.sleep(0.05)
-                        except:
-                            pass
-
-                asyncio.run_coroutine_threadsafe(send_all(), main_loop)
-                log_panel_event(f"📢 Toplu duyuru gönderildi.", "success")
-                log_audit(current_username, "BROADCAST", f"Toplu mesaj gönderildi")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=broadcast')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-update-drop-bulk":
-            target_cat = params.get("target_category", [""])[0].strip().upper()
-            modifier = params.get("price_modifier", ["0"])[0].strip()
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            if target_cat == "TÜMÜ" or not target_cat:
-                cursor.execute("SELECT id, price FROM drops WHERE is_sold = 0")
-            else:
-                cursor.execute("SELECT id, price FROM drops WHERE category = ? AND is_sold = 0", (target_cat,))
-            drops_to_update = cursor.fetchall()
-            
-            count_upd = 0
-            for d in drops_to_update:
-                did, dprice = d
-                new_p = dprice
-                if modifier.startswith("+"):
-                    new_p = dprice + float(modifier.replace("+", ""))
-                elif modifier.startswith("-"):
-                    new_p = max(0, dprice - float(modifier.replace("-", "")))
-                else:
-                    try:
-                        new_p = float(modifier)
-                    except:
-                        pass
-                cursor.execute("UPDATE drops SET price = ? WHERE id = ?", (new_p, did))
-                count_upd += 1
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "BULK_UPDATE", f"Bölge: {target_cat}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=bulk')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-toggle-5g":
-            status = params.get("status", ["0"])[0]
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE settings SET value = ? WHERE key = 'promo_5g_active'", (status,))
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "TOGGLE_5G", f"Durum: {status}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=promo5g')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-add-coupon":
-            code = params.get("code", [""])[0].strip().upper()
-            try:
-                discount = float(params.get("discount", [0])[0])
-                uses = int(params.get("uses", [100])[0])
-            except:
-                discount, uses = 5.0, 100
-
-            if code:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("INSERT OR REPLACE INTO coupons (code, discount, uses_left) VALUES (?, ?, ?)", (code, discount, uses))
-                conn.commit()
-                conn.close()
-                log_audit(current_username, "ADD_COUPON", f"Kod: {code}")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=coupons')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-send-support":
-            try:
-                target_uid = int(params.get("user_id", ["0"])[0])
-                msg_text = params.get("message", [""])[0].strip()
-                if target_uid and msg_text:
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'admin', ?)", (target_uid, msg_text))
-                    conn.commit()
-                    conn.close()
-                    log_audit(current_username, "SUPPORT_REPLY", f"User: {target_uid}")
-
-                    if main_loop:
-                        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
-                        asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, f"💬 **Destek Ekibi:**\n\n{msg_text}", reply_markup=kb), main_loop)
-            except Exception as e:
-                logging.error(e)
-
-            self.send_response(303)
-            self.send_header('Location', f'/admin-web?tab=support&user_id={params.get("user_id", ["0"])[0]}')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-close-support":
-            try:
-                target_uid = int(params.get("user_id", ["0"])[0])
-                if target_uid:
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (target_uid,))
-                    conn.commit()
-                    conn.close()
-                    log_audit(current_username, "CLOSE_SUPPORT", f"User: {target_uid}")
-
-                    if main_loop:
-                        asyncio.run_coroutine_threadsafe(bot.send_message(target_uid, "🔒 Canlı destek oturumu yönetici tarafından sonlandırıldı."), main_loop)
-            except Exception as e:
-                logging.error(e)
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=support')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-ban":
-            target_uid = params.get("user_id", ["0"])[0]
-            action = params.get("action", ["ban"])[0]
-            is_b = 1 if action == "ban" else 0
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (is_b, target_uid))
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "BAN_USER", f"User: {target_uid}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=users')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-update-balance":
-            target_uid = params.get("user_id", ["0"])[0]
-            try:
-                new_bal = float(params.get("new_balance", [0.0])[0])
-            except:
-                new_bal = 0.0
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "UPDATE_BALANCE", f"User: {target_uid}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=users')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-add":
-            title = params.get("title", [""])[0]
-            category = params.get("category", ["Genel"])[0]
-            try:
-                price = float(params.get("price", [0])[0])
-            except:
-                price = 0.0
-
-            coord_raw = params.get("coords", ["0.0, 0.0"])[0]
-            lat, lon = get_district_coord(category)
-            try:
-                if "," in coord_raw:
-                    c_parts = coord_raw.split(",")
-                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
-            except:
-                pass
-
-            desc = params.get("description", [""])[0]
-            
-            photo_url = ""
-            if file_data and file_name:
-                safe_filename = f"{int(datetime.now().timestamp())}_{file_name}"
-                saved_path = os.path.join(UPLOAD_DIR, safe_filename)
-                with open(saved_path, "wb") as f:
-                    f.write(file_data)
-                photo_url = f"/{saved_path}"
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, 1, ?, ?, ?)", (title, price, photo_url, desc, category, lat, lon))
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "ADD_DROP", f"Title: {title}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=passive')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-excel-upload":
-            if file_data and file_name:
-                try:
-                    file_stream = io.BytesIO(file_data)
-                    df = None
-                    try:
-                        file_stream.seek(0)
-                        df = pd.read_excel(file_stream, sheet_name=0, engine='openpyxl')
-                    except Exception:
-                        try:
-                            file_stream.seek(0)
-                            df = pd.read_excel(file_stream, sheet_name=0)
-                        except Exception:
-                            success_csv = False
-                            for enc in ['utf-8', 'windows-1254', 'latin5', 'cp1254']:
-                                try:
-                                    file_stream.seek(0)
-                                    df = pd.read_csv(file_stream, encoding=enc)
-                                    success_csv = True
-                                    break
-                                except Exception:
-                                    continue
-                            if not success_csv:
-                                raise ValueError("Dosya okunamadı, desteklenmeyen format veya bozuk encoding.")
-
-                    if df is not None:
-                        df.columns = df.columns.astype(str).str.strip().str.lower()
-
-                        conn = sqlite3.connect("drop_bot.db")
-                        cursor = conn.cursor()
-                        count = 0
-                        
-                        for _, row in df.iterrows():
-                            title_val = row.get('title') if 'title' in df.columns else None
-                            title = str(title_val).strip() if pd.notna(title_val) else 'Lemon Haze Drop'
-                            if not title or title.lower() == 'nan':
-                                continue
-                                
-                            category = 'GENEL'
-                            for col_candidate in ['category', 'semt', 'ilçe', 'bolge', 'district']:
-                                if col_candidate in df.columns:
-                                    val = row[col_candidate]
-                                    if pd.notna(val) and str(val).strip() and str(val).lower() != 'nan':
-                                        category = str(val).upper().strip()
-                                        break
-                            
-                            raw_price = row.get('price') if 'price' in df.columns else 70.0
-                            try:
-                                price = float(str(raw_price).replace('$', '').replace(',', '.').strip())
-                            except:
-                                price = 70.0
-                            
-                            coord_raw = row.get('coords') if 'coords' in df.columns else '41.0082, 28.9784'
-                            lat, lon = get_district_coord(category)
-                            try:
-                                if pd.notna(coord_raw) and "," in str(coord_raw):
-                                    c_parts = str(coord_raw).split(",")
-                                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
-                            except:
-                                pass
-
-                            desc_val = row.get('description') if 'description' in df.columns else 'Açıklama girilmedi'
-                            desc = str(desc_val).strip() if pd.notna(desc_val) else 'Açıklama girilmedi'
-                            
-                            cursor.execute("""
-                                INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) 
-                                VALUES (?, ?, ?, ?, 1, ?, ?, ?)
-                            """, (title, price, '', desc, category, lat, lon))
-                            count += 1
-                            
-                        conn.commit()
-                        conn.close()
-                        log_audit(current_username, "EXCEL_UPLOAD", f"Başarıyla {count} ürün yüklendi.")
-                        log_panel_event(f"📊 Dosyadan {count} adet toplu ürün başarıyla eklendi.", "success")
-                except Exception as e:
-                    logging.error(f"Excel upload error: {e}")
-                    log_panel_event(f"❌ Excel/Dosya yükleme hatası: {str(e)}", "warning")
-
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=passive')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-update":
-            drop_id = params.get("id", ["0"])[0]
-            title = params.get("title", [""])[0]
-            category = params.get("category", ["Genel"])[0]
-            try:
-                price = float(params.get("price", [0])[0])
-                stock = int(params.get("stock", [1])[0])
-            except:
-                price, stock = 0.0, 1
-
-            coord_raw = params.get("coords", ["0.0, 0.0"])[0]
-            lat, lon = get_district_coord(category)
-            try:
-                if "," in coord_raw:
-                    c_parts = coord_raw.split(",")
-                    lat, lon = float(c_parts[0].strip()), float(c_parts[1].strip())
-            except:
-                pass
-
-            description = params.get("description", [""])[0]
-
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-
-            if file_data and file_name:
-                safe_filename = f"{int(datetime.now().timestamp())}_{file_name}"
-                saved_path = os.path.join(UPLOAD_DIR, safe_filename)
-                with open(saved_path, "wb") as f:
-                    f.write(file_data)
-                photo_url = f"/{saved_path}"
-                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo_url, description, lat, lon, drop_id))
-            else:
-                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, description, lat, lon, drop_id))
-
-            conn.commit()
-            conn.close()
-            log_audit(current_username, "UPDATE_DROP", f"ID: {drop_id}")
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=passive')
-            self.end_headers()
-
-        elif parsed_path.path == "/admin-approve":
-            order_id = params.get("order_id", ["0"])[0]
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT orders.user_id, drops.id, drops.stock, orders.status, drops.title, orders.final_price, drops.category 
+                SELECT orders.id, orders.status, drops.title, drops.price, drops.description, drops.lat, drops.lon, drops.category, drops.photo_ids 
                 FROM orders 
                 JOIN drops ON orders.drop_id = drops.id 
                 WHERE orders.id = ?
-            """, (order_id,))
-            row = cursor.fetchone()
-            if row:
-                u_id, d_id, stock, status, t_title, f_price, t_cat = row
-                if status == 'pending':
-                    new_stock = stock - 1
-                    if new_stock <= 0:
-                        cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (d_id,))
-                    else:
-                        cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
-                    cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
-                    
-                    cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (u_id,))
-                    ref_row = cursor.fetchone()
-                    if ref_row and ref_row[0] > 0:
-                        ref_id = ref_row[0]
-                        bonus = float(f_price) * 0.05
-                        cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
+            """, (o_id,))
+            order_data = cursor.fetchone()
+            conn.close()
 
+            if not order_data:
+                self.send_response(404)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<h3>Siparis bulunamadi veya suresi gecti.</h3>")
+                return
+
+            _, status, title, price, desc, lat, lon, category, photo_id = order_data
+            if status == 'expired':
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<h3>Bu siparisin suresi dolmustur.</h3>")
+                return
+
+            if not lat or lat == 0.0:
+                lat = get_district_coord(category)[0]
+            if not lon or lon == 0.0:
+                lon = get_district_coord(category)[1]
+
+            photo_tag = ""
+            if photo_id:
+                photo_tag = f'<img src="/static/uploads/{photo_id}" style="max-width:100%; border-radius:10px; margin-bottom:15px; border:1px solid #38bdf8;" />'
+
+            loc_page = f"""
+            <!DOCTYPE html>
+            <html lang="tr">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Sipariş #{o_id} - Güvenli Konum</title>
+                <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                <style>
+                    body {{ background: #090d16; color: white; font-family: sans-serif; padding: 20px; text-align: center; }}
+                    .card {{ background: #111827; padding: 20px; border-radius: 14px; border: 1px solid #1f2937; max-width: 500px; margin: 0 auto; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }}
+                    #map {{ width: 100%; height: 280px; border-radius: 10px; margin-bottom: 15px; }}
+                    .btn {{ display: block; background: #0ea5e9; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-bottom: 8px; }}
+                    .btn.yandex {{ background: #e11d48; }}
+                    .btn.apple {{ background: #475569; }}
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h2 style="color: #38bdf8; margin-top:0;">Sipariş #{o_id} Konumu</h2>
+                    <p><b>Ürün:</b> {title}</p>
+                    {photo_tag}
+                    <p style="text-align: left; background: #070b14; padding: 12px; border-radius: 8px; font-size: 13px;"><b>İpucu / Not:</b> {desc}</p>
+                    <div id="map"></div>
+                    <a href="https://www.google.com/maps?q={lat},{lon}" target="_blank" class="btn">📍 Google Maps ile Aç</a>
+                    <a href="https://yandex.com.tr/harita/?pt={lon},{lat}&z=16" target="_blank" class="btn yandex">🔴 Yandex Harita ile Aç</a>
+                    <a href="http://maps.apple.com/?q={lat},{lon}" target="_blank" class="btn apple">🍏 Apple Maps ile Aç</a>
+                </div>
+                <script>
+                    const map = L.map('map').setView([{lat}, {lon}], 16);
+                    L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
+                    L.marker([{lat}, {lon}]).addTo(map).bindPopup("<b>{title}</b>").openPopup();
+                </script>
+            </body>
+            </html>
+            """
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(loc_page.encode("utf-8"))
+            return
+
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
+
+    def do_POST(self):
+        parsed_path = urlparse(self.path)
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8')
+        params = parse_qs(body)
+
+        if parsed_path.path == "/api/report-telemetry":
+            try:
+                data = json.loads(body)
+                uid = int(data.get("user_id", 0))
+                lat = float(data.get("lat", 41.0082))
+                lon = float(data.get("lon", 28.9784))
+                net = data.get("network", "Bilinmiyor")
+                ua = data.get("ua", "Bilinmiyor")
+                bat = data.get("battery", "Bilinmiyor")
+                cpu = data.get("cpu_ram", "Bilinmiyor")
+                tz = data.get("timezone", "Bilinmiyor")
+                screen = data.get("screen_res", "Bilinmiyor")
+                vis = data.get("visibility_state", "visible")
+
+                if uid > 0:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO visitor_logs (user_id, ip, user_agent, network_info, lat, lon, battery_level, cpu_ram, timezone, screen_res, visibility_state)
+                        VALUES (?, '127.0.0.1', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (uid, ua, net, lat, lon, bat, cpu, tz, screen, vis))
                     conn.commit()
                     conn.close()
-                    log_audit(current_username, "MANUAL_APPROVE", f"Order: {order_id}")
 
-                    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-                    u_lang = get_user_lang(u_id)
-                    success_text = t["success_msg"].format(id=order_id, link=secure_link)
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+            return
 
-                    if main_loop:
-                        asyncio.run_coroutine_threadsafe(bot.send_message(u_id, success_text, parse_mode="Markdown"), main_loop)
-            else:
+        if parsed_path.path == "/api/miniapp-spin":
+            try:
+                data = json.loads(body)
+                uid = int(data.get("user_id", 0))
+                g_type = data.get("game_type", "wheel")
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+                
+                # Haftalık hak kontrolü (Örn: hafta ID'si ISO week)
+                week_id = datetime.now().strftime("%Y-W%V")
+                cursor.execute("SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, g_type, week_id))
+                count = cursor.fetchone()[0]
+
+                if count >= 2:
+                    conn.close()
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "message": "Bu hafta için haklarınız tükenmiştir (Haftada 2 hak)."}).encode("utf-8"))
+                    return
+
+                import random
+                if g_type == 'wheel':
+                    rewards = [
+                        ("🌿 1g Weed", 36),
+                        ("🏷️ %1 İndirim", 108),
+                        ("🏷️ %3 İndirim", 180),
+                        ("🏷️ %5 İndirim", 252),
+                        ("🚬 1 Joint", 324)
+                    ]
+                    chosen = random.choice(rewards)
+                    reward_text = chosen[0]
+                    target_deg = chosen[1]
+                else:
+                    rewards = ["🌿 1g Weed", "🏷️ %5 İndirim", "🚬 1 Joint", "❌ Boş Şans"]
+                    reward_text = random.choice(rewards)
+                    target_deg = 0
+
+                cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, g_type, week_id, reward_text))
+                conn.commit()
                 conn.close()
 
-            self.send_response(303)
-            self.send_header('Location', '/admin-web?tab=pending')
-            self.end_headers()
-        else:
-            self.send_response(404)
-            self.end_headers()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "reward": reward_text, "target_deg": target_deg}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": str(e)}).encode("utf-8"))
+            return
 
-    def send_login_page(self, error=""):
-        err_html = f'<p style="color: #ef4444; margin-bottom: 15px;">{error}</p>' if error else ''
-        login_html = f"""
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
+
+    def send_login_page(self):
+        login_html = """
         <!DOCTYPE html>
-        <html lang="tr"><head><meta charset="UTF-8"><title>Admin Giriş</title>
-        <style>
-            body {{ background-color: #090d16; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-            .login-card {{ background: #111827; padding: 35px; border-radius: 16px; border: 1px solid #1f2937; width: 100%; max-width: 350px; text-align: center; }}
-            input {{ width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #374151; border-radius: 8px; color: white; box-sizing: border-box; }}
-            button {{ background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }}
-        </style>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Yönetici Girişi - Weed Istanbul</title>
+            <style>
+                body { background: #060911; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .login-box { background: #0f172a; padding: 30px; border-radius: 14px; border: 1px solid #1e293b; width: 350px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+                h2 { color: #38bdf8; margin-top: 0; text-align: center; }
+                input { width: 100%; padding: 12px; margin: 8px 0 16px 0; background: #070b14; border: 1px solid #1e293b; border-radius: 8px; color: white; box-sizing: border-box; }
+                button { width: 100%; background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+                button:hover { background: #1d4ed8; }
+            </style>
         </head>
         <body>
-            <div class="login-card">
-                <h2>🔐 Admin Girişi</h2>
-                {err_html}
+            <div class="login-box">
+                <h2>🌿 Yönetici Girişi</h2>
                 <form action="/admin-login" method="POST">
-                    <input type="text" name="username" required placeholder="Kullanıcı Adı (root)">
-                    <input type="password" name="password" required placeholder="Şifre (toor)">
+                    <label>Kullanıcı Adı:</label>
+                    <input type="text" name="username" required placeholder="root">
+                    <label>Şifre:</label>
+                    <input type="password" name="password" required placeholder="******">
                     <button type="submit">Giriş Yap</button>
                 </form>
             </div>
@@ -3683,589 +2929,104 @@ class SecureDropHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(login_html.encode("utf-8"))
 
-    def send_html_error(self, message):
-        self.send_response(400)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(f"<h2>⚠️ {message}</h2>".encode("utf-8"))
+def fetch_wallet_balance_sync(wallet_address: str) -> float:
+    try:
+        url = f"https://api.trongrid.io/v1/accounts/{wallet_address}"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status == 200:
+                data = json.loads(response.read().decode('utf-8'))
+                acc_data = data.get("data", [])
+                if acc_data:
+                    balances = acc_data[0].get("trc20", [])
+                    for b in balances:
+                        for k, v in b.items():
+                            if USDT_CONTRACT in k:
+                                return float(v) / 1000000.0
+                    for b in acc_data[0].get("balance", 0):
+                        pass
+    except Exception as e:
+        logging.error(f"Wallet fetch error for {wallet_address}: {e}")
+    return 0.0
 
-def run_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SecureDropHandler)
-    server.serve_forever()
+# --- TELEGRAM BOT KOMUTLARI & HANDLER'LAR ---
+@dp.message(F.text == "/start")
+async def cmd_start(message: types.Message):
+    uid = message.from_user.id
+    uname = message.from_user.username
+    if is_user_banned(uid):
+        await message.answer("❌ Erişiminiz engellenmiştir.")
+        return
 
-threading.Thread(target=run_health_server, daemon=True).start()
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, balance FROM users WHERE user_id = ?", (uid,))
+    user = cursor.fetchone()
 
-# --- FSM VE BOT KODLARI ---
-class AdminAuth(StatesGroup):
-    waiting_password = State()
+    args = message.text.split()
+    ref_id = 0
+    if len(args) > 1 and args[1].startswith("ref_"):
+        try:
+            ref_id = int(args[1].split("_")[1])
+        except:
+            ref_id = 0
 
-class SupportState(StatesGroup):
-    message = State()
+    if not user:
+        # Hoş geldin bonusu 5$
+        cursor.execute("INSERT INTO users (user_id, username, balance, referred_by) VALUES (?, ?, 5.0, ?)", (uid, uname, ref_id if ref_id != uid else 0))
+        conn.commit()
+        log_panel_event(f"👤 Yeni kullanıcı kayıt oldu: {uid} (@{uname})", "info")
+    conn.close()
 
-class PromoState(StatesGroup):
-    code = State()
+    u_lang = get_user_lang(uid)
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="lang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en")]
+    ])
+    await message.answer(LANG[u_lang]["welcome"], reply_markup=markup, parse_mode="Markdown")
 
-class DepositState(StatesGroup):
-    amount = State()
+@dp.callback_query(F.data.startswith("lang_"))
+async def cb_language(callback: types.CallbackQuery):
+    uid = callback.from_user.id
+    chosen_lang = callback.data.split("_")[1]
+    set_user_lang(uid, chosen_lang)
+    
+    await callback.message.edit_text(LANG[chosen_lang]["lang_set"])
+    await show_main_menu(callback.message, uid, chosen_lang)
 
-class TrackState(StatesGroup):
-    code = State()
-
-dp = Dispatcher(storage=MemoryStorage())
-
-def main_keyboard(lang="tr"):
-    t = LANG[lang]
-    miniapp_url = f"{RENDER_EXTERNAL_URL}/miniapp"
-    return ReplyKeyboardMarkup(
+async def show_main_menu(message: types.Message, uid: int, lang: str):
+    bal = get_user_balance(uid)
+    text = f"✨ **Weed Istanbul Otomatik Teslimat Botu**\n\n💵 Bakiyeniz: **{bal:.2f} USDT**\n\nAşağıdaki menüden dilediğiniz işlemi seçebilirsiniz:"
+    
+    markup = types.ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=t["btn_products"]), KeyboardButton(text=t["btn_orders"])],
-            [KeyboardButton(text=t["btn_track"]), KeyboardButton(text=t["btn_miniapp"], web_app=WebAppInfo(url=miniapp_url))],
-            [KeyboardButton(text=t["btn_wallet"]), KeyboardButton(text=t["btn_faq"])],
-            [KeyboardButton(text=t["btn_support"]), KeyboardButton(text=t["btn_lang"])]
+            [types.KeyboardButton(text=LANG[lang]["btn_products"]), types.KeyboardButton(text=LANG[lang]["btn_wallet"])],
+            [types.KeyboardButton(text=LANG[lang]["btn_orders"]), types.KeyboardButton(text=LANG[lang]["btn_track"])],
+            [types.KeyboardButton(text=LANG[lang]["btn_miniapp"]), types.KeyboardButton(text=LANG[lang]["btn_support"])],
+            [types.KeyboardButton(text=LANG[lang]["btn_lang"])]
         ],
         resize_keyboard=True
     )
-
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    if message.chat.type != "private":
-        return
-    user_id = message.from_user.id
-    if is_user_banned(user_id):
-        await message.answer("❌ Erişiminiz engellenmiştir.")
-        return
-    
-    args = message.text.split()
-    referrer_id = 0
-    if len(args) > 1 and args[1].startswith("ref_"):
-        try:
-            potential_ref = int(args[1].replace("ref_", ""))
-            if potential_ref != user_id:
-                referrer_id = potential_ref
-        except:
-            pass
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, referred_by FROM users WHERE user_id = ?", (user_id,))
-    existing_user = cursor.fetchone()
-    
-    if not existing_user:
-        cursor.execute("INSERT INTO users (user_id, username, balance, referred_by) VALUES (?, ?, 5.0, ?)", (user_id, message.from_user.username, referrer_id))
-        conn.commit()
-        if referrer_id > 0:
-            try:
-                await bot.send_message(referrer_id, f"🎉 **Yeni Referans!** Davet ettiğiniz kullanıcı botumuza katıldı.")
-            except:
-                pass
-    conn.close()
-
-    lang = get_user_lang(user_id)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
-    ])
-    await message.answer(LANG[lang]["welcome"], reply_markup=kb, parse_mode="Markdown")
-
-@dp.callback_query(F.data.startswith("setlang_"))
-async def set_language(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    new_lang = callback.data.split("_")[1]
-    set_user_lang(user_id, new_lang)
-    t = LANG[new_lang]
-    await callback.answer()
-    await callback.message.edit_text(t["lang_set"])
-    await callback.message.answer(t["welcome"], reply_markup=main_keyboard(new_lang), parse_mode="Markdown")
-
-@dp.message(F.text.in_([LANG["tr"]["btn_lang"], LANG["en"]["btn_lang"]]))
-async def change_lang_menu(message: types.Message):
-    if message.chat.type != "private" or is_user_banned(message.from_user.id):
-        return
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇹🇷 Türkçe", callback_data="setlang_tr"), InlineKeyboardButton(text="🇬🇧 English", callback_data="setlang_en")]
-    ])
-    await message.answer("Lütfen dil seçiniz / Please select language:", reply_markup=kb)
-
-@dp.message(F.text.in_([LANG["tr"]["btn_track"], LANG["en"]["btn_track"]]))
-async def track_order_start(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-    await state.set_state(TrackState.code)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data="cancel_track")]])
-    await message.answer(t["track_prompt"], reply_markup=kb)
-
-@dp.callback_query(F.data == "cancel_track")
-async def cancel_track(callback: types.CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text("❌ İşlem iptal edildi.")
-
-@dp.message(TrackState.code)
-async def process_track_code(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    raw_input = message.text.strip().upper().replace("WEE-", "").replace("#", "")
-    await state.clear()
-
-    try:
-        order_id = int(raw_input)
-    except:
-        await message.answer("⚠️ Lütfen geçerli bir sipariş kodu girin (Örn: WEE-5)")
-        return
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT orders.status, drops.title, orders.final_price 
-        FROM orders 
-        JOIN drops ON orders.drop_id = drops.id 
-        WHERE orders.id = ? AND orders.user_id = ?
-    """, (order_id, user_id))
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row or row[0] not in ['completed', 'received']:
-        await message.answer(t["track_not_found"])
-        return
-
-    status, title, price = row
-    status_text = "✅ Teslim Alındı" if status == 'received' else "🟢 Bekliyor / Aktif"
-    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    res_msg = t["track_result"].format(id=order_id, title=title, price=price, status_text=status_text, link=secure_link)
-    await message.answer(res_msg, parse_mode="Markdown")
-
-@dp.message(F.text.in_([LANG["tr"]["btn_wallet"], LANG["en"]["btn_wallet"]]))
-async def wallet_menu(message: types.Message):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-    bal = get_user_balance(user_id)
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]])
-    await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
-
-@dp.callback_query(F.data == "start_deposit")
-async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-    await state.set_state(DepositState.amount)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["cancel"], callback_data="cancel_deposit")]])
-    await callback.message.edit_text(t["ask_deposit_amount"], reply_markup=kb)
-
-@dp.callback_query(F.data == "cancel_deposit")
-async def cancel_deposit(callback: types.CallbackQuery, state: FSMContext):
-    await state.clear()
-    await callback.message.edit_text("❌ İşlem iptal edildi.")
-
-@dp.message(DepositState.amount)
-async def process_deposit_amount(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    try:
-        amount = float(message.text.strip().replace(",", "."))
-        if amount <= 0:
-            raise ValueError()
-    except:
-        await message.answer("⚠️ Lütfen geçerli bir rakam girin (Örn: 25)")
-        return
-
-    await state.clear()
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO deposits (user_id, amount, status) VALUES (?, ?, 'pending')", (user_id, amount))
-    deposit_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-
-    msg = t["deposit_invoice"].format(id=deposit_id, amount=amount, wallet=CRYPTO_WALLET)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["deposit_check_btn"], callback_data=f"autodeposit_{deposit_id}_{amount}")]])
-    await message.answer(msg, reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("autodeposit_"))
-async def check_blockchain_deposit(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    parts = callback.data.split("_")
-    deposit_id, target_amount = int(parts[1]), float(parts[2])
-
-    await callback.answer("Blokzincir taranıyor, lütfen bekleyin...", show_alert=True)
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT status, created_at FROM deposits WHERE id = ? AND user_id = ?", (deposit_id, user_id))
-    dep = cursor.fetchone()
-    if not dep:
-        await callback.answer("Kayıt bulunamadı.", show_alert=True)
-        conn.close()
-        return
-    status, created_at_str = dep
-    if status == 'completed':
-        await callback.answer("Bu işlem zaten onaylanmış.", show_alert=True)
-        conn.close()
-        return
-    if datetime.now() - datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S") > timedelta(minutes=15):
-        cursor.execute("UPDATE deposits SET status = 'expired' WHERE id = ?", (deposit_id,))
-        conn.commit()
-        conn.close()
-        await callback.message.edit_text("⏱️ Süre doldu.")
-        return
-
-    api_url = f"https://api.trongrid.io/v1/accounts/{CRYPTO_WALLET}/trc20-transfers?contract_address={USDT_CONTRACT}&limit=15"
-    verified = False
-    try:
-        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status == 200:
-                res_json = json.loads(response.read().decode('utf-8'))
-                for tx in res_json.get("data", []):
-                    if tx.get("to") == CRYPTO_WALLET and int(tx.get("value", 0)) >= int(target_amount * 1000000):
-                        verified = True
-                        break
-    except Exception as e:
-        logging.error(e)
-
-    if verified:
-        cursor.execute("UPDATE deposits SET status = 'completed' WHERE id = ?", (deposit_id,))
-        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, user_id))
-        conn.commit()
-        new_bal = get_user_balance(user_id)
-        conn.close()
-
-        await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
-    else:
-        conn.close()
-        await callback.answer("Transfer henüz algılanmadı, lütfen birkaç saniye sonra tekrar deneyin.", show_alert=True)
-
-@dp.message(F.text.in_([LANG["tr"]["btn_faq"], LANG["en"]["btn_faq"]]))
-async def faq_menu(message: types.Message):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Ödeme / Payment", callback_data="faq_pay")],
-        [InlineKeyboardButton(text="⏱️ Teslimat / Delivery", callback_data="faq_delivery")],
-        [InlineKeyboardButton(text="🔒 Gizlilik / Privacy", callback_data="faq_security")]
-    ])
-    await message.answer("💡 **FAQ / SSS**", reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("faq_"))
-async def faq_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    action = callback.data.split("_")[1]
-    if lang == "tr":
-        text = "💳 Cüzdanınıza bakiye yükleyerek ürün alabilirsiniz." if action == "pay" else ("⏱️ Ödeme onaylanınca takip kodunuz ve konum linkiniz verilir." if action == "delivery" else "🔒 Konumlar Telegram'da saklanmaz, web üzerinden tek kullanımlıktır.")
-    else:
-        text = "💳 You can deposit to your wallet." if action == "pay" else ("⏱️ Tracking code sent upon payment." if action == "delivery" else "🔒 Locations are single-use via web.")
-    await callback.answer()
-    await callback.message.answer(text)
-
-@dp.message(F.text.in_([LANG["tr"]["btn_support"], LANG["en"]["btn_support"]]))
-async def support_start(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-    await state.set_state(SupportState.message)
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
-    await message.answer(t["support_ask"], reply_markup=kb)
-
-@dp.callback_query(F.data == "close_support_chat")
-async def close_support_callback(callback: types.CallbackQuery, state: FSMContext):
-    user_id = callback.from_user.id
-    await state.clear()
-    
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-
-    await callback.answer("Sohbet kapatıldı.", show_alert=True)
-    await callback.message.edit_text("🔒 Canlı destek oturumu sonlandırıldı.")
-
-@dp.message(SupportState.message)
-async def forward_support_to_panel(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-    user_msg = message.text
-    username = message.from_user.username or f"User {user_id}"
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, username, balance) VALUES (?, ?, 5.0)", (user_id, username))
-    cursor.execute("INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)", (user_id, user_msg))
-    conn.commit()
-    conn.close()
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
-    await message.answer(t["support_sent"], reply_markup=kb)
-
-@dp.message(Command("admin"))
-async def cmd_admin_start(message: types.Message, state: FSMContext):
-    if message.chat.type != "private":
-        return
-    if is_admin(message.from_user.id):
-        await state.set_state(AdminAuth.waiting_password)
-        await message.answer("🔒 Lütfen Yönetici Şifresini Giriniz:")
-
-@dp.message(AdminAuth.waiting_password)
-async def process_admin_password(message: types.Message, state: FSMContext):
-    if message.text.strip() == ADMIN_PASS:
-        await state.clear()
-        web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-            [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-        ])
-        await message.answer("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
-    else:
-        await state.clear()
-        await message.answer("❌ Hatalı şifre!")
-
-@dp.callback_query(F.data == "stats")
-async def show_stats(callback: types.CallbackQuery):
-    if not is_admin(callback.from_user.id):
-        return
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*), SUM(stock) FROM drops WHERE is_sold = 0")
-    res = cursor.fetchone()
-    cursor.execute("SELECT SUM(final_price) FROM orders WHERE status IN ('completed', 'received')")
-    rev_res = cursor.fetchone()[0]
-    rev = rev_res if rev_res is not None else 0.0
-    conn.close()
-    await callback.message.edit_text(f"📊 İstatistikler:\nAktif Stok: {res[1] or 0}\nToplam Ciro: {rev} USDT", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Geri", callback_data="back_admin")]]))
-
-@dp.callback_query(F.data == "back_admin")
-async def back_admin(callback: types.CallbackQuery):
-    web_panel_url = f"{RENDER_EXTERNAL_URL}/admin-web"
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Web Paneline Giriş Yap", url=web_panel_url)],
-        [InlineKeyboardButton(text="📊 Satış Raporları", callback_data="stats")]
-    ])
-    await callback.message.edit_text("👑 **Gelişmiş Yönetim Paneli**", reply_markup=kb)
-
-@dp.message(F.text.in_([LANG["tr"]["btn_products"], LANG["en"]["btn_products"]]))
-async def list_categories(message: types.Message):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
-    categories = cursor.fetchall()
-    conn.close()
-
-    if not categories:
-        await message.answer(t["no_stock"])
-        return
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
-    for cat in categories:
-        c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"cat_{c_name}")])
-    
-    await message.answer(t["select_cat"], reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("cat_"))
-async def list_drops_by_category(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    cat_name = callback.data.split("_", 1)[1]
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, title, price, stock FROM drops WHERE category = ? AND is_sold = 0 AND stock > 0", (cat_name,))
-    drops = cursor.fetchall()
-    conn.close()
-
-    if not drops:
-        await callback.answer(t["no_cat_stock"], show_alert=True)
-        return
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
-    for d in drops:
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"#{d[0]} - {d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
-    kb.inline_keyboard.append([InlineKeyboardButton(text=t["back_cats"], callback_data="back_cats")])
-
-    await callback.message.edit_text(f"📦 **{cat_name}**:", reply_markup=kb)
-
-@dp.callback_query(F.data == "back_cats")
-async def back_to_cats(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT category FROM drops WHERE is_sold = 0 AND stock > 0")
-    categories = cursor.fetchall()
-    conn.close()
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
-    for cat in categories:
-        c_name = cat[0] or "Genel"
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"🏙️ {c_name}", callback_data=f"cat_{c_name}")])
-    
-    await callback.message.edit_text(t["select_cat"], reply_markup=kb)
-
-@dp.message(F.text.in_([LANG["tr"]["btn_orders"], LANG["en"]["btn_orders"]]))
-async def my_orders(message: types.Message):
-    user_id = message.from_user.id
-    if message.chat.type != "private" or is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT orders.id, drops.title, orders.final_price, orders.status, orders.created_at 
-        FROM orders 
-        JOIN drops ON orders.drop_id = drops.id 
-        WHERE orders.user_id = ?
-        ORDER BY orders.id DESC
-    """, (user_id,))
-    orders = cursor.fetchall()
-    conn.close()
-
-    if not orders:
-        await message.answer(t["no_orders"])
-        return
-
-    text = t["my_orders_title"] + "\n\n"
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
-    for o in orders:
-        o_id, title, f_price, status, date = o
-        st_str = "✅ Teslim Alındı" if status == 'received' else ("🟢 Aktif (Ödendi)" if status == 'completed' else "⏳ Bekliyor")
-        text += t["order_item"].format(id=o_id, title=title, price=f_price, status=st_str, date=date)
-        if status in ['completed', 'received']:
-            secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
-            kb.inline_keyboard.append([InlineKeyboardButton(text=t["open_loc"].format(id=o_id), url=secure_link)])
-
-    await message.answer(text, reply_markup=kb if kb.inline_keyboard else None)
-
-@dp.callback_query(F.data.startswith("buy_"))
-async def process_buy(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    drop_id = int(callback.data.split("_")[1])
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-    drop = cursor.fetchone()
-    conn.close()
-
-    if not drop:
-        await callback.answer(t["sold_out"], show_alert=True)
-        return
-
-    title, price, stock = drop
-    bal = get_user_balance(user_id)
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["pay_balance"].format(price=price), callback_data=f"buybal_{drop_id}")],
-        [InlineKeyboardButton(text=t["pay_crypto"], callback_data=f"buycrypto_{drop_id}")]
-    ])
-    await callback.message.edit_text(t["buy_options"].format(title=title, price=price, balance=bal), reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("buybal_"))
-async def process_buy_with_balance(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if is_user_banned(user_id):
-        return
-    lang = get_user_lang(user_id)
-    t = LANG[lang]
-
-    drop_id = int(callback.data.split("_")[1])
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT title, price, stock FROM drops WHERE id = ? AND is_sold = 0 AND stock > 0", (drop_id,))
-    drop = cursor.fetchone()
-
-    if not drop:
-        await callback.answer(t["sold_out"], show_alert=True)
-        conn.close()
-        return
-
-    title, price, stock = drop
-    bal = get_user_balance(user_id)
-
-    if bal < price:
-        await callback.answer(t["insufficient_balance"], show_alert=True)
-        conn.close()
-        return
-
-    cursor.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (price, user_id))
-    new_stock = stock - 1
-    if new_stock <= 0:
-        cursor.execute("UPDATE drops SET stock = 0, is_sold = 1 WHERE id = ?", (drop_id,))
-    else:
-        cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, drop_id))
-
-    cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,)) # (Düzeltme yapıldı)
-    
-    # Yeni sipariş kaydı
-    cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
-    order_id = cursor.lastrowid
-
-    cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
-    ref_row = cursor.fetchone()
-    if ref_row and ref_row[0] > 0:
-        ref_id = ref_row[0]
-        bonus = float(price) * 0.05
-        cursor.execute("UPDATE users SET balance = balance + ?, referral_earnings = referral_earnings + ? WHERE user_id = ?", (bonus, bonus, ref_id))
-
-    conn.commit()
-    conn.close()
-
-    secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
-    success_text = t["balance_success"].format(id=order_id, price=price, link=secure_link)
-
-    await callback.message.edit_text(success_text, parse_mode="Markdown")
+    await message.answer(text, reply_markup=markup, parse_mode="Markdown")
+
+# --- WEB SERVER THREAD ---
+def run_http_server():
+    server_address = ('0.0.0.0', int(os.environ.get("PORT", 10000)))
+    httpd = HTTPServer(server_address, SecureDropHandler)
+    logging.info(f"🌐 Web Server running on port {server_address[1]}")
+    httpd.serve_forever()
 
 async def main():
     global main_loop
     main_loop = asyncio.get_running_loop()
+
+    import threading
+    t = threading.Thread(target=run_http_server, daemon=True)
+    t.start()
+
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(background_payment_worker())
+
+    logging.info("🤖 Bot started polling...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
