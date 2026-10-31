@@ -590,127 +590,127 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        def do_POST(self):
-        parsed_path = urlparse(self.path)
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
+        :
+            parsed_path = urlparse(self.path)
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
 
-        # 1. ÇARK & KAZI KAZAN SERVİSİ
-        if parsed_path.path == "/api/miniapp-spin":
-            try:
-                data = json.loads(post_data.decode('utf-8'))
-                uid = int(data.get("user_id", 0))
-                game_type = data.get("game_type", "wheel")
+            # 1. ÇARK & KAZI KAZAN SERVİSİ
+            if parsed_path.path == "/api/miniapp-spin":
+                try:
+                    data = json.loads(post_data.decode('utf-8'))
+                    uid = int(data.get("user_id", 0))
+                    game_type = data.get("game_type", "wheel")
 
-                now = datetime.now()
-                week_id = f"{now.year}-W{now.isocalendar()[1]}"
+                    now = datetime.now()
+                    week_id = f"{now.year}-W{now.isocalendar()[1]}"
 
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    "SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?",
-                    (uid, game_type, week_id)
-                )
-                spin_count = cursor.fetchone()[0]
-
-                if spin_count >= 2:
-                    resp = {"success": False, "message": "Bu hafta için oyun hakkınız dolmuştur! (Haftalık maks. 2 hak)"}
-                else:
-                    import random
-                    if game_type == "wheel":
-                        rewards = [
-                            ("🌿 1g Weed", 36),
-                            ("🏷️ %1 İndirim", 108),
-                            ("🏷️ %3 İndirim", 180),
-                            ("🏷️ %5 İndirim", 252),
-                            ("🚬 1 Joint", 324)
-                        ]
-                        reward_text, target_deg = random.choice(rewards)
-                    else:
-                        scratch_rewards = ["🌿 1g Weed", "🏷️ %5 İndirim", "🚬 1 Joint", "🏷️ %3 İndirim"]
-                        reward_text = random.choice(scratch_rewards)
-                        target_deg = 0
-
-                    cursor.execute(
-                        "INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)",
-                        (uid, game_type, week_id, reward_text)
-                    )
-                    conn.commit()
-                    resp = {"success": True, "reward": reward_text, "target_deg": target_deg}
-
-                conn.close()
-            except Exception as e:
-                resp = {"success": False, "message": f"Hata: {str(e)}"}
-
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
-
-        # 2. MINIAPP CANLI DESTEK MESAJ GÖNDERME SERVİSİ
-        if parsed_path.path == "/api/miniapp-chat-send":
-            try:
-                params = parse_qs(post_data.decode('utf-8'))
-                uid = int(params.get("user_id", ["0"])[0])
-                msg = params.get("message", [""])[0]
-
-                if uid > 0 and msg:
                     conn = sqlite3.connect("drop_bot.db")
                     cursor = conn.cursor()
+
                     cursor.execute(
-                        "INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)",
-                        (uid, msg)
+                        "SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?",
+                        (uid, game_type, week_id)
                     )
-                    conn.commit()
-                    conn.close()
+                    spin_count = cursor.fetchone()[0]
 
-                    if main_loop:
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(ADMIN_GROUP_ID, f"💬 **Yeni Canlı Destek Mesajı (MiniApp)!**\n👤 User ID: `{uid}`\n💬 Mesaj: {msg}"),
-                            main_loop
+                    if spin_count >= 2:
+                        resp = {"success": False, "message": "Bu hafta için oyun hakkınız dolmuştur! (Haftalık maks. 2 hak)"}
+                    else:
+                        import random
+                        if game_type == "wheel":
+                            rewards = [
+                                ("🌿 1g Weed", 36),
+                                ("🏷️ %1 İndirim", 108),
+                                ("🏷️ %3 İndirim", 180),
+                                ("🏷️ %5 İndirim", 252),
+                                ("🚬 1 Joint", 324)
+                            ]
+                            reward_text, target_deg = random.choice(rewards)
+                        else:
+                            scratch_rewards = ["🌿 1g Weed", "🏷️ %5 İndirim", "🚬 1 Joint", "🏷️ %3 İndirim"]
+                            reward_text = random.choice(scratch_rewards)
+                            target_deg = 0
+
+                        cursor.execute(
+                            "INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)",
+                            (uid, game_type, week_id, reward_text)
                         )
+                        conn.commit()
+                        resp = {"success": True, "reward": reward_text, "target_deg": target_deg}
 
-                    resp = {"success": True}
-                else:
-                    resp = {"success": False, "message": "Eksik parametre."}
-            except Exception as e:
-                resp = {"success": False, "message": str(e)}
+                    conn.close()
+                except Exception as e:
+                    resp = {"success": False, "message": f"Hata: {str(e)}"}
 
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps(resp).encode("utf-8"))
+                return
 
-        # 3. YORUM VE YORUM ÖDÜLÜ SERVİSİ
-        if parsed_path.path == "/api/miniapp-review":
-            try:
-                params = parse_qs(post_data.decode('utf-8'))
-                uid = int(params.get("user_id", ["0"])[0])
-                order_id = int(params.get("order_id", ["0"])[0])
-                review = params.get("review", [""])[0]
+            # 2. MINIAPP CANLI DESTEK MESAJ GÖNDERME SERVİSİ
+            if parsed_path.path == "/api/miniapp-chat-send":
+                try:
+                    params = parse_qs(post_data.decode('utf-8'))
+                    uid = int(params.get("user_id", ["0"])[0])
+                    msg = params.get("message", [""])[0]
 
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("SELECT id FROM order_reviews WHERE order_id = ? AND user_id = ?", (order_id, uid))
-                if cursor.fetchone():
-                    resp = {"success": False, "message": "Bu siparişi zaten yorumladınız."}
-                else:
-                    cursor.execute("INSERT INTO order_reviews (order_id, user_id, review_text) VALUES (?, ?, ?)", (order_id, uid, review))
-                    cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (uid,))
-                    conn.commit()
-                    resp = {"success": True}
-                conn.close()
-            except Exception as e:
-                resp = {"success": False, "message": str(e)}
+                    if uid > 0 and msg:
+                        conn = sqlite3.connect("drop_bot.db")
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)",
+                            (uid, msg)
+                        )
+                        conn.commit()
+                        conn.close()
 
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
+                        if main_loop:
+                            asyncio.run_coroutine_threadsafe(
+                                bot.send_message(ADMIN_GROUP_ID, f"💬 **Yeni Canlı Destek Mesajı (MiniApp)!**\n👤 User ID: `{uid}`\n💬 Mesaj: {msg}"),
+                                main_loop
+                            )
+
+                        resp = {"success": True}
+                    else:
+                        resp = {"success": False, "message": "Eksik parametre."}
+                except Exception as e:
+                    resp = {"success": False, "message": str(e)}
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps(resp).encode("utf-8"))
+                return
+
+            # 3. YORUM VE YORUM ÖDÜLÜ SERVİSİ
+            if parsed_path.path == "/api/miniapp-review":
+                try:
+                    params = parse_qs(post_data.decode('utf-8'))
+                    uid = int(params.get("user_id", ["0"])[0])
+                    order_id = int(params.get("order_id", ["0"])[0])
+                    review = params.get("review", [""])[0]
+
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT id FROM order_reviews WHERE order_id = ? AND user_id = ?", (order_id, uid))
+                    if cursor.fetchone():
+                        resp = {"success": False, "message": "Bu siparişi zaten yorumladınız."}
+                    else:
+                        cursor.execute("INSERT INTO order_reviews (order_id, user_id, review_text) VALUES (?, ?, ?)", (order_id, uid, review))
+                        cursor.execute("UPDATE users SET balance = balance + 5.0 WHERE user_id = ?", (uid,))
+                        conn.commit()
+                        resp = {"success": True}
+                    conn.close()
+                except Exception as e:
+                    resp = {"success": False, "message": str(e)}
+
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps(resp).encode("utf-8"))
+                return
         
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
@@ -2993,8 +2993,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def do_POST(self):
-       def do_POST(self):
+    :
+       :
         parsed_path = urlparse(self.path)
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8')
