@@ -609,21 +609,21 @@ async def background_payment_worker():
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         def send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_cors_headers()
-        self.end_headers()
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_cors_headers()
+            self.end_headers()
 
-    def do_POST(self):
-        parsed_path = urlparse(self.path)
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length).decode('utf-8')
+        def do_POST(self):
+            parsed_path = urlparse(self.path)
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length).decode('utf-8')
 
-        # 1. ÇARK & KAZI KAZAN SERVİSİ
+    # 1. ÇARK & KAZI KAZAN SERVİSİ
         if parsed_path.path == "/api/miniapp-spin":
             try:
                 try:
