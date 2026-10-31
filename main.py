@@ -2872,21 +2872,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+       def do_POST(self):
         parsed_path = urlparse(self.path)
-        query_params = parse_qs(parsed_path.query)
-        
-        content_type = self.headers.get('Content-Type', '')
-        params = {}
-        file_data = None
-        file_name = None
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8')
 
+        # 1. Ekran Görüntüsü Yükleme (SS)
         if parsed_path.path == "/api/upload-ss":
             try:
-                # 1. İstek uzunluğunu alıp body verisini okuyoruz
-                content_length = int(self.headers.get('Content-Length', 0))
-                body = self.rfile.read(content_length).decode('utf-8')
-                
-                # 2. JSON verisini ayrıştırıyoruz
                 data = json.loads(body)
                 uid = int(data.get("user_id", 0))
                 img_data = data.get("image", "")
@@ -2894,7 +2887,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 if img_data and "," in img_data:
                     base64_str = img_data.split(",")[1]
                     img_bytes = base64.b64decode(base64_str)
-
                     photo_file = BufferedInputFile(img_bytes, filename=f"miniapp_{uid}.png")
 
                     if main_loop:
@@ -2914,12 +2906,11 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logging.error(f"SS upload hatası: {e}")
                 self.send_response(500)
-                self.send_header("Content-type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
             return
 
-            if parsed_path.path in ["/api/spin-wheel", "/api/scratch-card", "/api/game-spin"]:
+        # 2. Çark & Kazı Kazan Oyunları
+        if parsed_path.path in ["/api/spin-wheel", "/api/scratch-card", "/api/game-spin"]:
             try:
                 data = json.loads(body)
                 uid = int(data.get("user_id", 0))
