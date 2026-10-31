@@ -7,7 +7,6 @@ import threading
 import aiohttp
 import json
 import hashlib
-import time
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -19,7 +18,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-DEFAULT_BOT_TOKEN = "9018759790:AAEzWxy5aLkKkwFzfXM_ICqF2KOPtSpGcRU"
+DEFAULT_BOT_TOKEN = "9018759790:AAHHMZxJeCX4RO-d2622gvRQJowHSnxruoM"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
@@ -45,7 +44,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & OYUN TABLOSU ---
+# --- VERİTABANI KURULUMU & YENİ TABLOLAR / KOLONLAR ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
@@ -62,7 +61,9 @@ def init_db():
             is_sold INTEGER DEFAULT 0,
             category TEXT DEFAULT 'Genel',
             lat REAL DEFAULT 0.0,
-            lon REAL DEFAULT 0.0
+            lon REAL DEFAULT 0.0,
+            is_flash INTEGER DEFAULT 0,
+            flash_expires_at TIMESTAMP DEFAULT NULL
         )
     ''')
 
@@ -116,6 +117,20 @@ def init_db():
             balance REAL DEFAULT 5.0,
             referred_by INTEGER DEFAULT 0,
             referral_earnings REAL DEFAULT 0.0,
+            vip_level TEXT DEFAULT 'Bronz',
+            last_wheel_date TEXT DEFAULT '',
+            wheel_rights INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_rewards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            reward_type TEXT,
+            reward_value TEXT,
+            is_used INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -136,17 +151,6 @@ def init_db():
             code TEXT UNIQUE,
             discount REAL,
             uses_left INTEGER DEFAULT 100,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS game_spins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            game_type TEXT,
-            week_identifier TEXT,
-            reward_text TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -177,10 +181,19 @@ def init_db():
         ("lat", "REAL DEFAULT 0.0"),
         ("lon", "REAL DEFAULT 0.0"),
         ("referred_by", "INTEGER DEFAULT 0"),
-        ("referral_earnings", "REAL DEFAULT 0.0")
+        ("referral_earnings", "REAL DEFAULT 0.0"),
+        ("vip_level", "TEXT DEFAULT 'Bronz'"),
+        ("last_wheel_date", "TEXT DEFAULT ''"),
+        ("wheel_rights", "INTEGER DEFAULT 0"),
+        ("is_flash", "INTEGER DEFAULT 0"),
+        ("flash_expires_at", "TIMESTAMP DEFAULT NULL")
     ]:
         try:
             cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {def_val}")
+        except:
+            pass
+        try:
+            cursor.execute(f"ALTER TABLE drops ADD COLUMN {col} {def_val}")
         except:
             pass
 
@@ -310,7 +323,7 @@ LANG = {
         "track_prompt": "🔍 Lütfen sorgulamak istediğiniz **Sipariş Kodunu** yazın (Örn: WEE-5 veya sadece 5):",
         "track_not_found": "❌ Bu koda ait bir sipariş bulunamadı veya henüz onaylanmadı.",
         "track_result": "🔍 **Sipariş Sorgulama Sonucu (#{id})**\n\n📌 Ürün: {title}\n💰 Tutar: {price} USDT\n🟢 Durum: {status_text}\n\n👉 [Güvenli Konum Sayfasını Aç]({link})",
-        "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
+        "wallet_menu_text": "💰 **Cüzdan Yönetimi**\n\n💵 Güncel Bakiyeniz: **{balance} USDT**\n⭐ VIP Seviyeniz: **{vip}**\n\nHesabınıza bakiye yükleyerek siparişlerinizi saniyesinde tek tıkla verebilirsiniz.",
         "deposit_btn": "📥 Bakiye Yükle (USDT)",
         "ask_deposit_amount": "📥 Lütfen hesabınıza yüklemek istediğiniz USDT miktarını rakam olarak yazın (Örn: 20):",
         "deposit_invoice": "📥 **Bakiye Yükleme Talebi (#{id})**\n\n💵 Yüklenecek Tutar: **{amount} USDT**\n🔒 Yatırım Adresi:\n`{wallet}`\n\n⏱️ 15 dakikanız vardır. Sistem ödemeyi otomatik algılayacaktır.",
@@ -351,7 +364,7 @@ LANG = {
         "track_prompt": "🔍 Please enter your **Order Code** (e.g. WEE-5 or just 5):",
         "track_not_found": "❌ No order found with this code or not approved yet.",
         "track_result": "🔍 **Order Tracking Result (#{id})**\n\n📌 Product: {title}\n💰 Price: {price} USDT\n🟢 Status: {status_text}\n\n👉 [Open Secure Location Page]({link})",
-        "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n\nDeposit funds to your account for instant one-click purchases.",
+        "wallet_menu_text": "💰 **Wallet Management**\n\n💵 Current Balance: **{balance} USDT**\n⭐ VIP Level: **{vip}**\n\nDeposit funds to your account for instant one-click purchases.",
         "deposit_btn": "📥 Deposit Balance (USDT)",
         "ask_deposit_amount": "📥 Please enter the amount of USDT you want to deposit (e.g. 20):",
         "deposit_invoice": "📥 **Deposit Invoice (#{id})**\n\n💵 Amount: **{amount} USDT**\n🔒 Deposit Address:\n`{wallet}`\n\n⏱️ You have 15 minutes. System will auto-approve.",
@@ -395,6 +408,23 @@ def get_user_balance(user_id: int) -> float:
     res = cursor.fetchone()
     conn.close()
     return res[0] if res and res[0] is not None else 0.0
+
+def update_user_vip(user_id: int):
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COALESCE(SUM(final_price), 0.0) FROM orders WHERE user_id = ? AND status IN ('completed', 'received')", (user_id,))
+    total_spent = cursor.fetchone()[0]
+    
+    vip_level = "Bronz"
+    if total_spent >= 250:
+        vip_level = "VIP"
+    elif total_spent >= 100:
+        vip_level = "Gümüş"
+        
+    cursor.execute("UPDATE users SET vip_level = ? WHERE user_id = ?", (vip_level, user_id))
+    conn.commit()
+    conn.close()
+    return vip_level
 
 def log_panel_event(message, log_type="info"):
     try:
@@ -444,6 +474,33 @@ async def auto_backup_task():
                 log_panel_event("💾 Günlük otomatik veritabanı yedeği alındı.", "info")
         except Exception as e:
             logging.error(e)
+
+# --- SALI & CUMA OTOMATİK ÇARK BİLDİRİM GÖREVİ ---
+async def wheel_notification_scheduler():
+    while True:
+        now = datetime.now()
+        # Haftanın günleri: Salı=1, Cuma=4
+        if now.weekday() in [1, 4]:
+            today_str = now.strftime("%Y-%m-%d")
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users WHERE is_banned = 0 AND last_wheel_date != ?", (today_str,))
+            users = cursor.fetchall()
+            cursor.execute("UPDATE users SET wheel_rights = 2 WHERE last_wheel_date != ?", (today_str,))
+            conn.commit()
+            conn.close()
+
+            if main_loop:
+                for u in users:
+                    try:
+                        await bot.send_message(u[0], "🎡 **Şans Çarkı Aktif!** Bugün Salı/Cuma şans çarkı hakkınız tanımlandı. Mini App üzerinden çarkı çevirip 1$, 3$, 5$ veya ürün ödülleri kazanabilirsiniz! 🎁")
+                        await asyncio.sleep(0.05)
+                    except:
+                        pass
+            # 24 saat boyunca tekrar tetiklenmemesi için bekle
+            await asyncio.sleep(86400)
+        else:
+            await asyncio.sleep(3600)
 
 async def background_payment_worker():
     while True:
@@ -501,6 +558,17 @@ async def background_payment_worker():
                         c.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     c.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (o_id,))
                     
+                    # VIP Cashback Mantığı
+                    cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (u_id,))
+                    vip_row = cursor.fetchone()
+                    vip = vip_row[0] if vip_row else "Bronz"
+                    if vip == "Gümüş":
+                        cb = float(f_price) * 0.03
+                        c.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, u_id))
+                    elif vip == "VIP":
+                        cb = float(f_price) * 0.05
+                        c.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, u_id))
+
                     c.execute("SELECT referred_by FROM users WHERE user_id = ?", (u_id,))
                     ref_row = c.fetchone()
                     if ref_row and ref_row[0] > 0:
@@ -512,6 +580,7 @@ async def background_payment_worker():
                     conn.commit()
                     conn.close()
 
+                    update_user_vip(u_id)
                     u_lang = get_user_lang(u_id)
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{o_id}"
                     success_text = LANG[u_lang]["success_msg"].format(id=o_id, link=secure_link)
@@ -545,6 +614,7 @@ async def background_payment_worker():
                     new_bal = get_user_balance(u_id)
                     conn.close()
 
+                    update_user_vip(u_id)
                     u_lang = get_user_lang(u_id)
                     log_panel_event(f"📥 Otomatik Bakiye Yüklendi: Kullanıcı {u_id} - {amount} USDT", "success")
                     asyncio.run_coroutine_threadsafe(bot.send_message(u_id, LANG[u_lang]["deposit_success"].format(amount=amount, balance=new_bal)), main_loop)
@@ -553,7 +623,7 @@ async def background_payment_worker():
         except Exception as e:
             logging.error(f"Background worker error: {e}")
 
-# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP (ÇARK & KAZI KAZAN DAHİL) ---
+# --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -585,6 +655,9 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             
             if current_role == "super_admin" or current_username == "root":
                 can_view_exact_loc, can_view_wallets, can_view_crm, can_manage_drops = 1, 1, 1, 1
+
+        if parsed_path.path == "__init__":
+            pass
 
         if parsed_path.path == "/":
             self.send_response(200)
@@ -680,10 +753,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <div class="nav-tabs" style="margin-top: 45px;">
                     <button class="tab-btn active" onclick="switchTab('tabMap')">🗺️ Harita</button>
                     <button class="tab-btn" onclick="switchTab('tabProducts')">🛍️ Ürünler</button>
-                    <button class="tab-btn" onclick="switchTab('tabGames')">🎡 Şans Oyunları</button>
+                    <button class="tab-btn" onclick="switchTab('tabWheel')">🎡 Çark & Kazı</button>
                     <button class="tab-btn" onclick="switchTab('tabWallet')">💰 Cüzdan</button>
-                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet Et</button>
-                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Geçmiş</button>
+                    <button class="tab-btn" onclick="switchTab('tabRef')">👥 Davet</button>
+                    <button class="tab-btn" onclick="switchTab('tabOrders')">📦 Siparişler</button>
                     <button class="tab-btn" onclick="switchTab('tabSupport')">💬 Destek</button>
                 </div>
 
@@ -691,47 +764,46 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="promoContainer"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
                         <select id="districtFilter" onchange="filterMapDrops()" style="margin:0; font-weight:bold; color:var(--accent-blue);">
-                            <option value="ALL">🏙️ Tüm Bölgeler (Genel Harita)</option>
+                            <option value="ALL">🏙️ Tüm Bölgeler (Genel Isı Haritası)</option>
                         </select>
                     </div>
-                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">📌 <b>Kırmızı Pin:</b> Satın aldığınız tam konum.<br>🌿 <b>Mavi Çember:</b> Yaklaşık bölge alanı.</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top:0; line-height: 1.4;">🔴 <b>Yoğun Bölgeler:</b> Kırmızı transparan alanlar yüksek sipariş trafiğini gösterir.<br>🟢 <b>Normal / Yeşil Alanlar:</b> Düşük yoğunluklu bölgeler.</p>
                     <div id="mainMap"></div>
                     <div id="activeOrdersList"><div class="skeleton"></div><div class="skeleton"></div></div>
                 </div>
 
                 <div id="tabProducts" class="tab-content">
-                    <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Stoklar</h3>
+                    <h3 style="color: var(--accent-blue); margin-top:0;">🛍️ Aktif Droplar & Flash İndirimler</h3>
                     <div id="productsList"><div class="skeleton"></div></div>
                 </div>
 
-                <div id="tabGames" class="tab-content">
-                    <div class="card" style="border: 1px solid var(--accent-blue);">
-                        <h3 style="color: var(--accent-blue); margin-top:0;">🎡 Şans Çarkı (Haftada 2 Hak)</h3>
-                        <p style="font-size: 11px; color: var(--text-muted);">Çarkı çevir, sürpriz ödülü kap!</p>
-                        <div class="wheel-container" style="text-align:center; position:relative; margin:15px 0;">
-                            <div style="width:0; height:0; border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:16px solid #f8fafc; position:absolute; top:-10px; left:calc(50% - 8px); z-index:10;"></div>
-                            <div class="wheel" id="wheelEl" style="width:180px; height:180px; border-radius:50%; border:6px solid #38bdf8; margin:0 auto; transition:transform 4s cubic-bezier(0.15, 0.9, 0.2, 1); background: conic-gradient(#ef4444 0deg 72deg, #f59e0b 72deg 144deg, #10b981 144deg 216deg, #3b82f6 216deg 288deg, #8b5cf6 288deg 360deg);"></div>
-                        </div>
-                        <button onclick="spinGame('wheel')" id="spinBtn" style="background:var(--accent-green);">Çarkı Çevir</button>
-                        <div id="wheelResult" style="margin-top:10px; font-weight:bold; text-align:center; color:var(--accent-green);"></div>
+                <div id="tabWheel" class="tab-content">
+                    <div class="card" style="border: 1px solid var(--accent-green); text-align: center;">
+                        <h3 style="color: var(--accent-green); margin-top:0;">🎡 Salı & Cuma Şans Çarkı</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Kalan Çark Hakkı: <b id="wheelRightsText" style="color: #38bdf8;">0</b></p>
+                        <button onclick="spinWheel()" style="background: var(--accent-green); font-size: 15px; padding: 12px; margin-top: 10px;">🎯 Çarkı Çevir & Kazan!</button>
+                        <div id="wheelResult" style="margin-top: 12px; font-weight: bold; color: #38bdf8;"></div>
                     </div>
 
-                    <div class="card" style="border: 1px solid #f59e0b;">
-                        <h3 style="color: #f59e0b; margin-top:0;">🎫 Kazı Kazan (Haftada 2 Hak)</h3>
-                        <p style="font-size: 11px; color: var(--text-muted);">3 kutudan birini seç ve şansını dene!</p>
-                        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:15px 0;">
-                            <div class="scratch-card" onclick="scratchBox(0)" id="sc0" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
-                            <div class="scratch-card" onclick="scratchBox(1)" id="sc1" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
-                            <div class="scratch-card" onclick="scratchBox(2)" id="sc2" style="background:#1f2937; height:65px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; border:2px dashed #374151;">❓ Kazı</div>
+                    <div class="card" style="border: 1px solid var(--accent-blue); text-align: center;" id="scratchCardSection">
+                        <h3 style="color: var(--accent-blue); margin-top:0;">🎫 70$ Üstü Alışveriş Kazı Kazan</h3>
+                        <p style="font-size: 12px; color: var(--text-muted);">Toplam harcamanız 70$ üzerindeyse kazı kazan hakkınız bulunur!</p>
+                        <div id="scratchContainer" style="background: #1f2937; padding: 25px; border-radius: 10px; cursor: pointer; margin-top: 10px; position: relative;" onclick="playScratch()">
+                            <span id="scratchText" style="font-size: 16px; font-weight: bold; color: #facc15;">✨ Parmakla Kazımak İçin Dokun! ✨</span>
                         </div>
-                        <div id="scratchResult" style="margin-top:10px; font-weight:bold; text-align:center; color:#f59e0b;"></div>
+                    </div>
+
+                    <div class="card">
+                        <h4 style="margin-top:0; color: #38bdf8;">🎁 Kazanılan Bonus / Hediyelerim</h4>
+                        <div id="myRewardsList"><p style="font-size: 12px; color: var(--text-muted);">Yükleniyor...</p></div>
                     </div>
                 </div>
 
                 <div id="tabWallet" class="tab-content">
                     <div class="card">
-                        <h3 style="color: var(--accent-green); margin-top:0;">💰 Güncel Bakiye</h3>
+                        <h3 style="color: var(--accent-green); margin-top:0;">💰 Güncel Bakiye & VIP</h3>
                         <p style="font-size: 24px; font-weight: bold; margin: 5px 0;" id="userBalText">... USDT</p>
+                        <p style="font-size: 13px; color: var(--accent-blue); margin: 0;">⭐ Sadakat Seviyesi: <b id="userVipText">Bronz</b></p>
                         <hr style="border-color: var(--border-color); margin: 15px 0;">
                         <h4>📥 Bakiye Yükle (USDT TRC-20)</h4>
                         <label style="font-size: 12px; color: var(--text-muted);">Yüklemek İstediğiniz Tutar (USDT):</label>
@@ -830,6 +902,8 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             globalAppData = data;
                             
                             document.getElementById('userBalText').innerText = data.balance.toFixed(2) + " USDT";
+                            document.getElementById('userVipText').innerText = data.vip_level || "Bronz";
+                            document.getElementById('wheelRightsText').innerText = data.wheel_rights || 0;
                             document.getElementById('refEarningsText').innerText = (data.referral_earnings || 0).toFixed(2) + " USDT";
                             document.getElementById('refLinkInput').value = `https://t.me/${data.bot_username || 'WeedIstanbulBot'}?start=ref_${userId}`;
                             
@@ -845,7 +919,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             document.getElementById('promoContainer').innerHTML = promoHtml;
 
                             populateDistrictFilter(data.temsili_drops);
-                            initMap(data.active_orders, data.temsili_drops);
+                            initMap(data.active_orders, data.temsili_drops, data.district_density);
 
                             let activeHtml = "";
                             if(data.active_orders.length > 0) {
@@ -871,15 +945,32 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                             let prodHtml = "";
                             data.temsili_drops.forEach(p => {
+                                let flashBadge = "";
+                                if(p.is_flash) {
+                                    flashBadge = `<span style="background:var(--accent-red); color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:6px;">⚡ FLASH DROP (Bitiş: ${p.flash_expires})</span>`;
+                                }
                                 prodHtml += `
-                                <div class="card">
-                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category})</h4>
+                                <div class="card" style="${p.is_flash ? 'border: 1px solid var(--accent-red);' : ''}">
+                                    <h4 style="margin:0; color:var(--accent-blue);">${p.title} (Semt: ${p.category}) ${flashBadge}</h4>
                                     <p style="font-size:13px; font-weight:bold; color:var(--accent-green); margin:5px 0;">Fiyat: ${p.price} USDT | Stok: ${p.stock} Adet</p>
                                     <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">⚠️ Güvenlik gereği tam adres satın alma sonrası görünür.</p>
                                     <button onclick="buyProduct(${p.id}, ${p.price})">⚡ Bakiyeden Satın Al (${p.price} USDT)</button>
                                 </div>`;
                             });
                             document.getElementById('productsList').innerHTML = prodHtml;
+
+                            let rewardsHtml = "";
+                            if(data.user_rewards && data.user_rewards.length > 0) {
+                                data.user_rewards.forEach(r => {
+                                    rewardsHtml += `<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-main); padding:8px; border-radius:6px; margin-bottom:6px; font-size:12px;">
+                                        <span>🎁 <b>${r.type}:</b> ${r.value}</span>
+                                        <button onclick="useReward(${r.id})" style="width:auto; padding:4px 8px; font-size:10px; background:var(--accent-green);">Kullan</button>
+                                    </div>`;
+                                });
+                            } else {
+                                rewardsHtml = `<p style="font-size:12px; color:var(--text-muted);">Henüz kayıtlı bir bonusunuz bulunmuyor.</p>`;
+                            }
+                            document.getElementById('myRewardsList').innerHTML = rewardsHtml;
 
                             let pastHtml = "";
                             if(data.past_orders.length > 0) {
@@ -912,50 +1003,54 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         }
                     }
 
-                    async function spinGame(gameType) {
-                        const btn = document.getElementById('spinBtn');
-                        btn.disabled = true;
+                    async function spinWheel() {
                         triggerHaptic('heavy');
                         try {
-                            const res = await fetch('/api/miniapp-spin', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&game_type=${gameType}`
-                            });
+                            const res = await fetch(`/api/miniapp-spin-wheel?user_id=${userId}`);
                             const data = await res.json();
-                            if(!data.success) { alert(data.message); btn.disabled = false; return; }
-                            document.getElementById('wheelEl').style.transform = `rotate(${1440 + data.target_deg}deg)`;
-                            setTimeout(() => {
-                                document.getElementById('wheelResult').innerText = "🎉 Ödül: " + data.reward;
-                                alert("🎉 Tebrikler! Kazandınız: " + data.reward);
-                            }, 4000);
-                        } catch(e) { alert("Hata oluştu."); btn.disabled = false; }
+                            if(data.success) {
+                                document.getElementById('wheelResult').innerText = `🎉 Tebrikler! Kazanılan Ödül: ${data.reward}`;
+                                loadAppData();
+                            } else {
+                                alert(data.message || "Çevirme hakkınız yok.");
+                            }
+                        } catch(e) {
+                            alert("İşlem başarısız.");
+                        }
                     }
 
-                    async function scratchBox(idx) {
+                    async function playScratch() {
                         triggerHaptic('medium');
                         try {
-                            const res = await fetch('/api/miniapp-spin', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: `user_id=${userId}&game_type=scratch`
-                            });
+                            const res = await fetch(`/api/miniapp-scratch?user_id=${userId}`);
                             const data = await res.json();
-                            if(!data.success) return alert(data.message);
-
-                            for(let i=0; i<3; i++) {
-                                const card = document.getElementById('sc' + i);
-                                if(i === idx) {
-                                    card.innerText = data.reward;
-                                    card.style.background = "#059669";
-                                } else {
-                                    card.innerText = "Boş";
-                                    card.style.background = "#374151";
-                                }
+                            if(data.success) {
+                                document.getElementById('scratchText').innerText = `🎉 Kazı Kazan Sonucu: ${data.reward}`;
+                                document.getElementById('scratchContainer').style.background = '#065f46';
+                                loadAppData();
+                            } else {
+                                alert(data.message || "Kazı kazan hakkınız bulunmuyor (Toplam harcama 70$ üzeri olmalıdır).");
                             }
-                            document.getElementById('scratchResult').innerText = "🎉 Ödül: " + data.reward;
-                            alert("🎉 Kazı kazandan kazandın: " + data.reward);
-                        } catch(e) { alert("Hata oluştu."); }
+                        } catch(e) {
+                            alert("Hata oluştu.");
+                        }
+                    }
+
+                    async function useReward(rewardId) {
+                        if(!confirm("Bu bonusu kullanmak istediğinize emin misiniz?")) return;
+                        triggerHaptic('medium');
+                        try {
+                            const res = await fetch(`/api/miniapp-use-reward?user_id=${userId}&reward_id=${rewardId}`);
+                            const data = await res.json();
+                            if(data.success) {
+                                alert("🎉 Bonus başarıyla uygulandı!");
+                                loadAppData();
+                            } else {
+                                alert(data.message || "İşlem başarısız.");
+                            }
+                        } catch(e) {
+                            alert("Bağlantı hatası.");
+                        }
                     }
 
                     async function submitReview(orderId) {
@@ -1003,17 +1098,40 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         });
                     }
 
-                    function initMap(activeOrders, temsilidrops) {
+                    function initMap(activeOrders, temsilidrops, densityMap) {
                         if(map) return;
                         map = L.map('mainMap').setView([41.0082, 28.9784], 11);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                         markersGroup = L.layerGroup().addTo(map);
 
-                        renderMapMarkers(activeOrders, temsilidrops);
+                        renderMapMarkers(activeOrders, temsilidrops, densityMap, "ALL");
                     }
 
-                    function renderMapMarkers(activeOrders, temsilidrops, filterCat = "ALL") {
+                    function renderMapMarkers(activeOrders, temsilidrops, densityMap, filterCat = "ALL") {
                         markersGroup.clearLayers();
+
+                        // Isı Haritası Çemberleri (Yoğunluğa Göre Renkler: Kırmızı, Turuncu, Yeşil)
+                        for(const [cat, count] of Object.entries(densityMap || {})) {
+                            let sample = temsilidrops.find(d => d.category === cat);
+                            if(sample) {
+                                let color = '#10b981'; // Yeşil (Düşük)
+                                let opacity = 0.2;
+                                if(count >= 3) {
+                                    color = '#ef4444'; // Kırmızı (Yoğun)
+                                    opacity = 0.5;
+                                } else if(count == 2) {
+                                    color = '#f59e0b'; // Turuncu (Orta)
+                                    opacity = 0.35;
+                                }
+
+                                L.circle([sample.lat, sample.lon], {
+                                    color: color,
+                                    fillColor: color,
+                                    fillOpacity: opacity,
+                                    radius: 1400
+                                }).addTo(markersGroup).bindPopup(`<b>${cat} Bölgesi</b><br>Yoğunluk Seviyesi: ${count} Sipariş/Drop`);
+                            }
+                        }
 
                         activeOrders.forEach(o => {
                             const redIcon = L.divIcon({
@@ -1021,33 +1139,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 iconSize: [24, 24]
                             });
                             L.marker([o.lat, o.lon], {icon: redIcon}).addTo(markersGroup)
-                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}<br><br><a href="https://www.google.com/maps?q=${o.lat},${o.lon}" target="_blank" style="color:#38bdf8;">Google Maps'te Aç</a>`);
-                        });
-
-                        temsilidrops.forEach(td => {
-                            if(filterCat !== "ALL" && td.category !== filterCat) return;
-
-                            L.circle([td.lat, td.lon], {
-                                color: '#38bdf8',
-                                fillColor: '#38bdf8',
-                                fillOpacity: 0.12,
-                                radius: 1100
-                            }).addTo(markersGroup);
-
-                            const weedIcon = L.divIcon({
-                                html: '<div style="background:#2563eb; border:2px solid white; border-radius:50%; width:28px; height:28px; text-align:center; line-height:28px; font-size:14px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">🌿</div>',
-                                iconSize: [28, 28],
-                                iconAnchor: [14, 14]
-                            });
-                            L.marker([td.lat, td.lon], {icon: weedIcon}).addTo(markersGroup)
-                                .bindPopup(`<b>${td.title}</b><br>Bölge: ${td.category}<br>Fiyat: ${td.price} USDT<br><span style="font-size:11px; color:#9ca3af;">⚠️ Yaklaşık bölgedir.</span>`);
+                                .bindPopup(`<b>Sipariş #${o.id}</b><br>${o.title}`);
                         });
                     }
 
                     function filterMapDrops() {
                         const selectedCat = document.getElementById('districtFilter').value;
                         if(globalAppData) {
-                            renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, selectedCat);
+                            renderMapMarkers(globalAppData.active_orders, globalAppData.temsili_drops, globalAppData.district_density, selectedCat);
                             if(selectedCat !== "ALL") {
                                 const sample = globalAppData.temsili_drops.find(d => d.category === selectedCat);
                                 if(sample) {
@@ -1184,10 +1283,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
             
-            cursor.execute("SELECT balance, referral_earnings FROM users WHERE user_id = ?", (uid,))
+            cursor.execute("SELECT balance, referral_earnings, vip_level, wheel_rights FROM users WHERE user_id = ?", (uid,))
             u_row = cursor.fetchone()
             bal = u_row[0] if u_row else 0.0
             ref_earnings = u_row[1] if u_row and len(u_row) > 1 else 0.0
+            vip_level = u_row[2] if u_row and len(u_row) > 2 else "Bronz"
+            wheel_rights = u_row[3] if u_row and len(u_row) > 3 else 0
 
             cursor.execute("SELECT value FROM settings WHERE key = 'promo_5g_active'")
             p_res = cursor.fetchone()
@@ -1196,6 +1297,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("SELECT code, discount FROM coupons WHERE uses_left > 0")
             coupons_rows = cursor.fetchall()
             coupons = [{"code": r[0], "discount": r[1]} for r in coupons_rows]
+
+            cursor.execute("SELECT id, type, value FROM user_rewards WHERE user_id = ? AND is_used = 0", (uid,))
+            rewards_rows = cursor.fetchall()
+            user_rewards = [{"id": r[0], "type": r[1], "value": r[2]} for r in rewards_rows]
 
             cursor.execute("""
                 SELECT orders.id, drops.title, drops.lat, drops.lon, drops.description, drops.category
@@ -1227,23 +1332,33 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 rev_txt = rev_row[0] if rev_row else ""
                 past_orders.append({"id": po_id, "title": r[1], "date": r[2], "has_reviewed": has_rev, "review_text": rev_txt})
 
-            cursor.execute("SELECT id, title, price, category, stock FROM drops WHERE is_sold = 0 AND stock > 0")
+            cursor.execute("SELECT id, title, price, category, stock, is_flash, flash_expires_at FROM drops WHERE is_sold = 0 AND stock > 0")
             temsili_rows = cursor.fetchall()
             temsili_drops = []
+            district_density = {}
             for r in temsili_rows:
-                coord = get_district_coord(r[3])
-                temsili_drops.append({"id": r[0], "title": r[1], "price": r[2], "category": r[3], "stock": r[4], "lat": coord[0], "lon": coord[1]})
+                cat = r[3]
+                district_density[cat] = district_density.get(cat, 0) + 1
+                coord = get_district_coord(cat)
+                temsili_drops.append({
+                    "id": r[0], "title": r[1], "price": r[2], "category": cat, "stock": r[4], 
+                    "lat": coord[0], "lon": coord[1], "is_flash": r[5], "flash_expires": r[6]
+                })
 
             conn.close()
 
             resp = {
                 "balance": bal,
                 "referral_earnings": ref_earnings,
+                "vip_level": vip_level,
+                "wheel_rights": wheel_rights,
                 "promo_5g": promo_5g,
                 "coupons": coupons,
+                "user_rewards": user_rewards,
                 "active_orders": active_orders,
                 "past_orders": past_orders,
-                "temsili_drops": temsili_drops
+                "temsili_drops": temsili_drops,
+                "district_density": district_density
             }
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
@@ -1251,52 +1366,93 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
-        # --- ÇARK & KAZI KAZAN API ROTOSU ---
-        if parsed_path.path == "/api/miniapp-spin":
-            content_length = int(self.headers.get('Content-Length', 0))
-            post_data = self.rfile.read(content_length).decode('utf-8')
-            params = parse_qs(post_data)
-            uid = int(params.get("user_id", [0])[0])
-            game_type = params.get("game_type", ["wheel"])[0]
-
+        if parsed_path.path == "/api/miniapp-spin-wheel":
+            uid = int(query_params.get("user_id", ["0"])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            current_week = datetime.now().strftime("%Y-W%V")
-            
-            cursor.execute("SELECT id FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?", (uid, game_type, current_week))
-            if cursor.fetchone():
+            cursor.execute("SELECT wheel_rights FROM users WHERE user_id = ?", (uid,))
+            u_row = cursor.fetchone()
+            rights = u_row[0] if u_row else 0
+
+            if rights <= 0:
                 conn.close()
                 self.send_response(200)
                 self.send_header("Content-type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "message": "Bu hafta bu oyundaki hakkınızı kullandınız!"}).encode("utf-8"))
+                self.wfile.write(json.dumps({"success": False, "message": "Çevirme hakkınız bulunmuyor."}).encode("utf-8"))
                 return
 
             import random
-            rewards = [
-                {"text": "1 Gram Weed", "deg": 36, "chance": 5},
-                {"text": "1 Adet Joint", "deg": 108, "chance": 10},
-                {"text": "%5 İndirim", "deg": 180, "chance": 25},
-                {"text": "%3 İndirim", "deg": 252, "chance": 30},
-                {"text": "%1 İndirim", "deg": 324, "chance": 30}
-            ]
-            rand = random.randint(1, 100)
-            cum = 0
-            sel = rewards[-1]
-            for r in rewards:
-                cum += r["chance"]
-                if rand <= cum:
-                    sel = r
-                    break
+            rewards_pool = ["1$", "3$", "5$", "1 GR Strain", "1 Joint (0,5 Gr)"]
+            won = random.choice(rewards_pool)
 
-            cursor.execute("INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)", (uid, game_type, current_week, sel["text"]))
+            cursor.execute("UPDATE users SET wheel_rights = wheel_rights - 1 WHERE user_id = ?", (uid,))
+            if won.endswith("$"):
+                amt = float(won.replace("$", ""))
+                cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amt, uid))
+            else:
+                cursor.execute("INSERT INTO user_rewards (user_id, type, value) VALUES (?, 'Çark Ödülü', ?)", (uid, won))
+            
             conn.commit()
             conn.close()
 
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "reward": sel["text"], "target_deg": sel["deg"]}).encode("utf-8"))
+            self.wfile.write(json.dumps({"success": True, "reward": won}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-scratch":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT COALESCE(SUM(final_price), 0.0) FROM orders WHERE user_id = ? AND status IN ('completed', 'received')", (uid,))
+            spent = cursor.fetchone()[0]
+
+            if spent < 70:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Toplam harcamanız 70$ altında."}).encode("utf-8"))
+                return
+
+            import random
+            scratch_pool = ["1 Gram", "%3 İndirim", "1 Gr Strain", "%5 İndirim", "1 Joint"]
+            won = random.choice(scratch_pool)
+            cursor.execute("INSERT INTO user_rewards (user_id, type, value) VALUES (?, 'Kazı Kazan', ?)", (uid, won))
+            conn.commit()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "reward": won}).encode("utf-8"))
+            return
+
+        if parsed_path.path == "/api/miniapp-use-reward":
+            uid = int(query_params.get("user_id", ["0"])[0])
+            rid = int(query_params.get("reward_id", ["0"])[0])
+            conn = sqlite3.connect("drop_bot.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT type, value FROM user_rewards WHERE id = ? AND user_id = ? AND is_used = 0", (rid, uid))
+            rw = cursor.fetchone()
+            if not rw:
+                conn.close()
+                self.send_response(200)
+                self.send_header("Content-type", "application/json; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "message": "Ödül bulunamadı."}).encode("utf-8"))
+                return
+
+            cursor.execute("UPDATE user_rewards SET is_used = 1 WHERE id = ?", (rid,))
+            conn.commit()
+            conn.close()
+
+            self.send_response(200)
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
             return
 
         if parsed_path.path == "/api/miniapp-buy":
@@ -1347,6 +1503,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
+            update_user_vip(uid)
             log_panel_event(f"⚡ Mini App İçinden Satış: Sipariş #{oid} - {title} ({price} USDT)", "success")
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
@@ -1400,6 +1557,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (target_amount, uid))
                 conn.commit()
                 conn.close()
+                update_user_vip(uid)
                 log_panel_event(f"📥 Mini App Bakiye Yükleme Onaylandı: Kullanıcı {uid} - {target_amount} USDT", "success")
 
             self.send_response(200)
@@ -1448,9 +1606,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             uid = int(query_params.get("user_id", ["0"])[0])
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("SELECT user_id, username, language, is_banned, balance, referral_earnings, created_at FROM users WHERE user_id = ?", (uid,))
+            cursor.execute("SELECT user_id, username, language, is_banned, balance, referral_earnings, vip_level, created_at FROM users WHERE user_id = ?", (uid,))
             u = cursor.fetchone()
             
+            cursor.execute("SELECT type, value, is_used FROM user_rewards WHERE user_id = ?", (uid,))
+            u_rewards = [{"type": r[0], "value": r[1], "used": r[2]} for r in cursor.fetchall()]
+
             cursor.execute("SELECT o.id, d.title, o.final_price, o.status, o.created_at FROM orders o JOIN drops d ON o.drop_id = d.id WHERE o.user_id = ? ORDER BY o.id DESC", (uid,))
             u_orders = [{"id": r[0], "title": r[1], "price": r[2], "status": r[3], "date": r[4]} for r in cursor.fetchall()]
             
@@ -1464,33 +1625,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 return
 
             resp_data = {
-                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4] or 0.0, "ref_earnings": u[5] or 0.0, "created_at": u[6],
-                "orders": u_orders, "deposits": u_deps
+                "user_id": u[0], "username": u[1], "lang": u[2], "is_banned": u[3], "balance": u[4] or 0.0, "ref_earnings": u[5] or 0.0, "vip_level": u[6], "created_at": u[7],
+                "rewards": u_rewards, "orders": u_orders, "deposits": u_deps
             }
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
             self.end_headers()
             self.wfile.write(json.dumps(resp_data).encode("utf-8"))
-            return
-
-        if parsed_path.path == "/api/admin-check-notifications":
-            if not is_logged_in:
-                self.send_response(401)
-                self.end_headers()
-                return
-            conn = sqlite3.connect("drop_bot.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM support_messages WHERE sender = 'user'")
-            unread_chats = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM orders WHERE status = 'pending'")
-            pending_orders = cursor.fetchone()[0]
-            conn.close()
-
-            resp = {"unread_chats": unread_chats, "pending_orders": pending_orders}
-            self.send_response(200)
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
             return
 
         if parsed_path.path == "/admin-web":
@@ -1958,7 +2099,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 elif tab == "users":
                     try:
                         cursor.execute("""
-                            SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings,
+                            SELECT u.user_id, u.username, u.language, u.is_banned, u.balance, u.referral_earnings, u.vip_level,
                                    COUNT(o.id) as total_orders, 
                                    COALESCE(SUM(o.final_price), 0.0) as total_spent
                             FROM users u
@@ -1973,7 +2114,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     rows = ""
                     for u in users_list:
-                        uid, uname, u_lang, is_b, u_bal, ref_earn, t_orders, t_spent = u
+                        uid, uname, u_lang, is_b, u_bal, ref_earn, vip, t_orders, t_spent = u
                         username_str = f"@{uname}" if uname else "N/A"
                         u_lang_str = (u_lang or "TR").upper()
                         u_bal_val = u_bal if u_bal is not None else 0.0
@@ -1983,7 +2124,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         balance_form = f"""
                         <form action="/admin-update-balance" method="POST" style="margin:0; display:flex; gap:8px; align-items:center;">
                             <input type="hidden" name="user_id" value="{uid}">
-                            <input type="number" step="0.1" name="new_balance" value="{u_bal_val}" style="width:100px; margin:0; padding:6px; font-size:12px; font-weight:bold; color:#38bdf8; background:#070b14; border:1px solid #38bdf8; border-radius:6px;">
+                            <input type="number" step="0.1" name="new_balance" value="{u_bal_val}" style="width:90px; margin:0; padding:6px; font-size:12px; font-weight:bold; color:#38bdf8; background:#070b14; border:1px solid #38bdf8; border-radius:6px;">
                             <button type="submit" style="background:#2563eb; padding:6px 10px; font-size:11px; width:auto; border-radius:6px;">Düzenle</button>
                         </form>
                         """
@@ -1997,15 +2138,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </form>
                         """
                         profile_btn = f"<button type='button' onclick='openUserProfile({uid})' style='background:#0ea5e9; padding:5px 8px; font-size:11px; width:auto; border-radius:6px;'>Profil</button>"
-                        rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>{u_lang_str}</td><td style='padding: 8px;'>{balance_form}</td><td>{ref_earn_val:.2f} USDT</td><td><b>{t_orders}</b></td><td><b>{t_spent:.2f} USDT</b></td><td>{status_badge}</td><td><div style='display:flex; gap:4px;'>{profile_btn}{ban_btn}</div></td></tr>"
+                        rows += f"<tr style='background: var(--card-bg-inner);'><td><b>{uid}</b></td><td>{username_str}</td><td>⭐ {vip}</td><td style='padding: 8px;'>{balance_form}</td><td>{ref_earn_val:.2f} USDT</td><td><b>{t_orders}</b></td><td><b>{t_spent:.2f} USDT</b></td><td>{status_badge}</td><td><div style='display:flex; gap:4px;'>{profile_btn}{ban_btn}</div></td></tr>"
 
                     table_rows_html = rows if rows else "<tr><td colspan='9' style='text-align:center;'>Henüz kayıtlı müşteri yok.</td></tr>"
 
                     content_html = f"""
                     <div class="table-box" style="border: 1px solid #38bdf8; overflow-x: auto;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM & Bakiye Yönetimi</h2>
+                        <h2 style="color: #38bdf8; margin-top: 0;">👥 Müşteri CRM, VIP & Bonus Takibi</h2>
                         <table>
-                            <tr><th>User ID</th><th>Username</th><th>Lang</th><th>Güncel Bakiye</th><th>Ref Kazancı</th><th>Sipariş</th><th>Harcama</th><th>Status</th><th>Action</th></tr>
+                            <tr><th>User ID</th><th>Username</th><th>VIP</th><th>Güncel Bakiye</th><th>Ref Kazancı</th><th>Sipariş</th><th>Harcama</th><th>Status</th><th>Action</th></tr>
                             {table_rows_html}
                         </table>
                     </div>
@@ -2013,7 +2154,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <div id="userModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
                         <div style="background:#111827; padding:25px; border-radius:12px; border:1px solid #38bdf8; width:90%; max-width:600px; max-height:80vh; overflow-y:auto; position:relative;">
                             <button onclick="closeUserProfile()" style="position:absolute; top:15px; right:15px; background:#ef4444; width:30px; height:30px; border-radius:50%; border:none; color:white; font-weight:bold; cursor:pointer;">X</button>
-                            <h3 style="color:#38bdf8; margin-top:0;">👤 Kullanıcı Detay Profili</h3>
+                            <h3 style="color:#38bdf8; margin-top:0;">👤 Kullanıcı Detay Profili & Bonusları</h3>
                             <div id="modalBody"><p>Yükleniyor...</p></div>
                         </div>
                     </div>
@@ -2025,9 +2166,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             try {{
                                 const res = await fetch('/api/admin-user-detail?user_id=' + uid);
                                 const data = await res.json();
-                                let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + '</p>';
+                                let html = '<p><b>ID:</b> ' + data.user_id + ' | <b>Username:</b> @' + (data.username || 'N/A') + ' | <b>VIP:</b> ' + data.vip_level + '</p>';
                                 html += '<p><b>Bakiye:</b> ' + data.balance + ' USDT | <b>Ref Kazancı:</b> ' + data.ref_earnings + ' USDT</p>';
-                                html += '<h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
+                                
+                                html += '<h4 style="color:#facc15; margin-top:15px;">🎁 Kazanılan Bonuslar / Hediyeler</h4><ul>';
+                                if(data.rewards.length > 0) {{
+                                    data.rewards.forEach(r => {{ html += '<li>' + r.type + ': <b>' + r.value + '</b> (Kullanıldı mı: ' + (r.used ? 'Evet' : 'Hayır') + ')</li>'; }});
+                                }} else {{ html += '<li>Bonus bulunmuyor.</li>'; }}
+
+                                html += '</ul><h4 style="color:#10b981; margin-top:15px;">📦 Sipariş Geçmişi</h4><ul>';
                                 if(data.orders.length > 0) {{
                                     data.orders.forEach(o => {{ html += '<li>#' + o.id + ' - ' + o.title + ' (' + o.price + ' USDT) - <b>' + o.status + '</b></li>'; }});
                                 }} else {{ html += '<li>Sipariş yok.</li>'; }}
@@ -2228,11 +2375,12 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     </div>
                     """
                 elif tab == "passive":
-                    cursor.execute("SELECT id, title, price, stock, category, description, lat, lon FROM drops WHERE is_sold = 0")
+                    cursor.execute("SELECT id, title, price, stock, category, description, lat, lon, is_flash, flash_expires_at FROM drops WHERE is_sold = 0")
                     drops = cursor.fetchall()
                     rows = ""
                     for d in drops:
-                        d_id, title, price, stock, cat, desc, lat, lon = d
+                        d_id, title, price, stock, cat, desc, lat, lon, is_flash, f_exp = d
+                        flash_badge = "⚡ Flash Drop" if is_flash else "Standart"
                         rows += f"""
                         <tr>
                             <td>#{d_id}</td>
@@ -2240,6 +2388,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             <td>{cat or 'Genel'}</td>
                             <td>{price} USDT</td>
                             <td>{stock} Adet</td>
+                            <td><b>{flash_badge}</b></td>
                             <td>
                                 <a href="/admin-edit?id={d_id}" class="action-btn edit-btn">Düzenle</a>
                             </td>
@@ -2247,10 +2396,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         """
                     content_html = f"""
                     <div class="table-box">
-                        <h2>📦 Pasif / Stoktaki Ürünler</h2>
+                        <h2>📦 Pasif / Stoktangi Ürünler & Flash Drop Yönetimi</h2>
                         <table>
-                            <tr><th>Ürün No (ID)</th><th>Başlık</th><th>Bölge/Kategori</th><th>Fiyat</th><th>Stok</th><th>İşlem</th></tr>
-                            {rows if rows else "<tr><td colspan='6' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
+                            <tr><th>Ürün No (ID)</th><th>Başlık</th><th>Bölge</th><th>Fiyat</th><th>Stok</th><th>Tür</th><th>İşlem</th></tr>
+                            {rows if rows else "<tr><td colspan='7' style='text-align:center;'>Stokta ürün bulunmuyor.</td></tr>"}
                         </table>
                     </div>
                     """
@@ -2260,26 +2409,34 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
                     <div class="form-box" style="margin:0; border: 1px solid rgba(56, 189, 248, 0.4); max-width: 650px;">
-                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle (Canlı Konumlu & Otomatik Semt)</h2>
+                        <h2 style="color: #38bdf8; margin-top: 0;">➕ Tekli Drop Ekle & Flash Drop Ayarla</h2>
                         <form action="/admin-add" method="POST" enctype="multipart/form-data" id="addForm">
                             <label>Ürün Başlığı:</label>
                             <input type="text" name="title" required placeholder="Örn: Amnesia Haze">
                             
-                            <label>Semt / İlçe (Haritadan Seçince Otomatik Dolar):</label>
+                            <label>Semt / İlçe:</label>
                             <input type="text" id="categoryInput" name="category" required placeholder="Kartal, Çekmeköy vb.">
                             
                             <label>Fiyat (USDT):</label>
                             <input type="number" step="0.1" name="price" required placeholder="65">
+
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin: 10px 0;">
+                                <input type="checkbox" name="is_flash" value="1" style="width:auto; margin:0;">
+                                <span style="color:#ef4444; font-weight:bold;">⚡ Flash Drop Olarak İşaretle (Geri Sayım Zamanlayıcısı)</span>
+                            </label>
+
+                            <label>Flash Drop Bitiş Süresi (Saat Cinsinden Örn: 2):</label>
+                            <input type="number" name="flash_hours" value="2" placeholder="2">
                             
-                            <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin (🧌 Canlı Konumunuz İşaretlidir):</label>
-                            <p style="font-size:11px; color:var(--text-muted); margin-top:2px; margin-bottom:8px;">Haritaya tıkladığınızda hem koordinat, hem de ilçe otomatik doldurulur.</p>
+                            <label style="color:#38bdf8; font-weight:bold;">📍 Konumu Haritadan Seçin:</label>
                             <div id="selectMap" style="width: 100%; height: 260px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
 
-                            <label>Koordinat (Örn: 40.8885, 29.1856):</label>
+                            <label>Koordinat:</label>
                             <input type="text" id="coordsInput" name="coords" required placeholder="40.8885, 29.1856">
                             
-                            <label>Fotoğraf Seç (Galeriden veya Bilgisayardan):</label>
+                            <label>Fotoğraf Seç:</label>
                             <input type="file" name="photo_file" accept="image/*" required style="background:var(--bg-color); padding:10px; border:1px dashed #38bdf8; border-radius:8px; cursor:pointer; margin-bottom:15px;">
+                            
                             <label>Açıklama / İpucu Notu:</label>
                             <textarea name="description" rows="3" required placeholder="Saksının arkasında..."></textarea>
                             <button type="submit" style="margin-top: 20px; background:#10b981;">Stoğa Drop Ekle</button>
@@ -2291,52 +2448,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pickMap);
                         let pickedMarker = null;
 
-                        const trollIcon = L.divIcon({
-                            className: 'custom-troll-marker',
-                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
-                            iconSize: [38, 38],
-                            iconAnchor: [19, 19]
-                        });
-
-                        if (navigator.geolocation) {
-                            navigator.geolocation.getCurrentPosition(function(position) {
-                                const lat = position.coords.latitude;
-                                const lon = position.coords.longitude;
-                                pickMap.setView([lat, lon], 14);
-                                L.marker([lat, lon], {icon: trollIcon}).addTo(pickMap)
-                                    .bindPopup("<b>🧌 Buradasın (Canlı Konumun)</b>").openPopup();
-                            }, function(err) {
-                                console.log("Canlı konum alınamadı: ", err.message);
-                            }, { enableHighAccuracy: true });
-                        }
-
-                        async function fetchDistrictAndFill(lat, lon) {
-                            try {
-                                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
-                                const data = await response.json();
-                                if (data && data.address) {
-                                    const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
-                                    if (district) {
-                                        document.getElementById('categoryInput').value = district.toUpperCase();
-                                    }
-                                }
-                            } catch (e) {
-                                console.error("İlçe alınamadı", e);
-                            }
-                        }
-
                         pickMap.on('click', function(e) {
                             const lat = e.latlng.lat.toFixed(6);
                             const lon = e.latlng.lng.toFixed(6);
                             document.getElementById('coordsInput').value = lat + ', ' + lon;
-
                             if (pickedMarker) {
                                 pickedMarker.setLatLng(e.latlng);
                             } else {
                                 pickedMarker = L.marker(e.latlng).addTo(pickMap);
                             }
-
-                            fetchDistrictAndFill(lat, lon);
                         });
                     </script>
                     """
@@ -2347,17 +2467,17 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     edit_form_html = "<h3 style='color:red;'>⚠️ Yetkiniz yok!</h3>"
                 else:
                     edit_id = query_params.get("id", ["0"])[0]
-                    cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon FROM drops WHERE id = ?", (edit_id,))
+                    cursor.execute("SELECT title, price, stock, category, photo_ids, description, lat, lon, is_flash, flash_expires_at FROM drops WHERE id = ?", (edit_id,))
                     drop_data = cursor.fetchone()
                     if drop_data:
-                        e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon = drop_data
+                        e_title, e_price, e_stock, e_cat, e_photo, e_desc, e_lat, e_lon, e_flash, e_fexp = drop_data
                         combined_coord = f"{e_lat}, {e_lon}" if e_lat and e_lon else ""
                         edit_form_html = f"""
                         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
                         <div class="form-box" style="border: 2px solid #38bdf8; margin-bottom: 30px;">
-                            <h2>✏️ Ürün Düzenle (Ürün No: #{edit_id})</h2>
+                            <h2>✏️ Ürün Düzenle & Flash Drop Ayarla (Ürün No: #{edit_id})</h2>
                             <form action="/admin-update" method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="id" value="{edit_id}">
                                 <label>Ürün Başlığı:</label>
@@ -2370,6 +2490,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 <input type="number" step="0.1" name="price" value="{e_price}" required>
                                 <label>Stok Adedi:</label>
                                 <input type="number" name="stock" value="{e_stock}" required>
+
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin: 10px 0;">
+                                    <input type="checkbox" name="is_flash" value="1" {'checked' if e_flash==1 else ''} style="width:auto; margin:0;">
+                                    <span style="color:#ef4444; font-weight:bold;">⚡ Flash Drop Olarak İşaretle (Geri Sayım)</span>
+                                </label>
+
+                                <label>Flash Süresi (Saat Uzat/Ayarla - Örn: 3):</label>
+                                <input type="number" name="flash_hours" value="2" placeholder="2">
                                 
                                 <label style="color: #38bdf8; font-weight: bold;">📍 Konumu Haritadan Seçin:</label>
                                 <div id="editSelectMap" style="width: 100%; height: 220px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; z-index:1;"></div>
@@ -2390,21 +2518,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             const initLon = {e_lon if e_lon else 28.9784};
                             const editPickMap = L.map('editSelectMap').setView([initLat, initLon], 13);
                             L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19 }}).addTo(editPickMap);
-                            
                             let editPickedMarker = L.marker([initLat, initLon]).addTo(editPickMap);
-
-                            async function fetchEditDistrictAndFill(lat, lon) {{
-                                try {{
-                                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
-                                    const data = await response.json();
-                                    if (data && data.address) {{
-                                        const district = data.address.town || data.address.city_district || data.address.county || data.address.suburb || data.address.city || "";
-                                        if (district) {{
-                                            document.getElementById('editCategoryInput').value = district.toUpperCase();
-                                        }}
-                                    }}
-                                }} catch (e) {{}}
-                            }}
 
                             editPickMap.on('click', function(e) {{
                                 const lat = e.latlng.lat.toFixed(6);
@@ -2415,7 +2529,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                                 }} else {{
                                     editPickedMarker = L.marker(e.latlng).addTo(editPickMap);
                                 }}
-                                fetchEditDistrictAndFill(lat, lon);
                             }});
                         </script>
                         """
@@ -2712,6 +2825,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
+            update_user_vip(uid)
             log_panel_event(f"💬 Kullanıcı {uid} sipariş #{oid} için yorum yaptı ve 5$ kazandı.", "success")
             self.send_response(200)
             self.send_header("Content-type", "application/json; charset=utf-8")
@@ -3024,6 +3138,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_bal, target_uid))
             conn.commit()
             conn.close()
+            update_user_vip(target_uid)
             log_audit(current_username, "UPDATE_BALANCE", f"User: {target_uid}")
             self.send_response(303)
             self.send_header('Location', '/admin-web?tab=users')
@@ -3036,6 +3151,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 price = float(params.get("price", [0])[0])
             except:
                 price = 0.0
+
+            is_flash = 1 if params.get("is_flash", ["0"])[0] == "1" else 0
+            try:
+                flash_hours = float(params.get("flash_hours", ["2"])[0])
+            except:
+                flash_hours = 2.0
+            
+            flash_expires_at = (datetime.now() + timedelta(hours=flash_hours)).strftime("%Y-%m-%d %H:%M:%S") if is_flash else None
 
             coord_raw = params.get("coords", ["0.0, 0.0"])[0]
             lat, lon = get_district_coord(category)
@@ -3058,7 +3181,10 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
             conn = sqlite3.connect("drop_bot.db")
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon) VALUES (?, ?, ?, ?, 1, ?, ?, ?)", (title, price, photo_url, desc, category, lat, lon))
+            cursor.execute("""
+                INSERT INTO drops (title, price, photo_ids, description, stock, category, lat, lon, is_flash, flash_expires_at) 
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+            """, (title, price, photo_url, desc, category, lat, lon, is_flash, flash_expires_at))
             conn.commit()
             conn.close()
             log_audit(current_username, "ADD_DROP", f"Title: {title}")
@@ -3075,6 +3201,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 stock = int(params.get("stock", [1])[0])
             except:
                 price, stock = 0.0, 1
+
+            is_flash = 1 if params.get("is_flash", ["0"])[0] == "1" else 0
+            try:
+                flash_hours = float(params.get("flash_hours", ["2"])[0])
+            except:
+                flash_hours = 2.0
+            flash_expires_at = (datetime.now() + timedelta(hours=flash_hours)).strftime("%Y-%m-%d %H:%M:%S") if is_flash else None
 
             coord_raw = params.get("coords", ["0.0, 0.0"])[0]
             lat, lon = get_district_coord(category)
@@ -3096,9 +3229,15 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 with open(saved_path, "wb") as f:
                     f.write(file_data)
                 photo_url = f"/{saved_path}"
-                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, photo_url, description, lat, lon, drop_id))
+                cursor.execute("""
+                    UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, photo_ids = ?, description = ?, lat = ?, lon = ?, is_flash = ?, flash_expires_at = ? 
+                    WHERE id = ?
+                """, (title, price, stock, category, photo_url, description, lat, lon, is_flash, flash_expires_at, drop_id))
             else:
-                cursor.execute("UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, description = ?, lat = ?, lon = ? WHERE id = ?", (title, price, stock, category, description, lat, lon, drop_id))
+                cursor.execute("""
+                    UPDATE drops SET title = ?, price = ?, stock = ?, category = ?, description = ?, lat = ?, lon = ?, is_flash = ?, flash_expires_at = ? 
+                    WHERE id = ?
+                """, (title, price, stock, category, description, lat, lon, is_flash, flash_expires_at, drop_id))
 
             conn.commit()
             conn.close()
@@ -3128,6 +3267,16 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         cursor.execute("UPDATE drops SET stock = ? WHERE id = ?", (new_stock, d_id))
                     cursor.execute("UPDATE orders SET status = 'completed' WHERE id = ?", (order_id,))
                     
+                    cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (u_id,))
+                    vip_row = cursor.fetchone()
+                    vip = vip_row[0] if vip_row else "Bronz"
+                    if vip == "Gümüş":
+                        cb = float(f_price) * 0.03
+                        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, u_id))
+                    elif vip == "VIP":
+                        cb = float(f_price) * 0.05
+                        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, u_id))
+
                     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (u_id,))
                     ref_row = cursor.fetchone()
                     if ref_row and ref_row[0] > 0:
@@ -3137,6 +3286,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     conn.commit()
                     conn.close()
+                    update_user_vip(u_id)
                     log_audit(current_username, "MANUAL_APPROVE", f"Order: {order_id}")
 
                     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
@@ -3204,9 +3354,6 @@ class AdminAuth(StatesGroup):
 
 class SupportState(StatesGroup):
     message = State()
-
-class PromoState(StatesGroup):
-    code = State()
 
 class DepositState(StatesGroup):
     amount = State()
@@ -3350,9 +3497,10 @@ async def wallet_menu(message: types.Message):
     lang = get_user_lang(user_id)
     t = LANG[lang]
     bal = get_user_balance(user_id)
+    vip = update_user_vip(user_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t["deposit_btn"], callback_data="start_deposit")]])
-    await message.answer(t["wallet_menu_text"].format(balance=bal), reply_markup=kb)
+    await message.answer(t["wallet_menu_text"].format(balance=bal, vip=vip), reply_markup=kb)
 
 @dp.callback_query(F.data == "start_deposit")
 async def start_deposit(callback: types.CallbackQuery, state: FSMContext):
@@ -3451,6 +3599,7 @@ async def check_blockchain_deposit(callback: types.CallbackQuery):
         new_bal = get_user_balance(user_id)
         conn.close()
 
+        update_user_vip(user_id)
         await callback.message.edit_text(t["deposit_success"].format(amount=target_amount, balance=new_bal))
     else:
         conn.close()
@@ -3489,9 +3638,19 @@ async def support_start(message: types.Message, state: FSMContext):
         return
     lang = get_user_lang(user_id)
     t = LANG[lang]
+    
+    # VIP öncelikli canlı destek kontrolü
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (user_id,))
+    v_row = cursor.fetchone()
+    conn.close()
+    vip_status = v_row[0] if v_row else "Bronz"
+    priority_note = "\n\n⭐ **VIP Öncelikli Destek Hattı Aktif!** Mesajınız ekibimiz tarafından en öne alınmıştır." if vip_status == "VIP" else ""
+
     await state.set_state(SupportState.message)
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="❌ Sohbeti İptal Et", callback_data="close_support_chat")]])
-    await message.answer(t["support_ask"], reply_markup=kb)
+    await message.answer(t["support_ask"] + priority_note, reply_markup=kb)
 
 @dp.callback_query(F.data == "close_support_chat")
 async def close_support_callback(callback: types.CallbackQuery, state: FSMContext):
@@ -3608,7 +3767,7 @@ async def list_drops_by_category(callback: types.CallbackQuery):
     cat_name = callback.data.split("_", 1)[1]
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title, price, stock FROM drops WHERE category = ? AND is_sold = 0 AND stock > 0", (cat_name,))
+    cursor.execute("SELECT id, title, price, stock, is_flash FROM drops WHERE category = ? AND is_sold = 0 AND stock > 0", (cat_name,))
     drops = cursor.fetchall()
     conn.close()
 
@@ -3618,7 +3777,8 @@ async def list_drops_by_category(callback: types.CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for d in drops:
-        kb.inline_keyboard.append([InlineKeyboardButton(text=f"#{d[0]} - {d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
+        flash_icon = "⚡ " if d[4] == 1 else ""
+        kb.inline_keyboard.append([InlineKeyboardButton(text=f"{flash_icon}#{d[0]} - {d[1]} - {d[2]} USDT (Stok: {d[3]})", callback_data=f"buy_{d[0]}")])
     kb.inline_keyboard.append([InlineKeyboardButton(text=t["back_cats"], callback_data="back_cats")])
 
     await callback.message.edit_text(f"📦 **{cat_name}**:", reply_markup=kb)
@@ -3745,6 +3905,17 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     cursor.execute("INSERT INTO orders (user_id, drop_id, status, final_price) VALUES (?, ?, 'completed', ?)", (user_id, drop_id, price))
     order_id = cursor.lastrowid
     
+    # VIP Cashback Uygulaması
+    cursor.execute("SELECT vip_level FROM users WHERE user_id = ?", (user_id,))
+    vip_row = cursor.fetchone()
+    vip = vip_row[0] if vip_row else "Bronz"
+    if vip == "Gümüş":
+        cb = float(price) * 0.03
+        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, user_id))
+    elif vip == "VIP":
+        cb = float(price) * 0.05
+        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (cb, user_id))
+
     cursor.execute("SELECT referred_by FROM users WHERE user_id = ?", (user_id,))
     ref_row = cursor.fetchone()
     if ref_row and ref_row[0] > 0:
@@ -3755,6 +3926,7 @@ async def process_buy_with_balance(callback: types.CallbackQuery):
     conn.commit()
     conn.close()
 
+    update_user_vip(user_id)
     secure_link = f"{RENDER_EXTERNAL_URL}/drop/{order_id}"
     success_text = t["balance_success"].format(id=order_id, price=price, link=secure_link)
 
@@ -3765,6 +3937,7 @@ async def main():
     main_loop = asyncio.get_running_loop()
     asyncio.create_task(auto_backup_task())
     asyncio.create_task(background_payment_worker())
+    asyncio.create_task(wheel_notification_scheduler())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
