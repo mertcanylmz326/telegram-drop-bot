@@ -21,6 +21,41 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
 from aiogram.types import BufferedInputFile
+def init_miniapp_db():
+    conn = sqlite3.connect("drop_bot.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS game_spins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            game_type TEXT,
+            week_identifier TEXT,
+            reward_text TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            sender TEXT,
+            message TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS order_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER,
+            user_id INTEGER,
+            review_text TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_miniapp_db()
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
 DEFAULT_BOT_TOKEN = "9018759790:AAHHMZxJeCX4RO-d2622gvRQJowHSnxruoM"
 ADMIN_ID = 1012940363
@@ -573,6 +608,119 @@ async def background_payment_worker():
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        def send_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_cors_headers()
+        self.end_headers()
+
+    def do_POST(self):
+        parsed_path = urlparse(self.path)
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length).decode('utf-8')
+
+        # 1. ÇARK & KAZI KAZAN SERVİSİ
+        if parsed_path.path == "/api/miniapp-spin":
+            try:
+                try:
+                    data = json.loads(post_data)
+                except Exception:
+                    data = {k: v[0] for k, v in parse_qs(post_data).items()}
+
+                uid = int(data.get("user_id", 0))
+                game_type = data.get("game_type", "wheel")
+
+                now = datetime.now()
+                week_id = f"{now.year}-W{now.isocalendar()[1]}"
+
+                conn = sqlite3.connect("drop_bot.db")
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?",
+                    (uid, game_type, week_id)
+                )
+                spin_count = cursor.fetchone()[0]
+
+                if spin_count >= 2:
+                    resp = {"success": False, "message": "Bu hafta için oyun hakkınız dolmuştur!"}
+                else:
+                    import random
+                    if game_type == "wheel":
+                        rewards = [
+                            ("🌿 1g Weed", 36),
+                            ("🏷️ %1 İndirim", 108),
+                            ("🏷️ %3 İndirim", 180),
+                            ("🏷️ %5 İndirim", 252),
+                            ("🚬 1 Joint", 324)
+                        ]
+                        reward_text, target_deg = random.choice(rewards)
+                    else:
+                        scratch_rewards = ["🌿 1g Weed", "🏷️ %5 İndirim", "🚬 1 Joint", "🏷️ %3 İndirim"]
+                        reward_text = random.choice(scratch_rewards)
+                        target_deg = 0
+
+                    cursor.execute(
+                        "INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)",
+                        (uid, game_type, week_id, reward_text)
+                    )
+                    conn.commit()
+                    resp = {"success": True, "reward": reward_text, "target_deg": target_deg}
+
+                conn.close()
+            except Exception as e:
+                resp = {"success": False, "message": f"Hata: {str(e)}"}
+
+            self.send_response(200)
+            self.send_cors_headers()
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
+
+        # 2. MINIAPP CANLI DESTEK MESAJ GÖNDERME SERVİSİ
+        if parsed_path.path == "/api/miniapp-chat-send":
+            try:
+                try:
+                    data = json.loads(post_data)
+                except Exception:
+                    data = {k: v[0] for k, v in parse_qs(post_data).items()}
+
+                uid = int(data.get("user_id", 0))
+                msg = data.get("message", "")
+
+                if uid > 0 and msg:
+                    conn = sqlite3.connect("drop_bot.db")
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)",
+                        (uid, msg)
+                    )
+                    conn.commit()
+                    conn.close()
+
+                    if main_loop:
+                        asyncio.run_coroutine_threadsafe(
+                            bot.send_message(ADMIN_GROUP_ID, f"💬 **Yeni Canlı Destek Mesajı (MiniApp)!**\n👤 User ID: `{uid}`\n💬 Mesaj: {msg}"),
+                            main_loop
+                        )
+
+                    resp = {"success": True}
+                else:
+                    resp = {"success": False, "message": "Eksik parametre."}
+            except Exception as e:
+                resp = {"success": False, "message": str(e)}
+
+            self.send_response(200)
+            self.send_cors_headers()
+            self.send_header("Content-type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+            return
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
 
