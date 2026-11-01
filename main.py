@@ -1670,7 +1670,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                         const trollIcon = L.divIcon({{
                             className: 'custom-troll-marker',
-                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">🧌</div>',
+                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">👽⃤</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
@@ -2638,7 +2638,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
-                sidebar_links += f'<a href="/admin-web?tab=redteam" target="main_frame" class="{"active" if tab == "redteam" else ""}">👹 Red Team Operations Center</a>'
+                sidebar_links += f'<a href="https://pro-recon-bot-1.onrender.com/" target="main_frame" class="{"active" if tab == "redteam" else ""}">👹 Red Team Operations Center</a>'
             dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
