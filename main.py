@@ -608,23 +608,10 @@ async def background_payment_worker():
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
 
-    def send_cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_cors_headers()
-        self.end_headers()
-
-    # --- 1. GET İSTEKLERİ (SAYFA VE PANEL AÇMA) ---
     def do_GET(self):
-        def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
 
-        # Admin canlı destek kapatma
         if parsed_path.path == "/admin-close-support":
             user_id = query_params.get("user_id", [None])[0]
             if user_id:
@@ -639,17 +626,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # 1. MiniApp / Ana Sayfa isteği gelirse miniapp.html dosyasını ver
         if parsed_path.path in ["/", "/miniapp", "/index.html"]:
             file_path = "static/miniapp.html"
-        # 2. Admin Web isteği gelirse admin.html dosyasını ver
         elif parsed_path.path == "/admin-web":
             file_path = "static/admin.html"
-        # 3. Diğer statik dosyalar (css, js, görsel vb.)
         else:
             file_path = f"static{parsed_path.path}"
 
-        # Dosya bilgisayarda/sunucuda varsa oku ve gönder
         if os.path.exists(file_path) and os.path.isfile(file_path):
             self.send_response(200)
             self.send_cors_headers()
