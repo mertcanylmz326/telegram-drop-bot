@@ -1643,7 +1643,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                     </div>
 
-                    <div class="redteamgrid" style="max-height: 250px; overflow-y: auto;">
+                    <div class="redteamgrid">
 
                             <a href="/admin-web?tab=redteam" class="nav-link"><i class="fas fa-shield-alt"></i> RedTeam Panel</a>
                     
