@@ -2706,7 +2706,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                     {edit_form_html}
                     {content_html}
                 </div>
-                <iframe name="main_frame" width="100%" height="800px" style="border: none;"></iframe>
             </body>
             </html>
             """
