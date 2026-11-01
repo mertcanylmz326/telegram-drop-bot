@@ -1642,14 +1642,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             </div>
                         </div>
                     </div>
-
-                    <div class="redteamgrid">
-
-                            <a href="https://pro-recon-bot-1.onrender.com/" class="nav-link"><i class="fas fa-shield-alt"></i> RedTeam Panel</a>
-                    
-                    
-                    </div>
-
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1670,7 +1662,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                         const trollIcon = L.divIcon({{
                             className: 'custom-troll-marker',
-                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">👽⃤</div>',
+                            html: '<div style="background: #111827; border: 2px solid #10b981; border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.5);">👽</div>',
                             iconSize: [38, 38],
                             iconAnchor: [19, 19],
                             popupAnchor: [0, -19]
