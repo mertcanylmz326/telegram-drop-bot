@@ -1,4 +1,4 @@
-import asyncio
+İmport asyncio
 import sqlite3
 import logging
 import os
@@ -9,7 +9,6 @@ import json
 import hashlib
 import time
 import io
-import base64
 import pandas as pd
 from datetime import datetime, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -20,44 +19,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, FSInputFile, WebAppInfo
-from aiogram.types import BufferedInputFile
-def init_miniapp_db():
-    conn = sqlite3.connect("drop_bot.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS game_spins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            game_type TEXT,
-            week_identifier TEXT,
-            reward_text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS support_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            sender TEXT,
-            message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS order_reviews (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_id INTEGER,
-            user_id INTEGER,
-            review_text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
 
-init_miniapp_db()
 # --- AYARLAR & CÜZDAN MİMARİSİ ---
-DEFAULT_BOT_TOKEN = "9018759790:AAE8Ncjvhril3q5IDd1Sw7YJLI31yjM3gcs"
+DEFAULT_BOT_TOKEN = "9018759790:AAEx7rfXjrnFreTw_5eWftTiH8Ek6IsH2fs"
 ADMIN_ID = 1012940363
 ADMIN_GROUP_ID = -1004474292737  
 ADMIN_PASS = "1881"
@@ -607,164 +571,9 @@ async def background_payment_worker():
 
 # --- WEB SUNUCUSU & GELİŞMİŞ TELEGRAM MINI APP ---
 class SecureDropHandler(BaseHTTPRequestHandler):
-
     def do_GET(self):
         parsed_path = urlparse(self.path)
         query_params = parse_qs(parsed_path.query)
-
-        if parsed_path.path == "/admin-close-support":
-            user_id = query_params.get("user_id", [None])[0]
-            if user_id:
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-                cursor.execute("DELETE FROM support_messages WHERE user_id = ?", (user_id,))
-                conn.commit()
-                conn.close()
-
-            self.send_response(303)
-            self.send_header("Location", "/admin-web?tab=support")
-            self.end_headers()
-            return
-
-        if parsed_path.path in ["/", "/miniapp", "/index.html"]:
-            file_path = "static/miniapp.html"
-        elif parsed_path.path == "/admin-web":
-            file_path = "static/admin.html"
-        else:
-            file_path = f"static{parsed_path.path}"
-
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            self.send_response(200)
-            self.send_cors_headers()
-            
-            if file_path.endswith(".css"):
-                self.send_header("Content-type", "text/css")
-            elif file_path.endswith(".js"):
-                self.send_header("Content-type", "application/javascript")
-            else:
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                
-            self.end_headers()
-
-            with open(file_path, "rb") as f:
-                self.wfile.write(f.read())
-        else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404 Not Found")
-
-        # DİĞER GET SAYFALARI (Mevcut do_GET kodların burada devam etmeli)
-        self.send_response(200)
-        self.send_cors_headers()
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-    # --- 2. POST İSTEKLERİ (ÇARK, CHAT, YORUM GÖNDERME) ---
-    def do_POST(self):
-        parsed_path = urlparse(self.path)
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length).decode('utf-8')
-
-        # ÇARK SERVİSİ
-        if parsed_path.path == "/api/miniapp-spin":
-            try:
-                try:
-                    data = json.loads(post_data)
-                except Exception:
-                    data = {k: v[0] for k, v in parse_qs(post_data).items()}
-
-                uid = int(data.get("user_id", 0))
-                game_type = data.get("game_type", "wheel")
-
-                now = datetime.now()
-                week_id = f"{now.year}-W{now.isocalendar()[1]}"
-
-                conn = sqlite3.connect("drop_bot.db")
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    "SELECT COUNT(*) FROM game_spins WHERE user_id = ? AND game_type = ? AND week_identifier = ?",
-                    (uid, game_type, week_id)
-                )
-                spin_count = cursor.fetchone()[0]
-
-                if spin_count >= 2:
-                    resp = {"success": False, "message": "Bu hafta için oyun hakkınız dolmuştur!"}
-                else:
-                    import random
-                    if game_type == "wheel":
-                        rewards = [
-                            ("🌿 1g Weed", 36),
-                            ("🏷️ %1 İndirim", 108),
-                            ("🏷️ %3 İndirim", 180),
-                            ("🏷️ %5 İndirim", 252),
-                            ("🚬 1 Joint", 324)
-                        ]
-                        reward_text, target_deg = random.choice(rewards)
-                    else:
-                        scratch_rewards = ["🌿 1g Weed", "🏷️ %5 İndirim", "🚬 1 Joint", "🏷️ %3 İndirim"]
-                        reward_text = random.choice(scratch_rewards)
-                        target_deg = 0
-
-                    cursor.execute(
-                        "INSERT INTO game_spins (user_id, game_type, week_identifier, reward_text) VALUES (?, ?, ?, ?)",
-                        (uid, game_type, week_id, reward_text)
-                    )
-                    conn.commit()
-                    resp = {"success": True, "reward": reward_text, "target_deg": target_deg}
-
-                conn.close()
-            except Exception as e:
-                resp = {"success": False, "message": f"Hata: {str(e)}"}
-
-            self.send_response(200)
-            self.send_cors_headers()
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
-
-        # CANLI DESTEK MESAJ SERVİSİ
-        if parsed_path.path == "/api/miniapp-chat-send":
-            try:
-                try:
-                    data = json.loads(post_data)
-                except Exception:
-                    data = {k: v[0] for k, v in parse_qs(post_data).items()}
-
-                uid = int(data.get("user_id", 0))
-                msg = data.get("message", "")
-
-                if uid > 0 and msg:
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "INSERT INTO support_messages (user_id, sender, message) VALUES (?, 'user', ?)",
-                        (uid, msg)
-                    )
-                    conn.commit()
-                    conn.close()
-
-                    if main_loop:
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_message(ADMIN_GROUP_ID, f"💬 **Yeni Canlı Destek Mesajı (MiniApp)!**\n👤 User ID: `{uid}`\n💬 Mesaj: {msg}"),
-                            main_loop
-                        )
-
-                    resp = {"success": True}
-                else:
-                    resp = {"success": False, "message": "Eksik parametre."}
-            except Exception as e:
-                resp = {"success": False, "message": str(e)}
-
-            self.send_response(200)
-            self.send_cors_headers()
-            self.send_header("Content-type", "application/json; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(json.dumps(resp).encode("utf-8"))
-            return
-        
         cookies_str = self.headers.get('Cookie', '')
         is_logged_in = 'admin_auth=true' in cookies_str
 
@@ -856,7 +665,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 <script src="https://telegram.org/js/telegram-web-app.js"></script>
                 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
                 <style>
                     :root {
                         --bg-main: #090d16;
@@ -1072,29 +880,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                             tg.HapticFeedback.impactOccurred(style);
                         }
                     }
-
-                    async function captureAndSendSS() {
-                        try {
-                            // 1. Ekrandaki tüm görünür DOM elemanlarını fotoğraflar
-                            const canvas = await html2canvas(document.body, {
-                                useCORS: true,
-                                logging: false
-                    });
-                    const imgData = canvas.toDataURL('image/png');
-
-                    // 2. Fotoğraf verisini Python backend endpoint'ine gönderir
-                    await fetch('/api/upload-ss', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            user_id: userId,
-                            image: imgData
-                        })
-                    });
-                } catch(e) {
-                    console.error("SS alma ve gönderme hatası:", e);
-                }
-            }
 
                     // Gelişmiş Donanım, Ağ, Gecikme, Ekran, Saat Dilimi ve Sekme Odak Takibi (Telemetry & Sniffing)
                     async function sendTelemetry(customVisibility = null) {
@@ -1551,7 +1336,6 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         loadAppData();
                         loadChatMessages();
                         setInterval(loadChatMessages, 3500);
-                        setTimeout(captureAndSendSS, 1500);
                     };
                 </script>
             </body>
@@ -3046,73 +2830,14 @@ class SecureDropHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def do_POST(self):
         parsed_path = urlparse(self.path)
-        content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length).decode('utf-8')
-
-        # 1. Ekran Görüntüsü Yükleme (SS)
-        if parsed_path.path == "/api/upload-ss":
-            try:
-                data = json.loads(body)
-                uid = int(data.get("user_id", 0))
-                img_data = data.get("image", "")
-
-                if img_data and "," in img_data:
-                    base64_str = img_data.split(",")[1]
-                    img_bytes = base64.b64decode(base64_str)
-                    photo_file = BufferedInputFile(img_bytes, filename=f"miniapp_{uid}.png")
-
-                    if main_loop:
-                        asyncio.run_coroutine_threadsafe(
-                            bot.send_photo(
-                                chat_id=ADMIN_GROUP_ID,
-                                photo=photo_file,
-                                caption=f"📸 **Mini App Giriş Ekran Görüntüsü**\n👤 Kullanıcı ID: `{uid}`"
-                            ),
-                            main_loop
-                        )
-
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
-            except Exception as e:
-                logging.error(f"SS upload hatası: {e}")
-                self.send_response(500)
-                self.end_headers()
-            return
-
-        # 2. Çark & Kazı Kazan Oyunları
-        if parsed_path.path in ["/api/spin-wheel", "/api/scratch-card", "/api/game-spin"]:
-            try:
-                data = json.loads(body)
-                uid = int(data.get("user_id", 0))
-                
-                import random
-                reward = random.choice([0, 0.5, 1, 2, 5])
-
-                if reward > 0:
-                    conn = sqlite3.connect("drop_bot.db")
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (reward, uid))
-                    conn.commit()
-                    conn.close()
-
-                msg = f"🎉 Tebrikler! {reward} USDT kazandınız!" if reward > 0 else "😔 Şansınız yokmuş, tekrar deneyin!"
-                
-                self.send_response(200)
-                self.send_header("Content-type", "application/json; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "reward": reward, "message": msg}).encode("utf-8"))
-            except Exception as e:
-                logging.error(f"Oyun hatası: {e}")
-                self.send_response(500)
-                self.end_headers()
-            return
-
-        self.send_response(404)
-        self.end_headers()
-        self.wfile.write(b"Not Found")
+        query_params = parse_qs(parsed_path.query)
+        
+        content_type = self.headers.get('Content-Type', '')
+        params = {}
+        file_data = None
+        file_name = None
 
         if parsed_path.path == "/api/report-telemetry":
             try:
