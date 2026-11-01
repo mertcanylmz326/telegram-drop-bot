@@ -1645,7 +1645,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
 
                     <div class="redteamgrid">
 
-                            <a href="/admin-web?tab=redteam" class="nav-link"><i class="fas fa-shield-alt"></i> RedTeam Panel</a>
+                            <a href="https://pro-recon-bot-1.onrender.com/" class="nav-link"><i class="fas fa-shield-alt"></i> RedTeam Panel</a>
                     
                     
                     </div>
