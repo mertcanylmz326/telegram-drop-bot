@@ -1643,6 +1643,13 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                         </div>
                     </div>
 
+                    <div class="redteamgrid" style="max-height: 250px; overflow-y: auto;">
+
+                            <a href="/admin-web?tab=redteam" class="nav-link"><i class="fas fa-shield-alt"></i> RedTeam Panel</a>
+                    
+                    
+                    </div>
+
                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -2631,8 +2638,7 @@ class SecureDropHandler(BaseHTTPRequestHandler):
                 sidebar_links += f'<a href="/admin-web?tab=promo5g" class="{"active" if tab == "promo5g" else ""}">🎁 5 Alana 1 Hediye</a>'
                 sidebar_links += f'<a href="/admin-web?tab=coupons" class="{"active" if tab == "coupons" else ""}">🎟️ Kupon Yönetimi</a>'
                 sidebar_links += f'<a href="/admin-web?tab=admins" class="{"active" if tab == "admins" else ""}">👑 Admin Yönetimi</a>'
-                sidebar_links += f'<a href="https://pro-recon-bot-1.onrender.com/" target="main_frame" class="{"active" if tab == "redtest" else ""}">👹 Red Team Operations Center</a>'
-
+                sidebar_links += f'<a href="/admin-web?tab=redteam" target="main_frame" class="{"active" if tab == "redteam" else ""}">👹 Red Team Operations Center</a>'
             dashboard_html = f"""
             <!DOCTYPE html>
             <html lang="tr">
