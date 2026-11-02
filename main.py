@@ -47,7 +47,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def hash_pass(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --- VERİTABANI KURULUMU & TELEMETRİ TABLOLARI ---
+# --- VERİTABANI KURULUMU &  TELEMETRİ TABLOLARI ---
 def init_db():
     conn = sqlite3.connect("drop_bot.db")
     cursor = conn.cursor()
